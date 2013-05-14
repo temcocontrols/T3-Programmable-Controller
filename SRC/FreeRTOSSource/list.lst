@@ -1,0 +1,1942 @@
+                              1 ;--------------------------------------------------------
+                              2 ; File Created by SDCC : FreeWare ANSI-C Compiler
+                              3 ; Version 2.4.8 #964 (Feb 23 2005)
+                              4 ; This file generated Fri May 20 14:05:29 2005
+                              5 ;--------------------------------------------------------
+                              6 	.module ______Source_list
+                              7 	.optsdcc -mmcs51 --model-large
+                              8 	
+                              9 ;--------------------------------------------------------
+                             10 ; Public variables in this module
+                             11 ;--------------------------------------------------------
+                             12 	.globl _TF2
+                             13 	.globl _EXF2
+                             14 	.globl _RCLK
+                             15 	.globl _TCLK
+                             16 	.globl _EXEN2
+                             17 	.globl _TR2
+                             18 	.globl _C_T2
+                             19 	.globl _CP_RL2
+                             20 	.globl _T2CON_7
+                             21 	.globl _T2CON_6
+                             22 	.globl _T2CON_5
+                             23 	.globl _T2CON_4
+                             24 	.globl _T2CON_3
+                             25 	.globl _T2CON_2
+                             26 	.globl _T2CON_1
+                             27 	.globl _T2CON_0
+                             28 	.globl _ET2
+                             29 	.globl _CY
+                             30 	.globl _AC
+                             31 	.globl _F0
+                             32 	.globl _RS1
+                             33 	.globl _RS0
+                             34 	.globl _OV
+                             35 	.globl _F1
+                             36 	.globl _P
+                             37 	.globl _PS
+                             38 	.globl _PT1
+                             39 	.globl _PX1
+                             40 	.globl _PT0
+                             41 	.globl _PX0
+                             42 	.globl _RD
+                             43 	.globl _WR
+                             44 	.globl _T1
+                             45 	.globl _T0
+                             46 	.globl _INT1
+                             47 	.globl _INT0
+                             48 	.globl _TXD
+                             49 	.globl _RXD
+                             50 	.globl _P3_7
+                             51 	.globl _P3_6
+                             52 	.globl _P3_5
+                             53 	.globl _P3_4
+                             54 	.globl _P3_3
+                             55 	.globl _P3_2
+                             56 	.globl _P3_1
+                             57 	.globl _P3_0
+                             58 	.globl _EA
+                             59 	.globl _ES
+                             60 	.globl _ET1
+                             61 	.globl _EX1
+                             62 	.globl _ET0
+                             63 	.globl _EX0
+                             64 	.globl _P2_7
+                             65 	.globl _P2_6
+                             66 	.globl _P2_5
+                             67 	.globl _P2_4
+                             68 	.globl _P2_3
+                             69 	.globl _P2_2
+                             70 	.globl _P2_1
+                             71 	.globl _P2_0
+                             72 	.globl _SM0
+                             73 	.globl _SM1
+                             74 	.globl _SM2
+                             75 	.globl _REN
+                             76 	.globl _TB8
+                             77 	.globl _RB8
+                             78 	.globl _TI
+                             79 	.globl _RI
+                             80 	.globl _P1_7
+                             81 	.globl _P1_6
+                             82 	.globl _P1_5
+                             83 	.globl _P1_4
+                             84 	.globl _P1_3
+                             85 	.globl _P1_2
+                             86 	.globl _P1_1
+                             87 	.globl _P1_0
+                             88 	.globl _TF1
+                             89 	.globl _TR1
+                             90 	.globl _TF0
+                             91 	.globl _TR0
+                             92 	.globl _IE1
+                             93 	.globl _IT1
+                             94 	.globl _IE0
+                             95 	.globl _IT0
+                             96 	.globl _P0_7
+                             97 	.globl _P0_6
+                             98 	.globl _P0_5
+                             99 	.globl _P0_4
+                            100 	.globl _P0_3
+                            101 	.globl _P0_2
+                            102 	.globl _P0_1
+                            103 	.globl _P0_0
+                            104 	.globl _TH2
+                            105 	.globl _TL2
+                            106 	.globl _RCAP2H
+                            107 	.globl _RCAP2L
+                            108 	.globl _T2CON
+                            109 	.globl _B
+                            110 	.globl _ACC
+                            111 	.globl _PSW
+                            112 	.globl _IP
+                            113 	.globl _P3
+                            114 	.globl _IE
+                            115 	.globl _P2
+                            116 	.globl _SBUF
+                            117 	.globl _SCON
+                            118 	.globl _P1
+                            119 	.globl _TH1
+                            120 	.globl _TH0
+                            121 	.globl _TL1
+                            122 	.globl _TL0
+                            123 	.globl _TMOD
+                            124 	.globl _TCON
+                            125 	.globl _PCON
+                            126 	.globl _DPH
+                            127 	.globl _DPL
+                            128 	.globl _SP
+                            129 	.globl _P0
+                            130 	.globl _vListInitialise
+                            131 	.globl _vListInitialiseItem
+                            132 	.globl _vListInsertEnd
+                            133 	.globl _vListInsert
+                            134 	.globl _vListRemove
+                            135 ;--------------------------------------------------------
+                            136 ; special function registers
+                            137 ;--------------------------------------------------------
+                            138 	.area RSEG    (DATA)
+                    0080    139 _P0	=	0x0080
+                    0081    140 _SP	=	0x0081
+                    0082    141 _DPL	=	0x0082
+                    0083    142 _DPH	=	0x0083
+                    0087    143 _PCON	=	0x0087
+                    0088    144 _TCON	=	0x0088
+                    0089    145 _TMOD	=	0x0089
+                    008A    146 _TL0	=	0x008a
+                    008B    147 _TL1	=	0x008b
+                    008C    148 _TH0	=	0x008c
+                    008D    149 _TH1	=	0x008d
+                    0090    150 _P1	=	0x0090
+                    0098    151 _SCON	=	0x0098
+                    0099    152 _SBUF	=	0x0099
+                    00A0    153 _P2	=	0x00a0
+                    00A8    154 _IE	=	0x00a8
+                    00B0    155 _P3	=	0x00b0
+                    00B8    156 _IP	=	0x00b8
+                    00D0    157 _PSW	=	0x00d0
+                    00E0    158 _ACC	=	0x00e0
+                    00F0    159 _B	=	0x00f0
+                    00C8    160 _T2CON	=	0x00c8
+                    00CA    161 _RCAP2L	=	0x00ca
+                    00CB    162 _RCAP2H	=	0x00cb
+                    00CC    163 _TL2	=	0x00cc
+                    00CD    164 _TH2	=	0x00cd
+                            165 ;--------------------------------------------------------
+                            166 ; special function bits 
+                            167 ;--------------------------------------------------------
+                            168 	.area RSEG    (DATA)
+                    0080    169 _P0_0	=	0x0080
+                    0081    170 _P0_1	=	0x0081
+                    0082    171 _P0_2	=	0x0082
+                    0083    172 _P0_3	=	0x0083
+                    0084    173 _P0_4	=	0x0084
+                    0085    174 _P0_5	=	0x0085
+                    0086    175 _P0_6	=	0x0086
+                    0087    176 _P0_7	=	0x0087
+                    0088    177 _IT0	=	0x0088
+                    0089    178 _IE0	=	0x0089
+                    008A    179 _IT1	=	0x008a
+                    008B    180 _IE1	=	0x008b
+                    008C    181 _TR0	=	0x008c
+                    008D    182 _TF0	=	0x008d
+                    008E    183 _TR1	=	0x008e
+                    008F    184 _TF1	=	0x008f
+                    0090    185 _P1_0	=	0x0090
+                    0091    186 _P1_1	=	0x0091
+                    0092    187 _P1_2	=	0x0092
+                    0093    188 _P1_3	=	0x0093
+                    0094    189 _P1_4	=	0x0094
+                    0095    190 _P1_5	=	0x0095
+                    0096    191 _P1_6	=	0x0096
+                    0097    192 _P1_7	=	0x0097
+                    0098    193 _RI	=	0x0098
+                    0099    194 _TI	=	0x0099
+                    009A    195 _RB8	=	0x009a
+                    009B    196 _TB8	=	0x009b
+                    009C    197 _REN	=	0x009c
+                    009D    198 _SM2	=	0x009d
+                    009E    199 _SM1	=	0x009e
+                    009F    200 _SM0	=	0x009f
+                    00A0    201 _P2_0	=	0x00a0
+                    00A1    202 _P2_1	=	0x00a1
+                    00A2    203 _P2_2	=	0x00a2
+                    00A3    204 _P2_3	=	0x00a3
+                    00A4    205 _P2_4	=	0x00a4
+                    00A5    206 _P2_5	=	0x00a5
+                    00A6    207 _P2_6	=	0x00a6
+                    00A7    208 _P2_7	=	0x00a7
+                    00A8    209 _EX0	=	0x00a8
+                    00A9    210 _ET0	=	0x00a9
+                    00AA    211 _EX1	=	0x00aa
+                    00AB    212 _ET1	=	0x00ab
+                    00AC    213 _ES	=	0x00ac
+                    00AF    214 _EA	=	0x00af
+                    00B0    215 _P3_0	=	0x00b0
+                    00B1    216 _P3_1	=	0x00b1
+                    00B2    217 _P3_2	=	0x00b2
+                    00B3    218 _P3_3	=	0x00b3
+                    00B4    219 _P3_4	=	0x00b4
+                    00B5    220 _P3_5	=	0x00b5
+                    00B6    221 _P3_6	=	0x00b6
+                    00B7    222 _P3_7	=	0x00b7
+                    00B0    223 _RXD	=	0x00b0
+                    00B1    224 _TXD	=	0x00b1
+                    00B2    225 _INT0	=	0x00b2
+                    00B3    226 _INT1	=	0x00b3
+                    00B4    227 _T0	=	0x00b4
+                    00B5    228 _T1	=	0x00b5
+                    00B6    229 _WR	=	0x00b6
+                    00B7    230 _RD	=	0x00b7
+                    00B8    231 _PX0	=	0x00b8
+                    00B9    232 _PT0	=	0x00b9
+                    00BA    233 _PX1	=	0x00ba
+                    00BB    234 _PT1	=	0x00bb
+                    00BC    235 _PS	=	0x00bc
+                    00D0    236 _P	=	0x00d0
+                    00D1    237 _F1	=	0x00d1
+                    00D2    238 _OV	=	0x00d2
+                    00D3    239 _RS0	=	0x00d3
+                    00D4    240 _RS1	=	0x00d4
+                    00D5    241 _F0	=	0x00d5
+                    00D6    242 _AC	=	0x00d6
+                    00D7    243 _CY	=	0x00d7
+                    00AD    244 _ET2	=	0x00ad
+                    00C8    245 _T2CON_0	=	0x00c8
+                    00C9    246 _T2CON_1	=	0x00c9
+                    00CA    247 _T2CON_2	=	0x00ca
+                    00CB    248 _T2CON_3	=	0x00cb
+                    00CC    249 _T2CON_4	=	0x00cc
+                    00CD    250 _T2CON_5	=	0x00cd
+                    00CE    251 _T2CON_6	=	0x00ce
+                    00CF    252 _T2CON_7	=	0x00cf
+                    00C8    253 _CP_RL2	=	0x00c8
+                    00C9    254 _C_T2	=	0x00c9
+                    00CA    255 _TR2	=	0x00ca
+                    00CB    256 _EXEN2	=	0x00cb
+                    00CC    257 _TCLK	=	0x00cc
+                    00CD    258 _RCLK	=	0x00cd
+                    00CE    259 _EXF2	=	0x00ce
+                    00CF    260 _TF2	=	0x00cf
+                            261 ;--------------------------------------------------------
+                            262 ; overlayable register banks 
+                            263 ;--------------------------------------------------------
+                            264 	.area REG_BANK_0	(REL,OVR,DATA)
+   0000                     265 	.ds 8
+                            266 ;--------------------------------------------------------
+                            267 ; internal ram data
+                            268 ;--------------------------------------------------------
+                            269 	.area DSEG    (DATA)
+                            270 ;--------------------------------------------------------
+                            271 ; overlayable items in internal ram 
+                            272 ;--------------------------------------------------------
+                            273 	.area OSEG    (OVR,DATA)
+                            274 ;--------------------------------------------------------
+                            275 ; indirectly addressable internal ram data
+                            276 ;--------------------------------------------------------
+                            277 	.area ISEG    (DATA)
+                            278 ;--------------------------------------------------------
+                            279 ; bit data
+                            280 ;--------------------------------------------------------
+                            281 	.area BSEG    (BIT)
+                            282 ;--------------------------------------------------------
+                            283 ; paged external ram data
+                            284 ;--------------------------------------------------------
+                            285 	.area PSEG    (PAG,XDATA)
+                            286 ;--------------------------------------------------------
+                            287 ; external ram data
+                            288 ;--------------------------------------------------------
+                            289 	.area XSEG    (XDATA)
+                            290 ;--------------------------------------------------------
+                            291 ; external initialized ram data
+                            292 ;--------------------------------------------------------
+                            293 	.area XISEG   (XDATA)
+                            294 	.area CSEG    (CODE)
+                            295 	.area GSINIT0 (CODE)
+                            296 	.area GSINIT1 (CODE)
+                            297 	.area GSINIT2 (CODE)
+                            298 	.area GSINIT3 (CODE)
+                            299 	.area GSINIT4 (CODE)
+                            300 	.area GSINIT5 (CODE)
+                            301 ;--------------------------------------------------------
+                            302 ; global & static initialisations
+                            303 ;--------------------------------------------------------
+                            304 	.area CSEG    (CODE)
+                            305 	.area GSINIT  (CODE)
+                            306 	.area GSFINAL (CODE)
+                            307 	.area GSINIT  (CODE)
+                            308 ;--------------------------------------------------------
+                            309 ; Home
+                            310 ;--------------------------------------------------------
+                            311 	.area HOME    (CODE)
+                            312 	.area CSEG    (CODE)
+                            313 ;--------------------------------------------------------
+                            314 ; code
+                            315 ;--------------------------------------------------------
+                            316 	.area CSEG    (CODE)
+                            317 ;------------------------------------------------------------
+                            318 ;Allocation info for local variables in function 'vListInitialise'
+                            319 ;------------------------------------------------------------
+                            320 ;pxList                    Allocated to stack - offset 1
+                            321 ;sloc0                     Allocated to stack - offset 4
+                            322 ;sloc1                     Allocated to stack - offset 7
+                            323 ;sloc2                     Allocated to stack - offset 7
+                            324 ;------------------------------------------------------------
+                            325 ;../../Source/list.c:65: void vListInitialise( xList *pxList )
+                            326 ;	-----------------------------------------
+                            327 ;	 function vListInitialise
+                            328 ;	-----------------------------------------
+   0000                     329 _vListInitialise:
+                    0002    330 	ar2 = 0x02
+                    0003    331 	ar3 = 0x03
+                    0004    332 	ar4 = 0x04
+                    0005    333 	ar5 = 0x05
+                    0006    334 	ar6 = 0x06
+                    0007    335 	ar7 = 0x07
+                    0000    336 	ar0 = 0x00
+                    0001    337 	ar1 = 0x01
+   0000 C0*00               338 	push	_bp
+   0002 85 81*00            339 	mov	_bp,sp
+                            340 ;     genReceive
+   0005 C0 82               341 	push	dpl
+   0007 C0 83               342 	push	dph
+   0009 C0 F0               343 	push	b
+   000B E5 81               344 	mov	a,sp
+   000D 24 09               345 	add	a,#0x09
+   000F F5 81               346 	mov	sp,a
+                            347 ;../../Source/list.c:70: pxList->pxHead = &( pxList->xListEnd );
+                            348 ;     genPlus
+   0011 E5*00               349 	mov	a,_bp
+   0013 24 01               350 	add	a,#0x01
+   0015 F8                  351 	mov	r0,a
+                            352 ;     genPlusIncr
+   0016 74 02               353 	mov	a,#0x02
+   0018 26                  354 	add	a,@r0
+   0019 FA                  355 	mov	r2,a
+   001A 74 00               356 	mov	a,#0x00
+   001C 08                  357 	inc	r0
+   001D 36                  358 	addc	a,@r0
+   001E FB                  359 	mov	r3,a
+   001F 08                  360 	inc	r0
+   0020 86 04               361 	mov	ar4,@r0
+                            362 ;     genPlus
+   0022 E5*00               363 	mov	a,_bp
+   0024 24 01               364 	add	a,#0x01
+   0026 F8                  365 	mov	r0,a
+   0027 E5*00               366 	mov	a,_bp
+   0029 24 04               367 	add	a,#0x04
+   002B F9                  368 	mov	r1,a
+   002C 74 08               369 	mov	a,#0x08
+   002E 26                  370 	add	a,@r0
+   002F F7                  371 	mov	@r1,a
+   0030 74 00               372 	mov	a,#0x00
+   0032 08                  373 	inc	r0
+   0033 36                  374 	addc	a,@r0
+   0034 09                  375 	inc	r1
+   0035 F7                  376 	mov	@r1,a
+   0036 08                  377 	inc	r0
+   0037 09                  378 	inc	r1
+   0038 E6                  379 	mov	a,@r0
+   0039 F7                  380 	mov	@r1,a
+                            381 ;     genPointerSet
+                            382 ;     genGenPointerSet
+   003A 8A 82               383 	mov	dpl,r2
+   003C 8B 83               384 	mov	dph,r3
+   003E 8C F0               385 	mov	b,r4
+   0040 E5*00               386 	mov	a,_bp
+   0042 24 04               387 	add	a,#0x04
+   0044 F8                  388 	mov	r0,a
+   0045 E6                  389 	mov	a,@r0
+   0046 12s00r00            390 	lcall	__gptrput
+   0049 A3                  391 	inc	dptr
+   004A 08                  392 	inc	r0
+   004B E6                  393 	mov	a,@r0
+   004C 12s00r00            394 	lcall	__gptrput
+   004F A3                  395 	inc	dptr
+   0050 08                  396 	inc	r0
+   0051 E6                  397 	mov	a,@r0
+   0052 12s00r00            398 	lcall	__gptrput
+                            399 ;../../Source/list.c:71: pxList->pxIndex = pxList->pxHead;
+                            400 ;     genPlus
+   0055 E5*00               401 	mov	a,_bp
+   0057 24 01               402 	add	a,#0x01
+   0059 F8                  403 	mov	r0,a
+   005A E5*00               404 	mov	a,_bp
+   005C 24 07               405 	add	a,#0x07
+   005E F9                  406 	mov	r1,a
+   005F 74 05               407 	mov	a,#0x05
+   0061 26                  408 	add	a,@r0
+   0062 F7                  409 	mov	@r1,a
+   0063 74 00               410 	mov	a,#0x00
+   0065 08                  411 	inc	r0
+   0066 36                  412 	addc	a,@r0
+   0067 09                  413 	inc	r1
+   0068 F7                  414 	mov	@r1,a
+   0069 08                  415 	inc	r0
+   006A 09                  416 	inc	r1
+   006B E6                  417 	mov	a,@r0
+   006C F7                  418 	mov	@r1,a
+                            419 ;     genPointerGet
+                            420 ;     genGenPointerGet
+   006D 8A 82               421 	mov	dpl,r2
+   006F 8B 83               422 	mov	dph,r3
+   0071 8C F0               423 	mov	b,r4
+   0073 12s00r00            424 	lcall	__gptrget
+   0076 FE                  425 	mov	r6,a
+   0077 A3                  426 	inc	dptr
+   0078 12s00r00            427 	lcall	__gptrget
+   007B FF                  428 	mov	r7,a
+   007C A3                  429 	inc	dptr
+   007D 12s00r00            430 	lcall	__gptrget
+   0080 FB                  431 	mov	r3,a
+                            432 ;     genPointerSet
+                            433 ;     genGenPointerSet
+   0081 E5*00               434 	mov	a,_bp
+   0083 24 07               435 	add	a,#0x07
+   0085 F8                  436 	mov	r0,a
+   0086 86 82               437 	mov	dpl,@r0
+   0088 08                  438 	inc	r0
+   0089 86 83               439 	mov	dph,@r0
+   008B 08                  440 	inc	r0
+   008C 86 F0               441 	mov	b,@r0
+   008E EE                  442 	mov	a,r6
+   008F 12s00r00            443 	lcall	__gptrput
+   0092 A3                  444 	inc	dptr
+   0093 EF                  445 	mov	a,r7
+   0094 12s00r00            446 	lcall	__gptrput
+   0097 A3                  447 	inc	dptr
+   0098 EB                  448 	mov	a,r3
+   0099 12s00r00            449 	lcall	__gptrput
+                            450 ;../../Source/list.c:75: pxList->xListEnd.xItemValue = portMAX_DELAY;
+                            451 ;     genPointerSet
+                            452 ;     genGenPointerSet
+   009C E5*00               453 	mov	a,_bp
+   009E 24 04               454 	add	a,#0x04
+   00A0 F8                  455 	mov	r0,a
+   00A1 86 82               456 	mov	dpl,@r0
+   00A3 08                  457 	inc	r0
+   00A4 86 83               458 	mov	dph,@r0
+   00A6 08                  459 	inc	r0
+   00A7 86 F0               460 	mov	b,@r0
+   00A9 74 FF               461 	mov	a,#0xFF
+   00AB 12s00r00            462 	lcall	__gptrput
+   00AE A3                  463 	inc	dptr
+   00AF 74 FF               464 	mov	a,#0xFF
+   00B1 12s00r00            465 	lcall	__gptrput
+                            466 ;../../Source/list.c:79: pxList->xListEnd.pxNext = &( pxList->xListEnd );
+                            467 ;     genPlus
+   00B4 E5*00               468 	mov	a,_bp
+   00B6 24 04               469 	add	a,#0x04
+   00B8 F8                  470 	mov	r0,a
+                            471 ;     genPlusIncr
+   00B9 74 02               472 	mov	a,#0x02
+   00BB 26                  473 	add	a,@r0
+   00BC FB                  474 	mov	r3,a
+   00BD 74 00               475 	mov	a,#0x00
+   00BF 08                  476 	inc	r0
+   00C0 36                  477 	addc	a,@r0
+   00C1 FC                  478 	mov	r4,a
+   00C2 08                  479 	inc	r0
+   00C3 86 05               480 	mov	ar5,@r0
+                            481 ;     genPointerSet
+                            482 ;     genGenPointerSet
+   00C5 8B 82               483 	mov	dpl,r3
+   00C7 8C 83               484 	mov	dph,r4
+   00C9 8D F0               485 	mov	b,r5
+   00CB E5*00               486 	mov	a,_bp
+   00CD 24 04               487 	add	a,#0x04
+   00CF F8                  488 	mov	r0,a
+   00D0 E6                  489 	mov	a,@r0
+   00D1 12s00r00            490 	lcall	__gptrput
+   00D4 A3                  491 	inc	dptr
+   00D5 08                  492 	inc	r0
+   00D6 E6                  493 	mov	a,@r0
+   00D7 12s00r00            494 	lcall	__gptrput
+   00DA A3                  495 	inc	dptr
+   00DB 08                  496 	inc	r0
+   00DC E6                  497 	mov	a,@r0
+   00DD 12s00r00            498 	lcall	__gptrput
+                            499 ;../../Source/list.c:80: pxList->xListEnd.pxPrevious = &( pxList->xListEnd );
+                            500 ;     genPlus
+   00E0 E5*00               501 	mov	a,_bp
+   00E2 24 04               502 	add	a,#0x04
+   00E4 F8                  503 	mov	r0,a
+   00E5 74 05               504 	mov	a,#0x05
+   00E7 26                  505 	add	a,@r0
+   00E8 FB                  506 	mov	r3,a
+   00E9 74 00               507 	mov	a,#0x00
+   00EB 08                  508 	inc	r0
+   00EC 36                  509 	addc	a,@r0
+   00ED FC                  510 	mov	r4,a
+   00EE 08                  511 	inc	r0
+   00EF 86 05               512 	mov	ar5,@r0
+                            513 ;     genPointerSet
+                            514 ;     genGenPointerSet
+   00F1 8B 82               515 	mov	dpl,r3
+   00F3 8C 83               516 	mov	dph,r4
+   00F5 8D F0               517 	mov	b,r5
+   00F7 E5*00               518 	mov	a,_bp
+   00F9 24 04               519 	add	a,#0x04
+   00FB F8                  520 	mov	r0,a
+   00FC E6                  521 	mov	a,@r0
+   00FD 12s00r00            522 	lcall	__gptrput
+   0100 A3                  523 	inc	dptr
+   0101 08                  524 	inc	r0
+   0102 E6                  525 	mov	a,@r0
+   0103 12s00r00            526 	lcall	__gptrput
+   0106 A3                  527 	inc	dptr
+   0107 08                  528 	inc	r0
+   0108 E6                  529 	mov	a,@r0
+   0109 12s00r00            530 	lcall	__gptrput
+                            531 ;../../Source/list.c:83: pxList->xListEnd.pvOwner = NULL;
+                            532 ;     genPlus
+   010C E5*00               533 	mov	a,_bp
+   010E 24 04               534 	add	a,#0x04
+   0110 F8                  535 	mov	r0,a
+   0111 74 08               536 	mov	a,#0x08
+   0113 26                  537 	add	a,@r0
+   0114 FB                  538 	mov	r3,a
+   0115 74 00               539 	mov	a,#0x00
+   0117 08                  540 	inc	r0
+   0118 36                  541 	addc	a,@r0
+   0119 FC                  542 	mov	r4,a
+   011A 08                  543 	inc	r0
+   011B 86 05               544 	mov	ar5,@r0
+                            545 ;     genPointerSet
+                            546 ;     genGenPointerSet
+   011D 8B 82               547 	mov	dpl,r3
+   011F 8C 83               548 	mov	dph,r4
+   0121 8D F0               549 	mov	b,r5
+   0123 74 00               550 	mov	a,#0x00
+   0125 12s00r00            551 	lcall	__gptrput
+   0128 A3                  552 	inc	dptr
+   0129 74 00               553 	mov	a,#0x00
+   012B 12s00r00            554 	lcall	__gptrput
+   012E A3                  555 	inc	dptr
+   012F 74 00               556 	mov	a,#0x00
+   0131 12s00r00            557 	lcall	__gptrput
+                            558 ;../../Source/list.c:86: vListInitialiseItem( ( xListItem * ) &( pxList->xListEnd ) );
+                            559 ;     genCall
+   0134 E5*00               560 	mov	a,_bp
+   0136 24 04               561 	add	a,#0x04
+   0138 F8                  562 	mov	r0,a
+   0139 86 82               563 	mov	dpl,@r0
+   013B 08                  564 	inc	r0
+   013C 86 83               565 	mov	dph,@r0
+   013E 08                  566 	inc	r0
+   013F 86 F0               567 	mov	b,@r0
+   0141 12s01r62            568 	lcall	_vListInitialiseItem
+                            569 ;../../Source/list.c:88: pxList->usNumberOfItems = ( unsigned portSHORT ) 0;
+                            570 ;     genPointerSet
+                            571 ;     genGenPointerSet
+   0144 E5*00               572 	mov	a,_bp
+   0146 24 01               573 	add	a,#0x01
+   0148 F8                  574 	mov	r0,a
+   0149 86 82               575 	mov	dpl,@r0
+   014B 08                  576 	inc	r0
+   014C 86 83               577 	mov	dph,@r0
+   014E 08                  578 	inc	r0
+   014F 86 F0               579 	mov	b,@r0
+   0151 74 00               580 	mov	a,#0x00
+   0153 12s00r00            581 	lcall	__gptrput
+   0156 A3                  582 	inc	dptr
+   0157 74 00               583 	mov	a,#0x00
+   0159 12s00r00            584 	lcall	__gptrput
+   015C                     585 00101$:
+   015C 85*00 81            586 	mov	sp,_bp
+   015F D0*00               587 	pop	_bp
+   0161 22                  588 	ret
+                            589 ;------------------------------------------------------------
+                            590 ;Allocation info for local variables in function 'vListInitialiseItem'
+                            591 ;------------------------------------------------------------
+                            592 ;pxItem                    Allocated to registers r2 r3 r4 
+                            593 ;------------------------------------------------------------
+                            594 ;../../Source/list.c:92: void vListInitialiseItem( xListItem *pxItem )
+                            595 ;	-----------------------------------------
+                            596 ;	 function vListInitialiseItem
+                            597 ;	-----------------------------------------
+   0162                     598 _vListInitialiseItem:
+   0162 C0*00               599 	push	_bp
+   0164 85 81*00            600 	mov	_bp,sp
+                            601 ;     genReceive
+   0167 AA 82               602 	mov	r2,dpl
+   0169 AB 83               603 	mov	r3,dph
+   016B AC F0               604 	mov	r4,b
+                            605 ;../../Source/list.c:95: pxItem->pvContainer = NULL;
+                            606 ;     genPlus
+   016D 74 0B               607 	mov	a,#0x0B
+   016F 25 02               608 	add	a,ar2
+   0171 FA                  609 	mov	r2,a
+   0172 74 00               610 	mov	a,#0x00
+   0174 35 03               611 	addc	a,ar3
+   0176 FB                  612 	mov	r3,a
+                            613 ;     genPointerSet
+                            614 ;     genGenPointerSet
+   0177 8A 82               615 	mov	dpl,r2
+   0179 8B 83               616 	mov	dph,r3
+   017B 8C F0               617 	mov	b,r4
+   017D 74 00               618 	mov	a,#0x00
+   017F 12s00r00            619 	lcall	__gptrput
+   0182 A3                  620 	inc	dptr
+   0183 74 00               621 	mov	a,#0x00
+   0185 12s00r00            622 	lcall	__gptrput
+   0188 A3                  623 	inc	dptr
+   0189 74 00               624 	mov	a,#0x00
+   018B 12s00r00            625 	lcall	__gptrput
+   018E                     626 00101$:
+   018E 85*00 81            627 	mov	sp,_bp
+   0191 D0*00               628 	pop	_bp
+   0193 22                  629 	ret
+                            630 ;------------------------------------------------------------
+                            631 ;Allocation info for local variables in function 'vListInsertEnd'
+                            632 ;------------------------------------------------------------
+                            633 ;pxNewListItem             Allocated to stack - offset -5
+                            634 ;pxList                    Allocated to stack - offset 1
+                            635 ;pxIndex                   Allocated to stack - offset 4
+                            636 ;sloc0                     Allocated to stack - offset 7
+                            637 ;sloc1                     Allocated to stack - offset 10
+                            638 ;------------------------------------------------------------
+                            639 ;../../Source/list.c:99: void vListInsertEnd( xList *pxList, xListItem *pxNewListItem )
+                            640 ;	-----------------------------------------
+                            641 ;	 function vListInsertEnd
+                            642 ;	-----------------------------------------
+   0194                     643 _vListInsertEnd:
+   0194 C0*00               644 	push	_bp
+   0196 85 81*00            645 	mov	_bp,sp
+                            646 ;     genReceive
+   0199 C0 82               647 	push	dpl
+   019B C0 83               648 	push	dph
+   019D C0 F0               649 	push	b
+   019F E5 81               650 	mov	a,sp
+   01A1 24 0C               651 	add	a,#0x0c
+   01A3 F5 81               652 	mov	sp,a
+                            653 ;../../Source/list.c:107: pxIndex = pxList->pxIndex;
+                            654 ;     genPlus
+   01A5 E5*00               655 	mov	a,_bp
+   01A7 24 01               656 	add	a,#0x01
+   01A9 F8                  657 	mov	r0,a
+   01AA E5*00               658 	mov	a,_bp
+   01AC 24 07               659 	add	a,#0x07
+   01AE F9                  660 	mov	r1,a
+   01AF 74 05               661 	mov	a,#0x05
+   01B1 26                  662 	add	a,@r0
+   01B2 F7                  663 	mov	@r1,a
+   01B3 74 00               664 	mov	a,#0x00
+   01B5 08                  665 	inc	r0
+   01B6 36                  666 	addc	a,@r0
+   01B7 09                  667 	inc	r1
+   01B8 F7                  668 	mov	@r1,a
+   01B9 08                  669 	inc	r0
+   01BA 09                  670 	inc	r1
+   01BB E6                  671 	mov	a,@r0
+   01BC F7                  672 	mov	@r1,a
+                            673 ;     genPointerGet
+                            674 ;     genGenPointerGet
+   01BD E5*00               675 	mov	a,_bp
+   01BF 24 07               676 	add	a,#0x07
+   01C1 F8                  677 	mov	r0,a
+   01C2 86 82               678 	mov	dpl,@r0
+   01C4 08                  679 	inc	r0
+   01C5 86 83               680 	mov	dph,@r0
+   01C7 08                  681 	inc	r0
+   01C8 86 F0               682 	mov	b,@r0
+   01CA 12s00r00            683 	lcall	__gptrget
+   01CD FA                  684 	mov	r2,a
+   01CE A3                  685 	inc	dptr
+   01CF 12s00r00            686 	lcall	__gptrget
+   01D2 FB                  687 	mov	r3,a
+   01D3 A3                  688 	inc	dptr
+   01D4 12s00r00            689 	lcall	__gptrget
+   01D7 FC                  690 	mov	r4,a
+                            691 ;     genAssign
+   01D8 E5*00               692 	mov	a,_bp
+   01DA 24 04               693 	add	a,#0x04
+   01DC F8                  694 	mov	r0,a
+   01DD A6 02               695 	mov	@r0,ar2
+   01DF 08                  696 	inc	r0
+   01E0 A6 03               697 	mov	@r0,ar3
+   01E2 08                  698 	inc	r0
+   01E3 A6 04               699 	mov	@r0,ar4
+                            700 ;../../Source/list.c:109: pxNewListItem->pxNext = pxIndex->pxNext;
+                            701 ;     genAssign
+   01E5 E5*00               702 	mov	a,_bp
+   01E7 24 FB               703 	add	a,#0xfb
+   01E9 F8                  704 	mov	r0,a
+   01EA 86 02               705 	mov	ar2,@r0
+   01EC 08                  706 	inc	r0
+   01ED 86 03               707 	mov	ar3,@r0
+   01EF 08                  708 	inc	r0
+   01F0 86 04               709 	mov	ar4,@r0
+                            710 ;     genPlus
+   01F2 E5*00               711 	mov	a,_bp
+   01F4 24 0A               712 	add	a,#0x0a
+   01F6 F8                  713 	mov	r0,a
+                            714 ;     genPlusIncr
+   01F7 74 02               715 	mov	a,#0x02
+   01F9 25 02               716 	add	a,ar2
+   01FB F6                  717 	mov	@r0,a
+   01FC 74 00               718 	mov	a,#0x00
+   01FE 35 03               719 	addc	a,ar3
+   0200 08                  720 	inc	r0
+   0201 F6                  721 	mov	@r0,a
+   0202 08                  722 	inc	r0
+   0203 A6 04               723 	mov	@r0,ar4
+                            724 ;     genAssign
+   0205 E5*00               725 	mov	a,_bp
+   0207 24 04               726 	add	a,#0x04
+   0209 F8                  727 	mov	r0,a
+   020A 86 05               728 	mov	ar5,@r0
+   020C 08                  729 	inc	r0
+   020D 86 06               730 	mov	ar6,@r0
+   020F 08                  731 	inc	r0
+   0210 86 07               732 	mov	ar7,@r0
+                            733 ;     genPlus
+                            734 ;     genPlusIncr
+   0212 74 02               735 	mov	a,#0x02
+   0214 25 05               736 	add	a,ar5
+   0216 FD                  737 	mov	r5,a
+   0217 74 00               738 	mov	a,#0x00
+   0219 35 06               739 	addc	a,ar6
+   021B FE                  740 	mov	r6,a
+                            741 ;     genPointerGet
+                            742 ;     genGenPointerGet
+   021C 8D 82               743 	mov	dpl,r5
+   021E 8E 83               744 	mov	dph,r6
+   0220 8F F0               745 	mov	b,r7
+   0222 12s00r00            746 	lcall	__gptrget
+   0225 FD                  747 	mov	r5,a
+   0226 A3                  748 	inc	dptr
+   0227 12s00r00            749 	lcall	__gptrget
+   022A FE                  750 	mov	r6,a
+   022B A3                  751 	inc	dptr
+   022C 12s00r00            752 	lcall	__gptrget
+   022F FF                  753 	mov	r7,a
+                            754 ;     genPointerSet
+                            755 ;     genGenPointerSet
+   0230 E5*00               756 	mov	a,_bp
+   0232 24 0A               757 	add	a,#0x0a
+   0234 F8                  758 	mov	r0,a
+   0235 86 82               759 	mov	dpl,@r0
+   0237 08                  760 	inc	r0
+   0238 86 83               761 	mov	dph,@r0
+   023A 08                  762 	inc	r0
+   023B 86 F0               763 	mov	b,@r0
+   023D ED                  764 	mov	a,r5
+   023E 12s00r00            765 	lcall	__gptrput
+   0241 A3                  766 	inc	dptr
+   0242 EE                  767 	mov	a,r6
+   0243 12s00r00            768 	lcall	__gptrput
+   0246 A3                  769 	inc	dptr
+   0247 EF                  770 	mov	a,r7
+   0248 12s00r00            771 	lcall	__gptrput
+                            772 ;../../Source/list.c:110: pxNewListItem->pxPrevious = pxList->pxIndex;
+                            773 ;     genPlus
+   024B E5*00               774 	mov	a,_bp
+   024D 24 0A               775 	add	a,#0x0a
+   024F F8                  776 	mov	r0,a
+   0250 74 05               777 	mov	a,#0x05
+   0252 25 02               778 	add	a,ar2
+   0254 F6                  779 	mov	@r0,a
+   0255 74 00               780 	mov	a,#0x00
+   0257 35 03               781 	addc	a,ar3
+   0259 08                  782 	inc	r0
+   025A F6                  783 	mov	@r0,a
+   025B 08                  784 	inc	r0
+   025C A6 04               785 	mov	@r0,ar4
+                            786 ;     genPointerGet
+                            787 ;     genGenPointerGet
+   025E E5*00               788 	mov	a,_bp
+   0260 24 07               789 	add	a,#0x07
+   0262 F8                  790 	mov	r0,a
+   0263 86 82               791 	mov	dpl,@r0
+   0265 08                  792 	inc	r0
+   0266 86 83               793 	mov	dph,@r0
+   0268 08                  794 	inc	r0
+   0269 86 F0               795 	mov	b,@r0
+   026B 12s00r00            796 	lcall	__gptrget
+   026E FD                  797 	mov	r5,a
+   026F A3                  798 	inc	dptr
+   0270 12s00r00            799 	lcall	__gptrget
+   0273 FE                  800 	mov	r6,a
+   0274 A3                  801 	inc	dptr
+   0275 12s00r00            802 	lcall	__gptrget
+   0278 FF                  803 	mov	r7,a
+                            804 ;     genPointerSet
+                            805 ;     genGenPointerSet
+   0279 E5*00               806 	mov	a,_bp
+   027B 24 0A               807 	add	a,#0x0a
+   027D F8                  808 	mov	r0,a
+   027E 86 82               809 	mov	dpl,@r0
+   0280 08                  810 	inc	r0
+   0281 86 83               811 	mov	dph,@r0
+   0283 08                  812 	inc	r0
+   0284 86 F0               813 	mov	b,@r0
+   0286 ED                  814 	mov	a,r5
+   0287 12s00r00            815 	lcall	__gptrput
+   028A A3                  816 	inc	dptr
+   028B EE                  817 	mov	a,r6
+   028C 12s00r00            818 	lcall	__gptrput
+   028F A3                  819 	inc	dptr
+   0290 EF                  820 	mov	a,r7
+   0291 12s00r00            821 	lcall	__gptrput
+                            822 ;../../Source/list.c:111: pxIndex->pxNext->pxPrevious = ( volatile xListItem * ) pxNewListItem;
+                            823 ;     genAssign
+   0294 E5*00               824 	mov	a,_bp
+   0296 24 04               825 	add	a,#0x04
+   0298 F8                  826 	mov	r0,a
+   0299 86 05               827 	mov	ar5,@r0
+   029B 08                  828 	inc	r0
+   029C 86 06               829 	mov	ar6,@r0
+   029E 08                  830 	inc	r0
+   029F 86 07               831 	mov	ar7,@r0
+                            832 ;     genPlus
+                            833 ;     genPlusIncr
+   02A1 74 02               834 	mov	a,#0x02
+   02A3 25 05               835 	add	a,ar5
+   02A5 FD                  836 	mov	r5,a
+   02A6 74 00               837 	mov	a,#0x00
+   02A8 35 06               838 	addc	a,ar6
+   02AA FE                  839 	mov	r6,a
+                            840 ;     genPointerGet
+                            841 ;     genGenPointerGet
+   02AB 8D 82               842 	mov	dpl,r5
+   02AD 8E 83               843 	mov	dph,r6
+   02AF 8F F0               844 	mov	b,r7
+   02B1 12s00r00            845 	lcall	__gptrget
+   02B4 FD                  846 	mov	r5,a
+   02B5 A3                  847 	inc	dptr
+   02B6 12s00r00            848 	lcall	__gptrget
+   02B9 FE                  849 	mov	r6,a
+   02BA A3                  850 	inc	dptr
+   02BB 12s00r00            851 	lcall	__gptrget
+   02BE FF                  852 	mov	r7,a
+                            853 ;     genPlus
+   02BF 74 05               854 	mov	a,#0x05
+   02C1 25 05               855 	add	a,ar5
+   02C3 FD                  856 	mov	r5,a
+   02C4 74 00               857 	mov	a,#0x00
+   02C6 35 06               858 	addc	a,ar6
+   02C8 FE                  859 	mov	r6,a
+                            860 ;     genPointerSet
+                            861 ;     genGenPointerSet
+   02C9 8D 82               862 	mov	dpl,r5
+   02CB 8E 83               863 	mov	dph,r6
+   02CD 8F F0               864 	mov	b,r7
+   02CF EA                  865 	mov	a,r2
+   02D0 12s00r00            866 	lcall	__gptrput
+   02D3 A3                  867 	inc	dptr
+   02D4 EB                  868 	mov	a,r3
+   02D5 12s00r00            869 	lcall	__gptrput
+   02D8 A3                  870 	inc	dptr
+   02D9 EC                  871 	mov	a,r4
+   02DA 12s00r00            872 	lcall	__gptrput
+                            873 ;../../Source/list.c:112: pxIndex->pxNext = ( volatile xListItem * ) pxNewListItem;
+                            874 ;     genAssign
+   02DD E5*00               875 	mov	a,_bp
+   02DF 24 04               876 	add	a,#0x04
+   02E1 F8                  877 	mov	r0,a
+   02E2 86 05               878 	mov	ar5,@r0
+   02E4 08                  879 	inc	r0
+   02E5 86 06               880 	mov	ar6,@r0
+   02E7 08                  881 	inc	r0
+   02E8 86 07               882 	mov	ar7,@r0
+                            883 ;     genPlus
+                            884 ;     genPlusIncr
+   02EA 74 02               885 	mov	a,#0x02
+   02EC 25 05               886 	add	a,ar5
+   02EE FD                  887 	mov	r5,a
+   02EF 74 00               888 	mov	a,#0x00
+   02F1 35 06               889 	addc	a,ar6
+   02F3 FE                  890 	mov	r6,a
+                            891 ;     genPointerSet
+                            892 ;     genGenPointerSet
+   02F4 8D 82               893 	mov	dpl,r5
+   02F6 8E 83               894 	mov	dph,r6
+   02F8 8F F0               895 	mov	b,r7
+   02FA EA                  896 	mov	a,r2
+   02FB 12s00r00            897 	lcall	__gptrput
+   02FE A3                  898 	inc	dptr
+   02FF EB                  899 	mov	a,r3
+   0300 12s00r00            900 	lcall	__gptrput
+   0303 A3                  901 	inc	dptr
+   0304 EC                  902 	mov	a,r4
+   0305 12s00r00            903 	lcall	__gptrput
+                            904 ;../../Source/list.c:113: pxList->pxIndex = ( volatile xListItem * ) pxNewListItem;
+                            905 ;     genPointerSet
+                            906 ;     genGenPointerSet
+   0308 E5*00               907 	mov	a,_bp
+   030A 24 07               908 	add	a,#0x07
+   030C F8                  909 	mov	r0,a
+   030D 86 82               910 	mov	dpl,@r0
+   030F 08                  911 	inc	r0
+   0310 86 83               912 	mov	dph,@r0
+   0312 08                  913 	inc	r0
+   0313 86 F0               914 	mov	b,@r0
+   0315 EA                  915 	mov	a,r2
+   0316 12s00r00            916 	lcall	__gptrput
+   0319 A3                  917 	inc	dptr
+   031A EB                  918 	mov	a,r3
+   031B 12s00r00            919 	lcall	__gptrput
+   031E A3                  920 	inc	dptr
+   031F EC                  921 	mov	a,r4
+   0320 12s00r00            922 	lcall	__gptrput
+                            923 ;../../Source/list.c:116: pxNewListItem->pvContainer = ( void * ) pxList;
+                            924 ;     genPlus
+   0323 74 0B               925 	mov	a,#0x0B
+   0325 25 02               926 	add	a,ar2
+   0327 FA                  927 	mov	r2,a
+   0328 74 00               928 	mov	a,#0x00
+   032A 35 03               929 	addc	a,ar3
+   032C FB                  930 	mov	r3,a
+                            931 ;     genPointerSet
+                            932 ;     genGenPointerSet
+   032D 8A 82               933 	mov	dpl,r2
+   032F 8B 83               934 	mov	dph,r3
+   0331 8C F0               935 	mov	b,r4
+   0333 E5*00               936 	mov	a,_bp
+   0335 24 01               937 	add	a,#0x01
+   0337 F8                  938 	mov	r0,a
+   0338 E6                  939 	mov	a,@r0
+   0339 12s00r00            940 	lcall	__gptrput
+   033C A3                  941 	inc	dptr
+   033D 08                  942 	inc	r0
+   033E E6                  943 	mov	a,@r0
+   033F 12s00r00            944 	lcall	__gptrput
+   0342 A3                  945 	inc	dptr
+   0343 08                  946 	inc	r0
+   0344 E6                  947 	mov	a,@r0
+   0345 12s00r00            948 	lcall	__gptrput
+                            949 ;../../Source/list.c:118: ( pxList->usNumberOfItems )++;
+                            950 ;     genPointerGet
+                            951 ;     genGenPointerGet
+   0348 E5*00               952 	mov	a,_bp
+   034A 24 01               953 	add	a,#0x01
+   034C F8                  954 	mov	r0,a
+   034D 86 82               955 	mov	dpl,@r0
+   034F 08                  956 	inc	r0
+   0350 86 83               957 	mov	dph,@r0
+   0352 08                  958 	inc	r0
+   0353 86 F0               959 	mov	b,@r0
+   0355 12s00r00            960 	lcall	__gptrget
+   0358 FA                  961 	mov	r2,a
+   0359 A3                  962 	inc	dptr
+   035A 12s00r00            963 	lcall	__gptrget
+   035D FB                  964 	mov	r3,a
+                            965 ;     genPlus
+                            966 ;     genPlusIncr
+   035E 0A                  967 	inc	r2
+   035F BA 00 01            968 	cjne	r2,#0x00,00103$
+   0362 0B                  969 	inc	r3
+   0363                     970 00103$:
+                            971 ;     genPointerSet
+                            972 ;     genGenPointerSet
+   0363 E5*00               973 	mov	a,_bp
+   0365 24 01               974 	add	a,#0x01
+   0367 F8                  975 	mov	r0,a
+   0368 86 82               976 	mov	dpl,@r0
+   036A 08                  977 	inc	r0
+   036B 86 83               978 	mov	dph,@r0
+   036D 08                  979 	inc	r0
+   036E 86 F0               980 	mov	b,@r0
+   0370 EA                  981 	mov	a,r2
+   0371 12s00r00            982 	lcall	__gptrput
+   0374 A3                  983 	inc	dptr
+   0375 EB                  984 	mov	a,r3
+   0376 12s00r00            985 	lcall	__gptrput
+   0379                     986 00101$:
+   0379 85*00 81            987 	mov	sp,_bp
+   037C D0*00               988 	pop	_bp
+   037E 22                  989 	ret
+                            990 ;------------------------------------------------------------
+                            991 ;Allocation info for local variables in function 'vListInsert'
+                            992 ;------------------------------------------------------------
+                            993 ;pxNewListItem             Allocated to stack - offset -5
+                            994 ;pxList                    Allocated to stack - offset 1
+                            995 ;pxIterator                Allocated to stack - offset 4
+                            996 ;xValueOfInsertion         Allocated to registers r2 r3 
+                            997 ;sloc0                     Allocated to stack - offset 7
+                            998 ;------------------------------------------------------------
+                            999 ;../../Source/list.c:122: void vListInsert( xList *pxList, xListItem *pxNewListItem )
+                           1000 ;	-----------------------------------------
+                           1001 ;	 function vListInsert
+                           1002 ;	-----------------------------------------
+   037F                    1003 _vListInsert:
+   037F C0*00              1004 	push	_bp
+   0381 85 81*00           1005 	mov	_bp,sp
+                           1006 ;     genReceive
+   0384 C0 82              1007 	push	dpl
+   0386 C0 83              1008 	push	dph
+   0388 C0 F0              1009 	push	b
+   038A E5 81              1010 	mov	a,sp
+   038C 24 09              1011 	add	a,#0x09
+   038E F5 81              1012 	mov	sp,a
+                           1013 ;../../Source/list.c:128: xValueOfInsertion = pxNewListItem->xItemValue;
+                           1014 ;     genAssign
+   0390 E5*00              1015 	mov	a,_bp
+   0392 24 FB              1016 	add	a,#0xfb
+   0394 F8                 1017 	mov	r0,a
+   0395 86 05              1018 	mov	ar5,@r0
+   0397 08                 1019 	inc	r0
+   0398 86 06              1020 	mov	ar6,@r0
+   039A 08                 1021 	inc	r0
+   039B 86 07              1022 	mov	ar7,@r0
+                           1023 ;     genPointerGet
+                           1024 ;     genGenPointerGet
+   039D 8D 82              1025 	mov	dpl,r5
+   039F 8E 83              1026 	mov	dph,r6
+   03A1 8F F0              1027 	mov	b,r7
+   03A3 12s00r00           1028 	lcall	__gptrget
+   03A6 FA                 1029 	mov	r2,a
+   03A7 A3                 1030 	inc	dptr
+   03A8 12s00r00           1031 	lcall	__gptrget
+   03AB FB                 1032 	mov	r3,a
+                           1033 ;     genAssign
+                           1034 ;../../Source/list.c:137: if( xValueOfInsertion == portMAX_DELAY )
+                           1035 ;     genCmpEq
+   03AC BA FF 05           1036 	cjne	r2,#0xFF,00119$
+   03AF BB FF 02           1037 	cjne	r3,#0xFF,00119$
+   03B2 80 03              1038 	sjmp	00120$
+   03B4                    1039 00119$:
+   03B4 02s04r8E           1040 	ljmp	00102$
+   03B7                    1041 00120$:
+                           1042 ;../../Source/list.c:139: for( pxIterator = pxList->pxHead; pxIterator->pxNext->xItemValue < xValueOfInsertion; pxIterator = pxIterator->pxNext )
+                           1043 ;     genIpush
+   03B7 C0 05              1044 	push	ar5
+   03B9 C0 06              1045 	push	ar6
+   03BB C0 07              1046 	push	ar7
+                           1047 ;     genPlus
+   03BD E5*00              1048 	mov	a,_bp
+   03BF 24 01              1049 	add	a,#0x01
+   03C1 F8                 1050 	mov	r0,a
+                           1051 ;     genPlusIncr
+   03C2 74 02              1052 	mov	a,#0x02
+   03C4 26                 1053 	add	a,@r0
+   03C5 FC                 1054 	mov	r4,a
+   03C6 74 00              1055 	mov	a,#0x00
+   03C8 08                 1056 	inc	r0
+   03C9 36                 1057 	addc	a,@r0
+   03CA FD                 1058 	mov	r5,a
+   03CB 08                 1059 	inc	r0
+   03CC 86 06              1060 	mov	ar6,@r0
+                           1061 ;     genPointerGet
+                           1062 ;     genGenPointerGet
+   03CE 8C 82              1063 	mov	dpl,r4
+   03D0 8D 83              1064 	mov	dph,r5
+   03D2 8E F0              1065 	mov	b,r6
+   03D4 12s00r00           1066 	lcall	__gptrget
+   03D7 FC                 1067 	mov	r4,a
+   03D8 A3                 1068 	inc	dptr
+   03D9 12s00r00           1069 	lcall	__gptrget
+   03DC FD                 1070 	mov	r5,a
+   03DD A3                 1071 	inc	dptr
+   03DE 12s00r00           1072 	lcall	__gptrget
+   03E1 FE                 1073 	mov	r6,a
+                           1074 ;     genAssign
+   03E2 E5*00              1075 	mov	a,_bp
+   03E4 24 04              1076 	add	a,#0x04
+   03E6 F8                 1077 	mov	r0,a
+   03E7 A6 04              1078 	mov	@r0,ar4
+   03E9 08                 1079 	inc	r0
+   03EA A6 05              1080 	mov	@r0,ar5
+   03EC 08                 1081 	inc	r0
+   03ED A6 06              1082 	mov	@r0,ar6
+                           1083 ;../../Source/list.c:163: ( pxList->usNumberOfItems )++;
+                           1084 ;     genIpop
+   03EF D0 07              1085 	pop	ar7
+   03F1 D0 06              1086 	pop	ar6
+   03F3 D0 05              1087 	pop	ar5
+                           1088 ;../../Source/list.c:139: for( pxIterator = pxList->pxHead; pxIterator->pxNext->xItemValue < xValueOfInsertion; pxIterator = pxIterator->pxNext )
+   03F5                    1089 00104$:
+                           1090 ;     genIpush
+   03F5 C0 05              1091 	push	ar5
+   03F7 C0 06              1092 	push	ar6
+   03F9 C0 07              1093 	push	ar7
+                           1094 ;     genAssign
+   03FB E5*00              1095 	mov	a,_bp
+   03FD 24 04              1096 	add	a,#0x04
+   03FF F8                 1097 	mov	r0,a
+   0400 86 04              1098 	mov	ar4,@r0
+   0402 08                 1099 	inc	r0
+   0403 86 05              1100 	mov	ar5,@r0
+   0405 08                 1101 	inc	r0
+   0406 86 06              1102 	mov	ar6,@r0
+                           1103 ;     genPlus
+                           1104 ;     genPlusIncr
+   0408 74 02              1105 	mov	a,#0x02
+   040A 25 04              1106 	add	a,ar4
+   040C FC                 1107 	mov	r4,a
+   040D 74 00              1108 	mov	a,#0x00
+   040F 35 05              1109 	addc	a,ar5
+   0411 FD                 1110 	mov	r5,a
+                           1111 ;     genPointerGet
+                           1112 ;     genGenPointerGet
+   0412 8C 82              1113 	mov	dpl,r4
+   0414 8D 83              1114 	mov	dph,r5
+   0416 8E F0              1115 	mov	b,r6
+   0418 12s00r00           1116 	lcall	__gptrget
+   041B FC                 1117 	mov	r4,a
+   041C A3                 1118 	inc	dptr
+   041D 12s00r00           1119 	lcall	__gptrget
+   0420 FD                 1120 	mov	r5,a
+   0421 A3                 1121 	inc	dptr
+   0422 12s00r00           1122 	lcall	__gptrget
+   0425 FE                 1123 	mov	r6,a
+                           1124 ;     genPointerGet
+                           1125 ;     genGenPointerGet
+   0426 8C 82              1126 	mov	dpl,r4
+   0428 8D 83              1127 	mov	dph,r5
+   042A 8E F0              1128 	mov	b,r6
+   042C 12s00r00           1129 	lcall	__gptrget
+   042F FC                 1130 	mov	r4,a
+   0430 A3                 1131 	inc	dptr
+   0431 12s00r00           1132 	lcall	__gptrget
+   0434 FD                 1133 	mov	r5,a
+                           1134 ;     genCmpLt
+                           1135 ;     genCmp
+   0435 C3                 1136 	clr	c
+   0436 EC                 1137 	mov	a,r4
+   0437 9A                 1138 	subb	a,r2
+   0438 ED                 1139 	mov	a,r5
+   0439 9B                 1140 	subb	a,r3
+   043A E4                 1141 	clr	a
+   043B 33                 1142 	rlc	a
+                           1143 ;     genIpop
+   043C D0 07              1144 	pop	ar7
+   043E D0 06              1145 	pop	ar6
+   0440 D0 05              1146 	pop	ar5
+                           1147 ;     genIfx
+                           1148 ;     genIfxJump
+   0442 70 03              1149 	jnz	00121$
+   0444 02s05r65           1150 	ljmp	00103$
+   0447                    1151 00121$:
+                           1152 ;     genIpush
+   0447 C0 05              1153 	push	ar5
+   0449 C0 06              1154 	push	ar6
+   044B C0 07              1155 	push	ar7
+                           1156 ;     genAssign
+   044D E5*00              1157 	mov	a,_bp
+   044F 24 04              1158 	add	a,#0x04
+   0451 F8                 1159 	mov	r0,a
+   0452 86 04              1160 	mov	ar4,@r0
+   0454 08                 1161 	inc	r0
+   0455 86 05              1162 	mov	ar5,@r0
+   0457 08                 1163 	inc	r0
+   0458 86 06              1164 	mov	ar6,@r0
+                           1165 ;     genPlus
+                           1166 ;     genPlusIncr
+   045A 74 02              1167 	mov	a,#0x02
+   045C 25 04              1168 	add	a,ar4
+   045E FC                 1169 	mov	r4,a
+   045F 74 00              1170 	mov	a,#0x00
+   0461 35 05              1171 	addc	a,ar5
+   0463 FD                 1172 	mov	r5,a
+                           1173 ;     genPointerGet
+                           1174 ;     genGenPointerGet
+   0464 8C 82              1175 	mov	dpl,r4
+   0466 8D 83              1176 	mov	dph,r5
+   0468 8E F0              1177 	mov	b,r6
+   046A 12s00r00           1178 	lcall	__gptrget
+   046D FC                 1179 	mov	r4,a
+   046E A3                 1180 	inc	dptr
+   046F 12s00r00           1181 	lcall	__gptrget
+   0472 FD                 1182 	mov	r5,a
+   0473 A3                 1183 	inc	dptr
+   0474 12s00r00           1184 	lcall	__gptrget
+   0477 FE                 1185 	mov	r6,a
+                           1186 ;     genAssign
+   0478 E5*00              1187 	mov	a,_bp
+   047A 24 04              1188 	add	a,#0x04
+   047C F8                 1189 	mov	r0,a
+   047D A6 04              1190 	mov	@r0,ar4
+   047F 08                 1191 	inc	r0
+   0480 A6 05              1192 	mov	@r0,ar5
+   0482 08                 1193 	inc	r0
+   0483 A6 06              1194 	mov	@r0,ar6
+                           1195 ;     genIpop
+   0485 D0 07              1196 	pop	ar7
+   0487 D0 06              1197 	pop	ar6
+   0489 D0 05              1198 	pop	ar5
+   048B 02s03rF5           1199 	ljmp	00104$
+   048E                    1200 00102$:
+                           1201 ;../../Source/list.c:147: for( pxIterator = pxList->pxHead; pxIterator->pxNext->xItemValue <= xValueOfInsertion; pxIterator = pxIterator->pxNext )
+                           1202 ;     genIpush
+   048E C0 05              1203 	push	ar5
+   0490 C0 06              1204 	push	ar6
+   0492 C0 07              1205 	push	ar7
+                           1206 ;     genPlus
+   0494 E5*00              1207 	mov	a,_bp
+   0496 24 01              1208 	add	a,#0x01
+   0498 F8                 1209 	mov	r0,a
+                           1210 ;     genPlusIncr
+   0499 74 02              1211 	mov	a,#0x02
+   049B 26                 1212 	add	a,@r0
+   049C FC                 1213 	mov	r4,a
+   049D 74 00              1214 	mov	a,#0x00
+   049F 08                 1215 	inc	r0
+   04A0 36                 1216 	addc	a,@r0
+   04A1 FD                 1217 	mov	r5,a
+   04A2 08                 1218 	inc	r0
+   04A3 86 06              1219 	mov	ar6,@r0
+                           1220 ;     genPointerGet
+                           1221 ;     genGenPointerGet
+   04A5 8C 82              1222 	mov	dpl,r4
+   04A7 8D 83              1223 	mov	dph,r5
+   04A9 8E F0              1224 	mov	b,r6
+   04AB 12s00r00           1225 	lcall	__gptrget
+   04AE FC                 1226 	mov	r4,a
+   04AF A3                 1227 	inc	dptr
+   04B0 12s00r00           1228 	lcall	__gptrget
+   04B3 FD                 1229 	mov	r5,a
+   04B4 A3                 1230 	inc	dptr
+   04B5 12s00r00           1231 	lcall	__gptrget
+   04B8 FE                 1232 	mov	r6,a
+                           1233 ;     genAssign
+   04B9 E5*00              1234 	mov	a,_bp
+   04BB 24 04              1235 	add	a,#0x04
+   04BD F8                 1236 	mov	r0,a
+   04BE A6 04              1237 	mov	@r0,ar4
+   04C0 08                 1238 	inc	r0
+   04C1 A6 05              1239 	mov	@r0,ar5
+   04C3 08                 1240 	inc	r0
+   04C4 A6 06              1241 	mov	@r0,ar6
+                           1242 ;../../Source/list.c:163: ( pxList->usNumberOfItems )++;
+                           1243 ;     genIpop
+   04C6 D0 07              1244 	pop	ar7
+   04C8 D0 06              1245 	pop	ar6
+   04CA D0 05              1246 	pop	ar5
+                           1247 ;../../Source/list.c:147: for( pxIterator = pxList->pxHead; pxIterator->pxNext->xItemValue <= xValueOfInsertion; pxIterator = pxIterator->pxNext )
+   04CC                    1248 00108$:
+                           1249 ;     genIpush
+   04CC C0 05              1250 	push	ar5
+   04CE C0 06              1251 	push	ar6
+   04D0 C0 07              1252 	push	ar7
+                           1253 ;     genAssign
+   04D2 E5*00              1254 	mov	a,_bp
+   04D4 24 04              1255 	add	a,#0x04
+   04D6 F8                 1256 	mov	r0,a
+   04D7 86 04              1257 	mov	ar4,@r0
+   04D9 08                 1258 	inc	r0
+   04DA 86 05              1259 	mov	ar5,@r0
+   04DC 08                 1260 	inc	r0
+   04DD 86 06              1261 	mov	ar6,@r0
+                           1262 ;     genPlus
+                           1263 ;     genPlusIncr
+   04DF 74 02              1264 	mov	a,#0x02
+   04E1 25 04              1265 	add	a,ar4
+   04E3 FC                 1266 	mov	r4,a
+   04E4 74 00              1267 	mov	a,#0x00
+   04E6 35 05              1268 	addc	a,ar5
+   04E8 FD                 1269 	mov	r5,a
+                           1270 ;     genPointerGet
+                           1271 ;     genGenPointerGet
+   04E9 8C 82              1272 	mov	dpl,r4
+   04EB 8D 83              1273 	mov	dph,r5
+   04ED 8E F0              1274 	mov	b,r6
+   04EF 12s00r00           1275 	lcall	__gptrget
+   04F2 FC                 1276 	mov	r4,a
+   04F3 A3                 1277 	inc	dptr
+   04F4 12s00r00           1278 	lcall	__gptrget
+   04F7 FD                 1279 	mov	r5,a
+   04F8 A3                 1280 	inc	dptr
+   04F9 12s00r00           1281 	lcall	__gptrget
+   04FC FE                 1282 	mov	r6,a
+                           1283 ;     genPointerGet
+                           1284 ;     genGenPointerGet
+   04FD 8C 82              1285 	mov	dpl,r4
+   04FF 8D 83              1286 	mov	dph,r5
+   0501 8E F0              1287 	mov	b,r6
+   0503 12s00r00           1288 	lcall	__gptrget
+   0506 FC                 1289 	mov	r4,a
+   0507 A3                 1290 	inc	dptr
+   0508 12s00r00           1291 	lcall	__gptrget
+   050B FD                 1292 	mov	r5,a
+                           1293 ;     genCmpGt
+                           1294 ;     genCmp
+   050C C3                 1295 	clr	c
+   050D EA                 1296 	mov	a,r2
+   050E 9C                 1297 	subb	a,r4
+   050F EB                 1298 	mov	a,r3
+   0510 9D                 1299 	subb	a,r5
+   0511 E4                 1300 	clr	a
+   0512 33                 1301 	rlc	a
+                           1302 ;     genIpop
+   0513 D0 07              1303 	pop	ar7
+   0515 D0 06              1304 	pop	ar6
+   0517 D0 05              1305 	pop	ar5
+                           1306 ;     genIfx
+                           1307 ;     genIfxJump
+   0519 60 03              1308 	jz	00122$
+   051B 02s05r65           1309 	ljmp	00103$
+   051E                    1310 00122$:
+                           1311 ;     genIpush
+   051E C0 05              1312 	push	ar5
+   0520 C0 06              1313 	push	ar6
+   0522 C0 07              1314 	push	ar7
+                           1315 ;     genAssign
+   0524 E5*00              1316 	mov	a,_bp
+   0526 24 04              1317 	add	a,#0x04
+   0528 F8                 1318 	mov	r0,a
+   0529 86 04              1319 	mov	ar4,@r0
+   052B 08                 1320 	inc	r0
+   052C 86 05              1321 	mov	ar5,@r0
+   052E 08                 1322 	inc	r0
+   052F 86 06              1323 	mov	ar6,@r0
+                           1324 ;     genPlus
+                           1325 ;     genPlusIncr
+   0531 74 02              1326 	mov	a,#0x02
+   0533 25 04              1327 	add	a,ar4
+   0535 FC                 1328 	mov	r4,a
+   0536 74 00              1329 	mov	a,#0x00
+   0538 35 05              1330 	addc	a,ar5
+   053A FD                 1331 	mov	r5,a
+                           1332 ;     genPointerGet
+                           1333 ;     genGenPointerGet
+   053B 8C 82              1334 	mov	dpl,r4
+   053D 8D 83              1335 	mov	dph,r5
+   053F 8E F0              1336 	mov	b,r6
+   0541 12s00r00           1337 	lcall	__gptrget
+   0544 FC                 1338 	mov	r4,a
+   0545 A3                 1339 	inc	dptr
+   0546 12s00r00           1340 	lcall	__gptrget
+   0549 FD                 1341 	mov	r5,a
+   054A A3                 1342 	inc	dptr
+   054B 12s00r00           1343 	lcall	__gptrget
+   054E FE                 1344 	mov	r6,a
+                           1345 ;     genAssign
+   054F E5*00              1346 	mov	a,_bp
+   0551 24 04              1347 	add	a,#0x04
+   0553 F8                 1348 	mov	r0,a
+   0554 A6 04              1349 	mov	@r0,ar4
+   0556 08                 1350 	inc	r0
+   0557 A6 05              1351 	mov	@r0,ar5
+   0559 08                 1352 	inc	r0
+   055A A6 06              1353 	mov	@r0,ar6
+                           1354 ;     genIpop
+   055C D0 07              1355 	pop	ar7
+   055E D0 06              1356 	pop	ar6
+   0560 D0 05              1357 	pop	ar5
+   0562 02s04rCC           1358 	ljmp	00108$
+   0565                    1359 00103$:
+                           1360 ;../../Source/list.c:154: pxNewListItem->pxNext = pxIterator->pxNext;
+                           1361 ;     genPlus
+   0565 E5*00              1362 	mov	a,_bp
+   0567 24 07              1363 	add	a,#0x07
+   0569 F8                 1364 	mov	r0,a
+                           1365 ;     genPlusIncr
+   056A 74 02              1366 	mov	a,#0x02
+   056C 25 05              1367 	add	a,ar5
+   056E F6                 1368 	mov	@r0,a
+   056F 74 00              1369 	mov	a,#0x00
+   0571 35 06              1370 	addc	a,ar6
+   0573 08                 1371 	inc	r0
+   0574 F6                 1372 	mov	@r0,a
+   0575 08                 1373 	inc	r0
+   0576 A6 07              1374 	mov	@r0,ar7
+                           1375 ;     genAssign
+   0578 E5*00              1376 	mov	a,_bp
+   057A 24 04              1377 	add	a,#0x04
+   057C F8                 1378 	mov	r0,a
+   057D 86 02              1379 	mov	ar2,@r0
+   057F 08                 1380 	inc	r0
+   0580 86 03              1381 	mov	ar3,@r0
+   0582 08                 1382 	inc	r0
+   0583 86 04              1383 	mov	ar4,@r0
+                           1384 ;     genPlus
+                           1385 ;     genPlusIncr
+   0585 74 02              1386 	mov	a,#0x02
+   0587 25 02              1387 	add	a,ar2
+   0589 FA                 1388 	mov	r2,a
+   058A 74 00              1389 	mov	a,#0x00
+   058C 35 03              1390 	addc	a,ar3
+   058E FB                 1391 	mov	r3,a
+                           1392 ;     genPointerGet
+                           1393 ;     genGenPointerGet
+   058F 8A 82              1394 	mov	dpl,r2
+   0591 8B 83              1395 	mov	dph,r3
+   0593 8C F0              1396 	mov	b,r4
+   0595 12s00r00           1397 	lcall	__gptrget
+   0598 FA                 1398 	mov	r2,a
+   0599 A3                 1399 	inc	dptr
+   059A 12s00r00           1400 	lcall	__gptrget
+   059D FB                 1401 	mov	r3,a
+   059E A3                 1402 	inc	dptr
+   059F 12s00r00           1403 	lcall	__gptrget
+   05A2 FC                 1404 	mov	r4,a
+                           1405 ;     genPointerSet
+                           1406 ;     genGenPointerSet
+   05A3 E5*00              1407 	mov	a,_bp
+   05A5 24 07              1408 	add	a,#0x07
+   05A7 F8                 1409 	mov	r0,a
+   05A8 86 82              1410 	mov	dpl,@r0
+   05AA 08                 1411 	inc	r0
+   05AB 86 83              1412 	mov	dph,@r0
+   05AD 08                 1413 	inc	r0
+   05AE 86 F0              1414 	mov	b,@r0
+   05B0 EA                 1415 	mov	a,r2
+   05B1 12s00r00           1416 	lcall	__gptrput
+   05B4 A3                 1417 	inc	dptr
+   05B5 EB                 1418 	mov	a,r3
+   05B6 12s00r00           1419 	lcall	__gptrput
+   05B9 A3                 1420 	inc	dptr
+   05BA EC                 1421 	mov	a,r4
+   05BB 12s00r00           1422 	lcall	__gptrput
+                           1423 ;../../Source/list.c:155: pxNewListItem->pxNext->pxPrevious = ( volatile xListItem * ) pxNewListItem;
+                           1424 ;     genPointerGet
+                           1425 ;     genGenPointerGet
+   05BE E5*00              1426 	mov	a,_bp
+   05C0 24 07              1427 	add	a,#0x07
+   05C2 F8                 1428 	mov	r0,a
+   05C3 86 82              1429 	mov	dpl,@r0
+   05C5 08                 1430 	inc	r0
+   05C6 86 83              1431 	mov	dph,@r0
+   05C8 08                 1432 	inc	r0
+   05C9 86 F0              1433 	mov	b,@r0
+   05CB 12s00r00           1434 	lcall	__gptrget
+   05CE FA                 1435 	mov	r2,a
+   05CF A3                 1436 	inc	dptr
+   05D0 12s00r00           1437 	lcall	__gptrget
+   05D3 FB                 1438 	mov	r3,a
+   05D4 A3                 1439 	inc	dptr
+   05D5 12s00r00           1440 	lcall	__gptrget
+   05D8 FC                 1441 	mov	r4,a
+                           1442 ;     genPlus
+   05D9 74 05              1443 	mov	a,#0x05
+   05DB 25 02              1444 	add	a,ar2
+   05DD FA                 1445 	mov	r2,a
+   05DE 74 00              1446 	mov	a,#0x00
+   05E0 35 03              1447 	addc	a,ar3
+   05E2 FB                 1448 	mov	r3,a
+                           1449 ;     genPointerSet
+                           1450 ;     genGenPointerSet
+   05E3 8A 82              1451 	mov	dpl,r2
+   05E5 8B 83              1452 	mov	dph,r3
+   05E7 8C F0              1453 	mov	b,r4
+   05E9 ED                 1454 	mov	a,r5
+   05EA 12s00r00           1455 	lcall	__gptrput
+   05ED A3                 1456 	inc	dptr
+   05EE EE                 1457 	mov	a,r6
+   05EF 12s00r00           1458 	lcall	__gptrput
+   05F2 A3                 1459 	inc	dptr
+   05F3 EF                 1460 	mov	a,r7
+   05F4 12s00r00           1461 	lcall	__gptrput
+                           1462 ;../../Source/list.c:156: pxNewListItem->pxPrevious = pxIterator;
+                           1463 ;     genPlus
+   05F7 74 05              1464 	mov	a,#0x05
+   05F9 25 05              1465 	add	a,ar5
+   05FB FA                 1466 	mov	r2,a
+   05FC 74 00              1467 	mov	a,#0x00
+   05FE 35 06              1468 	addc	a,ar6
+   0600 FB                 1469 	mov	r3,a
+   0601 8F 04              1470 	mov	ar4,r7
+                           1471 ;     genPointerSet
+                           1472 ;     genGenPointerSet
+   0603 8A 82              1473 	mov	dpl,r2
+   0605 8B 83              1474 	mov	dph,r3
+   0607 8C F0              1475 	mov	b,r4
+   0609 E5*00              1476 	mov	a,_bp
+   060B 24 04              1477 	add	a,#0x04
+   060D F8                 1478 	mov	r0,a
+   060E E6                 1479 	mov	a,@r0
+   060F 12s00r00           1480 	lcall	__gptrput
+   0612 A3                 1481 	inc	dptr
+   0613 08                 1482 	inc	r0
+   0614 E6                 1483 	mov	a,@r0
+   0615 12s00r00           1484 	lcall	__gptrput
+   0618 A3                 1485 	inc	dptr
+   0619 08                 1486 	inc	r0
+   061A E6                 1487 	mov	a,@r0
+   061B 12s00r00           1488 	lcall	__gptrput
+                           1489 ;../../Source/list.c:157: pxIterator->pxNext = ( volatile xListItem * ) pxNewListItem;
+                           1490 ;     genAssign
+   061E E5*00              1491 	mov	a,_bp
+   0620 24 04              1492 	add	a,#0x04
+   0622 F8                 1493 	mov	r0,a
+   0623 86 02              1494 	mov	ar2,@r0
+   0625 08                 1495 	inc	r0
+   0626 86 03              1496 	mov	ar3,@r0
+   0628 08                 1497 	inc	r0
+   0629 86 04              1498 	mov	ar4,@r0
+                           1499 ;     genPlus
+                           1500 ;     genPlusIncr
+   062B 74 02              1501 	mov	a,#0x02
+   062D 25 02              1502 	add	a,ar2
+   062F FA                 1503 	mov	r2,a
+   0630 74 00              1504 	mov	a,#0x00
+   0632 35 03              1505 	addc	a,ar3
+   0634 FB                 1506 	mov	r3,a
+                           1507 ;     genPointerSet
+                           1508 ;     genGenPointerSet
+   0635 8A 82              1509 	mov	dpl,r2
+   0637 8B 83              1510 	mov	dph,r3
+   0639 8C F0              1511 	mov	b,r4
+   063B ED                 1512 	mov	a,r5
+   063C 12s00r00           1513 	lcall	__gptrput
+   063F A3                 1514 	inc	dptr
+   0640 EE                 1515 	mov	a,r6
+   0641 12s00r00           1516 	lcall	__gptrput
+   0644 A3                 1517 	inc	dptr
+   0645 EF                 1518 	mov	a,r7
+   0646 12s00r00           1519 	lcall	__gptrput
+                           1520 ;../../Source/list.c:161: pxNewListItem->pvContainer = ( void * ) pxList;
+                           1521 ;     genPlus
+   0649 74 0B              1522 	mov	a,#0x0B
+   064B 25 05              1523 	add	a,ar5
+   064D FD                 1524 	mov	r5,a
+   064E 74 00              1525 	mov	a,#0x00
+   0650 35 06              1526 	addc	a,ar6
+   0652 FE                 1527 	mov	r6,a
+                           1528 ;     genPointerSet
+                           1529 ;     genGenPointerSet
+   0653 8D 82              1530 	mov	dpl,r5
+   0655 8E 83              1531 	mov	dph,r6
+   0657 8F F0              1532 	mov	b,r7
+   0659 E5*00              1533 	mov	a,_bp
+   065B 24 01              1534 	add	a,#0x01
+   065D F8                 1535 	mov	r0,a
+   065E E6                 1536 	mov	a,@r0
+   065F 12s00r00           1537 	lcall	__gptrput
+   0662 A3                 1538 	inc	dptr
+   0663 08                 1539 	inc	r0
+   0664 E6                 1540 	mov	a,@r0
+   0665 12s00r00           1541 	lcall	__gptrput
+   0668 A3                 1542 	inc	dptr
+   0669 08                 1543 	inc	r0
+   066A E6                 1544 	mov	a,@r0
+   066B 12s00r00           1545 	lcall	__gptrput
+                           1546 ;../../Source/list.c:163: ( pxList->usNumberOfItems )++;
+                           1547 ;     genPointerGet
+                           1548 ;     genGenPointerGet
+   066E E5*00              1549 	mov	a,_bp
+   0670 24 01              1550 	add	a,#0x01
+   0672 F8                 1551 	mov	r0,a
+   0673 86 82              1552 	mov	dpl,@r0
+   0675 08                 1553 	inc	r0
+   0676 86 83              1554 	mov	dph,@r0
+   0678 08                 1555 	inc	r0
+   0679 86 F0              1556 	mov	b,@r0
+   067B 12s00r00           1557 	lcall	__gptrget
+   067E FA                 1558 	mov	r2,a
+   067F A3                 1559 	inc	dptr
+   0680 12s00r00           1560 	lcall	__gptrget
+   0683 FB                 1561 	mov	r3,a
+                           1562 ;     genPlus
+                           1563 ;     genPlusIncr
+   0684 0A                 1564 	inc	r2
+   0685 BA 00 01           1565 	cjne	r2,#0x00,00123$
+   0688 0B                 1566 	inc	r3
+   0689                    1567 00123$:
+                           1568 ;     genPointerSet
+                           1569 ;     genGenPointerSet
+   0689 E5*00              1570 	mov	a,_bp
+   068B 24 01              1571 	add	a,#0x01
+   068D F8                 1572 	mov	r0,a
+   068E 86 82              1573 	mov	dpl,@r0
+   0690 08                 1574 	inc	r0
+   0691 86 83              1575 	mov	dph,@r0
+   0693 08                 1576 	inc	r0
+   0694 86 F0              1577 	mov	b,@r0
+   0696 EA                 1578 	mov	a,r2
+   0697 12s00r00           1579 	lcall	__gptrput
+   069A A3                 1580 	inc	dptr
+   069B EB                 1581 	mov	a,r3
+   069C 12s00r00           1582 	lcall	__gptrput
+   069F                    1583 00112$:
+   069F 85*00 81           1584 	mov	sp,_bp
+   06A2 D0*00              1585 	pop	_bp
+   06A4 22                 1586 	ret
+                           1587 ;------------------------------------------------------------
+                           1588 ;Allocation info for local variables in function 'vListRemove'
+                           1589 ;------------------------------------------------------------
+                           1590 ;pxItemToRemove            Allocated to stack - offset 1
+                           1591 ;pxList                    Allocated to stack - offset 4
+                           1592 ;sloc0                     Allocated to stack - offset 7
+                           1593 ;sloc1                     Allocated to stack - offset 10
+                           1594 ;------------------------------------------------------------
+                           1595 ;../../Source/list.c:167: void vListRemove( xListItem *pxItemToRemove )
+                           1596 ;	-----------------------------------------
+                           1597 ;	 function vListRemove
+                           1598 ;	-----------------------------------------
+   06A5                    1599 _vListRemove:
+   06A5 C0*00              1600 	push	_bp
+   06A7 85 81*00           1601 	mov	_bp,sp
+                           1602 ;     genReceive
+   06AA C0 82              1603 	push	dpl
+   06AC C0 83              1604 	push	dph
+   06AE C0 F0              1605 	push	b
+   06B0 E5 81              1606 	mov	a,sp
+   06B2 24 0C              1607 	add	a,#0x0c
+   06B4 F5 81              1608 	mov	sp,a
+                           1609 ;../../Source/list.c:171: pxItemToRemove->pxNext->pxPrevious = pxItemToRemove->pxPrevious;
+                           1610 ;     genPlus
+   06B6 E5*00              1611 	mov	a,_bp
+   06B8 24 01              1612 	add	a,#0x01
+   06BA F8                 1613 	mov	r0,a
+                           1614 ;     genPlusIncr
+   06BB 74 02              1615 	mov	a,#0x02
+   06BD 26                 1616 	add	a,@r0
+   06BE FD                 1617 	mov	r5,a
+   06BF 74 00              1618 	mov	a,#0x00
+   06C1 08                 1619 	inc	r0
+   06C2 36                 1620 	addc	a,@r0
+   06C3 FE                 1621 	mov	r6,a
+   06C4 08                 1622 	inc	r0
+   06C5 86 07              1623 	mov	ar7,@r0
+                           1624 ;     genPointerGet
+                           1625 ;     genGenPointerGet
+   06C7 8D 82              1626 	mov	dpl,r5
+   06C9 8E 83              1627 	mov	dph,r6
+   06CB 8F F0              1628 	mov	b,r7
+   06CD 12s00r00           1629 	lcall	__gptrget
+   06D0 FA                 1630 	mov	r2,a
+   06D1 A3                 1631 	inc	dptr
+   06D2 12s00r00           1632 	lcall	__gptrget
+   06D5 FB                 1633 	mov	r3,a
+   06D6 A3                 1634 	inc	dptr
+   06D7 12s00r00           1635 	lcall	__gptrget
+   06DA FC                 1636 	mov	r4,a
+                           1637 ;     genPlus
+   06DB E5*00              1638 	mov	a,_bp
+   06DD 24 0A              1639 	add	a,#0x0a
+   06DF F8                 1640 	mov	r0,a
+   06E0 74 05              1641 	mov	a,#0x05
+   06E2 25 02              1642 	add	a,ar2
+   06E4 F6                 1643 	mov	@r0,a
+   06E5 74 00              1644 	mov	a,#0x00
+   06E7 35 03              1645 	addc	a,ar3
+   06E9 08                 1646 	inc	r0
+   06EA F6                 1647 	mov	@r0,a
+   06EB 08                 1648 	inc	r0
+   06EC A6 04              1649 	mov	@r0,ar4
+                           1650 ;     genPlus
+   06EE E5*00              1651 	mov	a,_bp
+   06F0 24 01              1652 	add	a,#0x01
+   06F2 F8                 1653 	mov	r0,a
+   06F3 E5*00              1654 	mov	a,_bp
+   06F5 24 07              1655 	add	a,#0x07
+   06F7 F9                 1656 	mov	r1,a
+   06F8 74 05              1657 	mov	a,#0x05
+   06FA 26                 1658 	add	a,@r0
+   06FB F7                 1659 	mov	@r1,a
+   06FC 74 00              1660 	mov	a,#0x00
+   06FE 08                 1661 	inc	r0
+   06FF 36                 1662 	addc	a,@r0
+   0700 09                 1663 	inc	r1
+   0701 F7                 1664 	mov	@r1,a
+   0702 08                 1665 	inc	r0
+   0703 09                 1666 	inc	r1
+   0704 E6                 1667 	mov	a,@r0
+   0705 F7                 1668 	mov	@r1,a
+                           1669 ;     genPointerGet
+                           1670 ;     genGenPointerGet
+   0706 E5*00              1671 	mov	a,_bp
+   0708 24 07              1672 	add	a,#0x07
+   070A F8                 1673 	mov	r0,a
+   070B 86 82              1674 	mov	dpl,@r0
+   070D 08                 1675 	inc	r0
+   070E 86 83              1676 	mov	dph,@r0
+   0710 08                 1677 	inc	r0
+   0711 86 F0              1678 	mov	b,@r0
+   0713 12s00r00           1679 	lcall	__gptrget
+   0716 FA                 1680 	mov	r2,a
+   0717 A3                 1681 	inc	dptr
+   0718 12s00r00           1682 	lcall	__gptrget
+   071B FB                 1683 	mov	r3,a
+   071C A3                 1684 	inc	dptr
+   071D 12s00r00           1685 	lcall	__gptrget
+   0720 FC                 1686 	mov	r4,a
+                           1687 ;     genPointerSet
+                           1688 ;     genGenPointerSet
+   0721 E5*00              1689 	mov	a,_bp
+   0723 24 0A              1690 	add	a,#0x0a
+   0725 F8                 1691 	mov	r0,a
+   0726 86 82              1692 	mov	dpl,@r0
+   0728 08                 1693 	inc	r0
+   0729 86 83              1694 	mov	dph,@r0
+   072B 08                 1695 	inc	r0
+   072C 86 F0              1696 	mov	b,@r0
+   072E EA                 1697 	mov	a,r2
+   072F 12s00r00           1698 	lcall	__gptrput
+   0732 A3                 1699 	inc	dptr
+   0733 EB                 1700 	mov	a,r3
+   0734 12s00r00           1701 	lcall	__gptrput
+   0737 A3                 1702 	inc	dptr
+   0738 EC                 1703 	mov	a,r4
+   0739 12s00r00           1704 	lcall	__gptrput
+                           1705 ;../../Source/list.c:172: pxItemToRemove->pxPrevious->pxNext = pxItemToRemove->pxNext;
+                           1706 ;     genPointerGet
+                           1707 ;     genGenPointerGet
+   073C E5*00              1708 	mov	a,_bp
+   073E 24 07              1709 	add	a,#0x07
+   0740 F8                 1710 	mov	r0,a
+   0741 86 82              1711 	mov	dpl,@r0
+   0743 08                 1712 	inc	r0
+   0744 86 83              1713 	mov	dph,@r0
+   0746 08                 1714 	inc	r0
+   0747 86 F0              1715 	mov	b,@r0
+   0749 12s00r00           1716 	lcall	__gptrget
+   074C FA                 1717 	mov	r2,a
+   074D A3                 1718 	inc	dptr
+   074E 12s00r00           1719 	lcall	__gptrget
+   0751 FB                 1720 	mov	r3,a
+   0752 A3                 1721 	inc	dptr
+   0753 12s00r00           1722 	lcall	__gptrget
+   0756 FC                 1723 	mov	r4,a
+                           1724 ;     genPlus
+                           1725 ;     genPlusIncr
+   0757 74 02              1726 	mov	a,#0x02
+   0759 25 02              1727 	add	a,ar2
+   075B FA                 1728 	mov	r2,a
+   075C 74 00              1729 	mov	a,#0x00
+   075E 35 03              1730 	addc	a,ar3
+   0760 FB                 1731 	mov	r3,a
+                           1732 ;     genPointerGet
+                           1733 ;     genGenPointerGet
+   0761 8D 82              1734 	mov	dpl,r5
+   0763 8E 83              1735 	mov	dph,r6
+   0765 8F F0              1736 	mov	b,r7
+   0767 12s00r00           1737 	lcall	__gptrget
+   076A FD                 1738 	mov	r5,a
+   076B A3                 1739 	inc	dptr
+   076C 12s00r00           1740 	lcall	__gptrget
+   076F FE                 1741 	mov	r6,a
+   0770 A3                 1742 	inc	dptr
+   0771 12s00r00           1743 	lcall	__gptrget
+   0774 FF                 1744 	mov	r7,a
+                           1745 ;     genPointerSet
+                           1746 ;     genGenPointerSet
+   0775 8A 82              1747 	mov	dpl,r2
+   0777 8B 83              1748 	mov	dph,r3
+   0779 8C F0              1749 	mov	b,r4
+   077B ED                 1750 	mov	a,r5
+   077C 12s00r00           1751 	lcall	__gptrput
+   077F A3                 1752 	inc	dptr
+   0780 EE                 1753 	mov	a,r6
+   0781 12s00r00           1754 	lcall	__gptrput
+   0784 A3                 1755 	inc	dptr
+   0785 EF                 1756 	mov	a,r7
+   0786 12s00r00           1757 	lcall	__gptrput
+                           1758 ;../../Source/list.c:176: pxList = ( xList * ) pxItemToRemove->pvContainer;
+                           1759 ;     genPlus
+   0789 E5*00              1760 	mov	a,_bp
+   078B 24 01              1761 	add	a,#0x01
+   078D F8                 1762 	mov	r0,a
+   078E 74 0B              1763 	mov	a,#0x0B
+   0790 26                 1764 	add	a,@r0
+   0791 FA                 1765 	mov	r2,a
+   0792 74 00              1766 	mov	a,#0x00
+   0794 08                 1767 	inc	r0
+   0795 36                 1768 	addc	a,@r0
+   0796 FB                 1769 	mov	r3,a
+   0797 08                 1770 	inc	r0
+   0798 86 04              1771 	mov	ar4,@r0
+                           1772 ;     genPointerGet
+                           1773 ;     genGenPointerGet
+   079A 8A 82              1774 	mov	dpl,r2
+   079C 8B 83              1775 	mov	dph,r3
+   079E 8C F0              1776 	mov	b,r4
+   07A0 12s00r00           1777 	lcall	__gptrget
+   07A3 FD                 1778 	mov	r5,a
+   07A4 A3                 1779 	inc	dptr
+   07A5 12s00r00           1780 	lcall	__gptrget
+   07A8 FE                 1781 	mov	r6,a
+   07A9 A3                 1782 	inc	dptr
+   07AA 12s00r00           1783 	lcall	__gptrget
+   07AD FF                 1784 	mov	r7,a
+                           1785 ;     genAssign
+   07AE E5*00              1786 	mov	a,_bp
+   07B0 24 04              1787 	add	a,#0x04
+   07B2 F8                 1788 	mov	r0,a
+   07B3 A6 05              1789 	mov	@r0,ar5
+   07B5 08                 1790 	inc	r0
+   07B6 A6 06              1791 	mov	@r0,ar6
+   07B8 08                 1792 	inc	r0
+   07B9 A6 07              1793 	mov	@r0,ar7
+                           1794 ;../../Source/list.c:179: if( pxList->pxIndex == pxItemToRemove )
+                           1795 ;     genPlus
+   07BB E5*00              1796 	mov	a,_bp
+   07BD 24 04              1797 	add	a,#0x04
+   07BF F8                 1798 	mov	r0,a
+   07C0 E5*00              1799 	mov	a,_bp
+   07C2 24 0A              1800 	add	a,#0x0a
+   07C4 F9                 1801 	mov	r1,a
+   07C5 74 05              1802 	mov	a,#0x05
+   07C7 26                 1803 	add	a,@r0
+   07C8 F7                 1804 	mov	@r1,a
+   07C9 74 00              1805 	mov	a,#0x00
+   07CB 08                 1806 	inc	r0
+   07CC 36                 1807 	addc	a,@r0
+   07CD 09                 1808 	inc	r1
+   07CE F7                 1809 	mov	@r1,a
+   07CF 08                 1810 	inc	r0
+   07D0 09                 1811 	inc	r1
+   07D1 E6                 1812 	mov	a,@r0
+   07D2 F7                 1813 	mov	@r1,a
+                           1814 ;     genPointerGet
+                           1815 ;     genGenPointerGet
+   07D3 E5*00              1816 	mov	a,_bp
+   07D5 24 0A              1817 	add	a,#0x0a
+   07D7 F8                 1818 	mov	r0,a
+   07D8 86 82              1819 	mov	dpl,@r0
+   07DA 08                 1820 	inc	r0
+   07DB 86 83              1821 	mov	dph,@r0
+   07DD 08                 1822 	inc	r0
+   07DE 86 F0              1823 	mov	b,@r0
+   07E0 12s00r00           1824 	lcall	__gptrget
+   07E3 FD                 1825 	mov	r5,a
+   07E4 A3                 1826 	inc	dptr
+   07E5 12s00r00           1827 	lcall	__gptrget
+   07E8 FE                 1828 	mov	r6,a
+   07E9 A3                 1829 	inc	dptr
+   07EA 12s00r00           1830 	lcall	__gptrget
+   07ED FF                 1831 	mov	r7,a
+                           1832 ;     genCmpEq
+   07EE E5*00              1833 	mov	a,_bp
+   07F0 24 01              1834 	add	a,#0x01
+   07F2 F8                 1835 	mov	r0,a
+   07F3 E6                 1836 	mov	a,@r0
+   07F4 B5 05 0C           1837 	cjne	a,ar5,00106$
+   07F7 08                 1838 	inc	r0
+   07F8 E6                 1839 	mov	a,@r0
+   07F9 B5 06 07           1840 	cjne	a,ar6,00106$
+   07FC 08                 1841 	inc	r0
+   07FD E6                 1842 	mov	a,@r0
+   07FE B5 07 02           1843 	cjne	a,ar7,00106$
+   0801 80 03              1844 	sjmp	00107$
+   0803                    1845 00106$:
+   0803 02s08r3C           1846 	ljmp	00102$
+   0806                    1847 00107$:
+                           1848 ;../../Source/list.c:181: pxList->pxIndex = pxItemToRemove->pxPrevious;
+                           1849 ;     genPointerGet
+                           1850 ;     genGenPointerGet
+   0806 E5*00              1851 	mov	a,_bp
+   0808 24 07              1852 	add	a,#0x07
+   080A F8                 1853 	mov	r0,a
+   080B 86 82              1854 	mov	dpl,@r0
+   080D 08                 1855 	inc	r0
+   080E 86 83              1856 	mov	dph,@r0
+   0810 08                 1857 	inc	r0
+   0811 86 F0              1858 	mov	b,@r0
+   0813 12s00r00           1859 	lcall	__gptrget
+   0816 FD                 1860 	mov	r5,a
+   0817 A3                 1861 	inc	dptr
+   0818 12s00r00           1862 	lcall	__gptrget
+   081B FE                 1863 	mov	r6,a
+   081C A3                 1864 	inc	dptr
+   081D 12s00r00           1865 	lcall	__gptrget
+   0820 FF                 1866 	mov	r7,a
+                           1867 ;     genPointerSet
+                           1868 ;     genGenPointerSet
+   0821 E5*00              1869 	mov	a,_bp
+   0823 24 0A              1870 	add	a,#0x0a
+   0825 F8                 1871 	mov	r0,a
+   0826 86 82              1872 	mov	dpl,@r0
+   0828 08                 1873 	inc	r0
+   0829 86 83              1874 	mov	dph,@r0
+   082B 08                 1875 	inc	r0
+   082C 86 F0              1876 	mov	b,@r0
+   082E ED                 1877 	mov	a,r5
+   082F 12s00r00           1878 	lcall	__gptrput
+   0832 A3                 1879 	inc	dptr
+   0833 EE                 1880 	mov	a,r6
+   0834 12s00r00           1881 	lcall	__gptrput
+   0837 A3                 1882 	inc	dptr
+   0838 EF                 1883 	mov	a,r7
+   0839 12s00r00           1884 	lcall	__gptrput
+   083C                    1885 00102$:
+                           1886 ;../../Source/list.c:184: pxItemToRemove->pvContainer = NULL;
+                           1887 ;     genPointerSet
+                           1888 ;     genGenPointerSet
+   083C 8A 82              1889 	mov	dpl,r2
+   083E 8B 83              1890 	mov	dph,r3
+   0840 8C F0              1891 	mov	b,r4
+   0842 74 00              1892 	mov	a,#0x00
+   0844 12s00r00           1893 	lcall	__gptrput
+   0847 A3                 1894 	inc	dptr
+   0848 74 00              1895 	mov	a,#0x00
+   084A 12s00r00           1896 	lcall	__gptrput
+   084D A3                 1897 	inc	dptr
+   084E 74 00              1898 	mov	a,#0x00
+   0850 12s00r00           1899 	lcall	__gptrput
+                           1900 ;../../Source/list.c:185: ( pxList->usNumberOfItems )--;
+                           1901 ;     genPointerGet
+                           1902 ;     genGenPointerGet
+   0853 E5*00              1903 	mov	a,_bp
+   0855 24 04              1904 	add	a,#0x04
+   0857 F8                 1905 	mov	r0,a
+   0858 86 82              1906 	mov	dpl,@r0
+   085A 08                 1907 	inc	r0
+   085B 86 83              1908 	mov	dph,@r0
+   085D 08                 1909 	inc	r0
+   085E 86 F0              1910 	mov	b,@r0
+   0860 12s00r00           1911 	lcall	__gptrget
+   0863 FA                 1912 	mov	r2,a
+   0864 A3                 1913 	inc	dptr
+   0865 12s00r00           1914 	lcall	__gptrget
+   0868 FB                 1915 	mov	r3,a
+                           1916 ;     genMinus
+                           1917 ;     genMinusDec
+   0869 1A                 1918 	dec	r2
+   086A BA FF 01           1919 	cjne	r2,#0xff,00108$
+   086D 1B                 1920 	dec	r3
+   086E                    1921 00108$:
+                           1922 ;     genPointerSet
+                           1923 ;     genGenPointerSet
+   086E E5*00              1924 	mov	a,_bp
+   0870 24 04              1925 	add	a,#0x04
+   0872 F8                 1926 	mov	r0,a
+   0873 86 82              1927 	mov	dpl,@r0
+   0875 08                 1928 	inc	r0
+   0876 86 83              1929 	mov	dph,@r0
+   0878 08                 1930 	inc	r0
+   0879 86 F0              1931 	mov	b,@r0
+   087B EA                 1932 	mov	a,r2
+   087C 12s00r00           1933 	lcall	__gptrput
+   087F A3                 1934 	inc	dptr
+   0880 EB                 1935 	mov	a,r3
+   0881 12s00r00           1936 	lcall	__gptrput
+   0884                    1937 00103$:
+   0884 85*00 81           1938 	mov	sp,_bp
+   0887 D0*00              1939 	pop	_bp
+   0889 22                 1940 	ret
+                           1941 	.area CSEG    (CODE)
+                           1942 	.area XINIT   (CODE)

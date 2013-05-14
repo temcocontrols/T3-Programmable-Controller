@@ -1,0 +1,1 @@
+"..\SRC\SW_DMA\busreq.asm" MOD_CONT INCDIR(.;..\SRC\CPU\;..\SRC\SW_DMA\;..\SRC\ETHERNET\;..\SRC\ADAPTER;..\SRC\main) SET (LARGE) DEBUG PRINT(.\Build\busreq.lst) OBJECT(.\Build\busreq.obj) EP

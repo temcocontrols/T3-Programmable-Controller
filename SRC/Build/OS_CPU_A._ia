@@ -1,0 +1,1 @@
+"..\SRC\FreeRTOSSource\portable\Keil\AX11000\OS_CPU_A.A51" MOD_CONT INCDIR(.;..\SRC\CPU\;..\SRC\SW_DMA\;..\SRC\ETHERNET\;..\SRC\ADAPTER;..\SRC\main) SET (LARGE) DEBUG PRINT(.\Build\OS_CPU_A.lst) OBJECT(.\Build\OS_CPU_A.obj) EP

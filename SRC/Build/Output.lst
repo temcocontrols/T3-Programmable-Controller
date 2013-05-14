@@ -1,0 +1,348 @@
+C51 COMPILER V9.00   OUTPUT                                                                05/08/2013 16:47:36 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE OUTPUT
+OBJECT MODULE PLACED IN .\Build\Output.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Modbus\Output.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR(..\SRC
+                    -\FreeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\
+                    -UART\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\
+                    -SRC\GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;.
+                    -.\SRC\dhcp\;..\SRC\pppoe\;..\SRC\flash;..\SRC\SNTP;..\SRC\display;..\SRC\key;..\SRC\schedule;..\SRC\program;..\SRC\Scan)
+                    - DEFINE(KEIL_AX11000) VARBANKING DEBUG PRINT(.\Build\Output.lst) OBJECT(.\Build\Output.obj)
+
+line level    source
+
+   1          #include "main.h"
+   2          #include "serial.h"
+   3          
+   4          xTaskHandle far Handle_UpdateOutput;
+   5          xTaskHandle far Handle_PWMoutput;
+   6          
+   7          #define UpdateOutputSTACK_SIZE  ((unsigned portSHORT)1024)
+   8          #define PWMoutputSTACK_SIZE             ((unsigned portSHORT)1024)
+   9          
+  10          extern xTaskHandle xKeyTask;
+  11          
+  12          enum
+  13          {
+  14                  START = 0,STABLE,PWM
+  15          };
+  16          
+  17          U16_T old_output,new_output;
+  18          U8_T flag_PWM = STABLE;
+  19          U16_T Wakeup_Count = 0;
+  20          U8_T PWM_inverse = 0;
+  21          
+  22          bit flag_first_time = 0;
+  23          
+  24          bit flag_priority = 0;
+  25          
+  26          
+  27          void vStartUpdateOutputTasks( U8_T uxPriority)
+  28          {       
+  29   1              old_output = 0;
+  30   1              new_output = 0;
+  31   1              sTaskCreate( Update_Output_Task, "UpdateOutputtask", UpdateOutputSTACK_SIZE, NULL, uxPriority, &Handle_Up
+             -dateOutput );
+  32   1      }
+  33          
+  34          /*
+  35          void vStartPWMoutputTasks( U8_T uxPriority)
+  36          {
+  37                  sTaskCreate( PWMoutput, "PWMoutputtask", PWMoutputSTACK_SIZE, NULL, uxPriority, &Handle_PWMoutput );
+  38          }
+  39           */
+  40          /*
+  41          check software switch status, there are 3 types
+  42          OFF - all zones operate independently
+  43          TIMER - zone1 has priority for PRIORITY time(adjustable)
+  44          ON - manual, zone1 has priority always.
+  45          */
+  46          
+  47          void Update_Output_Task(void)
+  48          {
+  49   1              portTickType xDelayPeriod = ( portTickType ) 500 / portTICK_RATE_MS;
+C51 COMPILER V9.00   OUTPUT                                                                05/08/2013 16:47:36 PAGE 2   
+
+  50   1              U8_T    loop;
+  51   1              U8_T    temp;                                      
+  52   1              U16_T   tempvalue;
+  53   1              U16_T   tempout1;
+  54   1              for(;;)
+  55   1              {
+  56   2                      U8_T    loop;
+  57   2                      U8_T    temp;                                      
+  58   2                      U8_T    tempvalue;
+  59   2                      U8_T    tempout1;
+  60   2      
+  61   2                      vTaskDelay(xDelayPeriod);
+  62   2                      
+  63   2                      if(demo_enable == 0)
+  64   2                      {
+  65   3                              if( OuputAM == 0)
+  66   3                              {       
+  67   4                                      tempout1 = 0;
+  68   4                                      
+  69   4                                      if( DO_SoftSwitch == OFF)    // OFF == 0
+  70   4                                      {
+  71   5                                      /* all zones are all treated equally , outputs are controlled by inputs */
+  72   5                                              for(loop = 0;loop < 8;loop++)
+  73   5                                              {                                               
+  74   6                                                      temp =  DI2_Value & (0x01 << loop);     
+  75   6                                                      tempout1 |= temp;
+  76   6                                                      #if 0
+                                                              if(/* Master == 1 ||*/  DI_Type[loop] == CHS_DI1)       /* choose DI1 - DI8*/
+                                                              {
+                                                                      temp =  DI1_Value & (0x01 << loop);                             
+                                                              }       
+                                                              else  /* choose DI9 - DI16*/
+                                                              {
+                                                                      temp =  DI2_Value & (0x01 << loop);
+                                                              }
+                                                              
+                                                              tempout1 |= temp;
+                                                              #endif
+  88   6                                              }
+  89   5                                                      
+  90   5                                      }
+  91   4                                      else if( DO_SoftSwitch == ON)  // ON == 2
+  92   4                                      {       
+  93   5                                      /*
+  94   5                                      Zone 1 has priority until the demand is satisfied on zone1 
+  95   5                                  (when zone1 thermostat goes on, only zone1 pump will be on, The other zones are off. 
+  96   5                                   When zone1 thermostat goes off, the other pumps K4 thru K8 can go on.
+  97   5                                      */      
+  98   5                                              temp =  DI2_Value & (0x01 << loop);     
+  99   5                                              tempout1 |= temp;
+ 100   5                                              #if 0
+                                                      if(/* Master == 1 ||*/  DI_Type[0] == CHS_DI1)          /* choose DI1 - DI8*/
+                                                      {
+                                                              temp =  DI1_Value & 0x01;
+                                                              tempvalue =  DI1_Value & 0xfe;                          
+                                                      }
+                                                      else                     /* choose DI9 - DI16*/
+                                                      {
+                                                              temp =  DI2_Value & 0x01;
+                                                              tempvalue =  DI2_Value & 0xfe;          
+                                                      }
+                                               #endif
+C51 COMPILER V9.00   OUTPUT                                                                05/08/2013 16:47:36 PAGE 3   
+
+ 112   5                                              if(temp == 0)  /* zone 1 is off,other zones can go on */
+ 113   5                                              {
+ 114   6                                                      //Display_Character(1,"2out on ");
+ 115   6                                                              tempout1 = tempvalue;
+ 116   6                                                      /*for(loop = 1;loop < 8;loop++)
+ 117   6                                                      {
+ 118   6                                                              //tempvalue &= 0x01 ;
+ 119   6                                                               DO_Value[0] |= tempvalue << loop;
+ 120   6                                                      }*/                     
+ 121   6                                              }
+ 122   5                                              else /* zone 1 is on, other zones go off */
+ 123   5                                              {
+ 124   6                                                      //Display_Character(1,"2out off");
+ 125   6                                                      tempout1 = 0x01;
+ 126   6                                              }
+ 127   5                                      }       
+ 128   4                                      else if( DO_SoftSwitch == TIMER)   // TIMER == 1
+ 129   4                                      {
+ 130   5                                      /* 
+ 131   5                                       Zone 1 has priority for 1-hour. 
+ 132   5                                      The remaining zones will stop operation until zone 1 is satisfied or until the 1-hour priority has exp
+             -ired
+ 133   5                                      If K3 is on, a timer starts
+ 134   5                                            Before the timer hits one hour, Relays K3 thru K6 will be off. 
+ 135   5                                      When the timer hits one hour, 
+ 136   5                                            Then the K3 thru K6 can follow the associated thermostat input. 
+ 137   5                                      */
+ 138   5                                              if(flag_priority)  /* priotity is expried */
+ 139   5                                              {/*     When the timer hits one hour, all zones can follow the associated thermostat input. */
+ 140   6                                                      //flag_priority = 0;
+ 141   6                                                       DO_SoftSwitch = OFF;
+ 142   6                                                      for(loop = 0;loop < 8;loop++)
+ 143   6                                                      {
+ 144   7                                                              temp =  DI2_Value & (0x01 << loop);     
+ 145   7                                                              tempout1 |= temp;
+ 146   7                                                              #if 0
+                                                                      if(/* Master == 1 ||*/  DI_Type[loop] == CHS_DI1)       /* choose DI1 - DI8*/
+                                                                      {
+                                                                              temp =  DI1_Value & (0x01 << loop);                             
+                                                                      }       
+                                                                      else  /* choose DI9 - DI16*/
+                                                                      {
+                                                                              temp =  DI2_Value & (0x01 << loop);
+                                                                      }
+                                      
+                                                                      tempout1 |= temp ;
+                                                                      #endif
+ 158   7                                                      }
+ 159   6                                              }
+ 160   5                                              else
+ 161   5                                              {               
+ 162   6                                                      tempout1 = 0x01;  
+ 163   6                                              }
+ 164   5                                      }
+ 165   4                                      
+ 166   4                                       DO_Value = tempout1;           
+ 167   4                              }
+ 168   3              
+ 169   3                              if(( DO_Value & 0x037f) != 0) /* if any relay is on, ture on pump, we define it RELAY8 now*/
+ 170   3                              {
+ 171   4                                       DO_Value |= 0x80;
+ 172   4                              }       
+C51 COMPILER V9.00   OUTPUT                                                                05/08/2013 16:47:36 PAGE 4   
+
+ 173   3                      }
+ 174   2      
+ 175   2                      new_output = DO_Value;
+ 176   2                      /* compare new output and old one, check whether new relay is on,
+ 177   2                      if there are new relays are on, must be keep relay on until it is completely truned on,
+ 178   2                      then use PWM contronl it */
+ 179   2                      
+ 180   2                      if(old_output != new_output) // need keep some relay on , must disalbe PWM contrl now
+ 181   2                      {
+ 182   3                              old_output = new_output;
+ 183   3                              Wakeup_Count = 0; // wake up PWM
+ 184   3                              flag_PWM = STABLE;      
+ 185   3                      }
+ 186   2              }
+ 187   1      
+ 188   1      }
+*** WARNING C280 IN LINE 50 OF MODBUS\OUTPUT.C: 'loop': unreferenced local variable
+*** WARNING C280 IN LINE 51 OF MODBUS\OUTPUT.C: 'temp': unreferenced local variable
+*** WARNING C280 IN LINE 52 OF MODBUS\OUTPUT.C: 'tempvalue': unreferenced local variable
+*** WARNING C280 IN LINE 53 OF MODBUS\OUTPUT.C: 'tempout1': unreferenced local variable
+ 189          
+ 190          
+ 191          
+ 192          
+ 193          void Output_Count_Priority_Task(void)
+ 194          {
+ 195   1              static U8_T t1 = 0;
+ 196   1              static U8_T t2 = 0;
+ 197   1      
+ 198   1              if( DO_SoftSwitch == TIMER)
+ 199   1              {       
+ 200   2                      // count_priority =  Priority * 60;     
+ 201   2                      t2 =  RTC.Clk.sec;
+ 202   2                      if(t2 != t1)    // sec changed
+ 203   2                      {
+ 204   3                               count_priority++;
+ 205   3                              t1 = t2;
+ 206   3                      }
+ 207   2                      if( count_priority >= 60 *  Priority)  // expried
+ 208   2                      {
+ 209   3                              flag_priority = 1;
+ 210   3                               count_priority = 0;
+ 211   3                      }
+ 212   2              }
+ 213   1              else 
+ 214   1              {
+ 215   2                       count_priority = 0;
+ 216   2                      flag_priority = 0;
+ 217   2              }
+ 218   1      }
+ 219          
+ 220          
+ 221          extern U8_T ChangeFlash;
+ 222          
+ 223          // 2ms 
+ 224          void PWMoutput(void)
+ 225          {
+ 226   1              U16_T temp_relay = 0;
+ 227   1              if(ChangeFlash == 1)   {flag_PWM = STABLE;        Wakeup_Count = 0;}
+ 228   1              if(flag_PWM == STABLE)  // 
+ 229   1              {
+ 230   2                      Wakeup_Count++;
+C51 COMPILER V9.00   OUTPUT                                                                05/08/2013 16:47:36 PAGE 5   
+
+ 231   2                      if(Wakeup_Count > 200)
+ 232   2                      {
+ 233   3                              flag_PWM = PWM;
+ 234   3                              PWM_inverse = 0;
+ 235   3                      }
+ 236   2                      RELAY1_8 = (U8_T)DO_Value;
+ 237   2                      DELAY_Us(5);
+ 238   2                      RELAY_LATCH = 0; 
+ 239   2                      RELAY_LATCH = 1;                
+ 240   2                      DI2_LATCH = 1;
+ 241   2                      KEY_LATCH = 1;
+ 242   2                      DI1_LATCH = 1;
+ 243   2      
+ 244   2                      if( DO_Value & 0x100)
+ 245   2                              RELAY_9 = 0;
+ 246   2                      else 
+ 247   2                              RELAY_9 = 1;
+ 248   2              
+ 249   2                      /* OUTPUT10  */
+ 250   2                      if( DO_Value & 0x0200)
+ 251   2                              RELAY_10 = 0;
+ 252   2                      else 
+ 253   2                              RELAY_10 = 1;
+ 254   2                      
+ 255   2              }
+ 256   1              else  if(flag_PWM == PWM)
+ 257   1              {
+ 258   2                      /*if(PWM_inverse == 1 )  
+ 259   2                      { 
+ 260   2                              PWM_inverse = 0;  
+ 261   2                              temp_relay =  DO_Value;
+ 262   2                      }
+ 263   2                      else if(PWM_inverse == 0) 
+ 264   2                      {
+ 265   2                              PWM_inverse = 1;
+ 266   2                              temp_relay = 0;
+ 267   2                      }*/
+ 268   2                      if(PWM_inverse < 1 ) 
+ 269   2                      {
+ 270   3                              PWM_inverse++;  
+ 271   3                              temp_relay = DO_Value;
+ 272   3                              
+ 273   3                      }
+ 274   2                      else
+ 275   2                      {
+ 276   3                              PWM_inverse = 0;
+ 277   3                              temp_relay =  0;
+ 278   3                      } 
+ 279   2      //              Test[46] = temp_relay;
+ 280   2                      RELAY1_8 = (U8_T)temp_relay;            
+ 281   2                      DELAY_Us(5);
+ 282   2                      RELAY_LATCH = 0;                
+ 283   2                      RELAY_LATCH = 1; 
+ 284   2                      DI2_LATCH = 1;
+ 285   2                      KEY_LATCH = 1;
+ 286   2                      DI1_LATCH = 1;
+ 287   2      
+ 288   2                      if( temp_relay & 0x100)
+ 289   2                              RELAY_9 = 0;
+ 290   2                      else 
+ 291   2                              RELAY_9 = 1;
+ 292   2              
+C51 COMPILER V9.00   OUTPUT                                                                05/08/2013 16:47:36 PAGE 6   
+
+ 293   2                      /* OUTPUT10  */
+ 294   2                      if( temp_relay & 0x0200)
+ 295   2                              RELAY_10 = 0;
+ 296   2                      else 
+ 297   2                              RELAY_10 = 1;
+ 298   2      
+ 299   2              } 
+ 300   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    814    ----
+   CONSTANT SIZE    =     17    ----
+   XDATA SIZE       =     10      16
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =      6    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  4 WARNING(S),  0 ERROR(S)

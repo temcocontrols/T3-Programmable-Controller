@@ -1,0 +1,17 @@
+C51 COMPILER V9.00   COMM                                                                  02/28/2013 16:05:25 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE COMM
+OBJECT MODULE PLACED IN .\Build\comm.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Modbus\comm.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR(..\SRC\F
+                    -reeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\UA
+                    -RT\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\SR
+                    -C\GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;..\
+                    -SRC\dhcp\;..\SRC\pppoe\;..\SRC\MINI_262\;..\SRC\flash;..\SRC\SNTP;..\SRC\display;..\SRC\key;..\SRC\schedule) DEFINE(KEIL
+                    -_AX11000) VARBANKING DEBUG PRINT(.\Build\comm.lst) OBJECT(.\Build\comm.obj)
+
+line level    source
+
+*** ERROR C318 OF Modbus\comm.c: can't open file 'Modbus\comm.c'
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  1 ERROR(S)

@@ -1,0 +1,637 @@
+C51 COMPILER V9.00   SCAN                                                                  05/08/2013 16:48:49 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE SCAN
+OBJECT MODULE PLACED IN .\Build\scan.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE scan\scan.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR(..\SRC\Fre
+                    -eRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\UART
+                    -\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\SRC\
+                    -GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;..\SR
+                    -C\dhcp\;..\SRC\pppoe\;..\SRC\flash;..\SRC\SNTP;..\SRC\display;..\SRC\key;..\SRC\schedule;..\SRC\program;..\SRC\Scan) DEF
+                    -INE(KEIL_AX11000) VARBANKING DEBUG PRINT(.\Build\scan.lst) OBJECT(.\Build\scan.obj)
+
+line level    source
+
+   1          #include "main.h"
+   2          
+   3          /* record every tstat on and off time, to check whether the tstat is off and have same ID */
+   4          /*U16_T time_tstat_off[254];     // record off line time for every ID 
+   5          U16_T time_tstat_on[254];               
+   6          U8_T error_rate[254];
+   7          */
+   8          
+   9          SCAN_DB scan_db[8];
+  10          SCAN_DB temp_scan_db;
+  11          U8_T tempaddr[8];
+  12          U8_T temp_sub_no;
+  13          
+  14          extern xQueueHandle     xSubRevQueue;
+  15          
+  16          
+  17          
+  18          void calculate_ID_table(void)
+  19          {
+  20   1              U8_T i;
+  21   1              
+  22   1      
+  23   1              memset(binsearch_Table,'\0',sizeof(BinSearch) * 129);
+  24   1      /*      memset(time_tstat_off,0,2 * 254);
+  25   1              memset(time_tstat_on,0,2 * 254);
+  26   1              memset(error_rate,0,254);
+  27   1      */
+  28   1              binsearch_Table[0].max = 254;
+  29   1              binsearch_Table[0].min = 1; 
+  30   1              binsearch_Table[0].valid = 1; 
+  31   1      
+  32   1      
+  33   1              for(i = 0;i<64;)
+  34   1              {
+  35   2                      binsearch_Table[2 * i + 1].max = binsearch_Table[i].max;
+  36   2                      binsearch_Table[2 * i + 1].min = (binsearch_Table[i].max + binsearch_Table[i].min) / 2;
+  37   2                      binsearch_Table[2 * i + 1].valid = 0;
+  38   2      
+  39   2      
+  40   2                      binsearch_Table[2 * (i + 1)].max = (binsearch_Table[i].max + binsearch_Table[i].min) / 2 - 1;
+  41   2                      binsearch_Table[2 * (i + 1)].min =  binsearch_Table[i].min;
+  42   2                      binsearch_Table[2 * (i + 1)].valid = 0;
+  43   2      
+  44   2                      if((binsearch_Table[2 * i + 1].max > binsearch_Table[2 * i + 1].min) && 
+  45   2                              (binsearch_Table[2 * (i + 1)].max  > binsearch_Table[2 * (i + 1)].min))
+  46   2                              i++;    
+  47   2                              
+  48   2              }
+  49   1      }
+  50          
+C51 COMPILER V9.00   SCAN                                                                  05/08/2013 16:48:49 PAGE 2   
+
+  51          
+  52          void Send_Test_Tstat(U8_T addr,U8_T start,U8_T len)
+  53          { 
+  54   1              U8_T buf[8];
+  55   1              U16_T crc_val;
+  56   1              U8_T i;
+  57   1      
+  58   1      //      comm_tstat = CM5_Check_Sub_OnLine;
+  59   1      
+  60   1              sub_init_send_com();
+  61   1              sub_init_crc16();
+  62   1              
+  63   1              buf[0] = addr;
+  64   1              buf[1] = 0x03;
+  65   1              buf[2] = 0x00;
+  66   1              buf[3] = start;
+  67   1              buf[4] = 0x00;
+  68   1              buf[5] = len;
+  69   1      
+  70   1              crc_val = crc16(buf,6);
+  71   1                      
+  72   1              buf[6] = crc_val >> 8;
+  73   1              buf[7] = (U8_T)crc_val;
+  74   1      
+  75   1              for(i = 0;i < 8;i++)
+  76   1              {
+  77   2                      sub_send_byte(buf[i],CRC_YES);
+  78   2              }
+  79   1      
+  80   1              sub_rece_size = 5 + len * 2;;
+  81   1              sub_serial_restart();
+  82   1              //for(i = 0;i < 12;i++)
+  83   1              //      sub_data_buffer[i] = 0;         
+  84   1      }
+  85          
+  86          
+  87          U8_T Get_Idle_ID(U8_T *subaddr,U8_T subno)
+  88          {
+  89   1              U8_T i; 
+  90   1              U8_T temp;
+  91   1      
+  92   1              if(subno == 0)  
+  93   1              {
+  94   2                      do
+  95   2                      {
+  96   3                              temp = rand() % 255;
+  97   3                      }
+  98   2                      while(temp == 255 || temp ==  Modbus_address) ;
+  99   2              }
+ 100   1              else
+ 101   1              {
+ 102   2                      for(i = 0;i < subno;i++)
+ 103   2                      {
+ 104   3                              do
+ 105   3                              {
+ 106   4                                      temp = rand() % 255;
+ 107   4                              }
+ 108   3                              while(temp == 255 || temp ==  Modbus_address || temp == subaddr[i]);
+ 109   3                      }
+ 110   2              }
+ 111   1              return temp;
+ 112   1      }
+C51 COMPILER V9.00   SCAN                                                                  05/08/2013 16:48:49 PAGE 3   
+
+ 113          
+ 114          void Send_Scan_Cmd(U8_T max, U8_T min)
+ 115          {       
+ 116   1      
+ 117   1              U8_T buf[8];
+ 118   1              U16_T crc_val;
+ 119   1              U8_T i;
+ 120   1      
+ 121   1              sub_init_send_com();
+ 122   1              sub_init_crc16();
+ 123   1              
+ 124   1              buf[0] = 0xff;
+ 125   1              buf[1] = 0x19;
+ 126   1              buf[2] = max;
+ 127   1              buf[3] = min;
+ 128   1      
+ 129   1              crc_val = crc16(buf,4);
+ 130   1                      
+ 131   1              buf[4] = crc_val >> 8;
+ 132   1              buf[5] = (U8_T)crc_val;
+ 133   1      
+ 134   1              for(i = 0;i < 6;i++)
+ 135   1              {
+ 136   2                      sub_send_byte(buf[i],CRC_YES);
+ 137   2              }
+ 138   1      
+ 139   1              sub_rece_size = 12;
+ 140   1      //      sub_rece_size = 20;
+ 141   1      //      scan_response_state = NONE_ID;
+ 142   1              sub_serial_restart();
+ 143   1              for(i = 0;i < 12;i++)
+ 144   1                      sub_data_buffer[i] = 0; 
+ 145   1      }
+ 146          
+ 147          
+ 148          
+ 149          /* check tstat id, make sure whether add new tstat list or remove the old one form tstat list */
+ 150          void update_tstat_list(U8_T tstat_id)
+ 151          {
+ 152   1      
+ 153   1              U8_T retry = 0; // no reply, retry 3 time
+ 154   1              U8_T retry1 = 0;
+ 155   1              U8_T emptypos,loop1,loop2;
+ 156   1              bit flag_retry = 0;  // whether retry
+ 157   1              U8_T i,j; 
+ 158   1              U8_T test_register_len;
+ 159   1      
+ 160   1      
+ 161   1              U16_T crc_val = 0;
+ 162   1              bit old_tstat = 0;
+ 163   1              U16_T loop0;
+ 164   1              U8_T tempID;
+ 165   1              memset(tempaddr,'0',8);
+ 166   1              memcpy(tempaddr,sub_addr,8);
+ 167   1              temp_sub_no = sub_no;
+ 168   1              if(tstat_id <= 0 || tstat_id >= 255)  // make sure correct id   
+ 169   1                      return;
+ 170   1              
+ 171   1              if(tstat_id == Modbus_address)
+ 172   1              {// if current tstat ID is same as CM5's ID, Must change it
+ 173   2                      tempID = Get_Idle_ID(tempaddr,temp_sub_no);      // get new id  
+ 174   2                      if(tstat_id != tempID)
+C51 COMPILER V9.00   SCAN                                                                  05/08/2013 16:48:49 PAGE 4   
+
+ 175   2                      {       
+ 176   3                              assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn); 
+ 177   3                              tstat_id = tempID;      
+ 178   3                      }               
+ 179   2              }
+ 180   1      
+ 181   1              /* get new id, update tstat id list */
+ 182   1      
+ 183   1              if(temp_sub_no == 0)
+ 184   1              {/* if check tstat on line first time or no tstat in tstat list*/
+ 185   2                      /*Com_Tstat(READ_ADDRESS,tstat_id);
+ 186   2                      
+ 187   2                      if(wait_SubSerial(500))   // get reply
+ 188   2                      {
+ 189   2                              crc_val = crc16(sub_data_buffer,5);
+ 190   2      
+ 191   2                              if(crc_val == sub_data_buffer[5] * 256 + sub_data_buffer[6])
+ 192   2                              {*/
+ 193   2                                      tempaddr[0] = tstat_id;  /* add new one */
+ 194   2                                      scan_db[0].id = tstat_id;
+ 195   2                                      scan_db[0].sn = temp_scan_db.sn;
+ 196   2                                      temp_sub_no = 1;        
+ 197   2                                      
+ 198   2                      /*      }
+ 199   2                              
+ 200   2                      } */
+ 201   2              } 
+ 202   1              else
+ 203   1              {       
+ 204   2                      old_tstat = 0;
+ 205   2                      /* scan old tstat list , add or remove tstat id */
+ 206   2                      //  old_tstat 0: continue compare  1: end compare
+ 207   2                      for(loop0 = 0;loop0 < temp_sub_no && !old_tstat;loop0++)
+ 208   2                      {
+ 209   3                       /* search whether the current tstat is in old tstat list */            
+ 210   3                              if(tstat_id == tempaddr[loop0]) 
+ 211   3                              {  /* if the tstat id is in tstat list, the current id is old one,end compare   */
+ 212   4                              //      old_tstat = 1;
+ 213   4                                      if(scan_db[loop0].sn == temp_scan_db.sn)  // compare serail number, whether this one is new one
+ 214   4                                              old_tstat = 1;
+ 215   4                                      else 
+ 216   4                                      {       
+ 217   5                                              tempID = Get_Idle_ID(tempaddr,temp_sub_no);                             
+ 218   5                                              Test[44]++;
+ 219   5                                              Test[43] = temp_scan_db.sn;
+ 220   5                                              old_tstat = 1;
+ 221   5                                              if(tstat_id != tempID)
+ 222   5                                              {       
+ 223   6                                                      old_tstat = 0;
+ 224   6                                                      assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn); 
+ 225   6                                                      tstat_id = tempID;      
+ 226   6                                              }                               
+ 227   5                                      }
+ 228   4                              }
+ 229   3                      }
+ 230   2                      /* if not in list, it is a new one, add it */
+ 231   2                      if(!old_tstat && tstat_id != 0) 
+ 232   2                      {       
+ 233   3                              tempaddr[temp_sub_no] = tstat_id; /* add new one */
+ 234   3                              scan_db[temp_sub_no].id = tstat_id;
+ 235   3                              scan_db[temp_sub_no].sn = temp_scan_db.sn;
+ 236   3                              /* new tstat , increase temp_sub_no */
+C51 COMPILER V9.00   SCAN                                                                  05/08/2013 16:48:49 PAGE 5   
+
+ 237   3                              Test[45 + temp_sub_no] =  temp_scan_db.sn;
+ 238   3                              temp_sub_no++;                  
+ 239   3                      }
+ 240   2      
+ 241   2              #if 0
+              // the following code is check_on_line roution
+              
+                              retry = 0;
+                              
+                              for(loop1 = 0;loop1 < temp_sub_no && retry < 10;loop1++)
+                              {               
+                                      flag_retry = 0;
+                                                                                                                        
+                                      test_register_len = 1;
+              
+                                      Send_Test_Tstat(tempaddr[loop1],101,test_register_len);
+                              
+                                      
+                                      if(wait_SubSerial(100))   // get reply
+                                      {               
+                                                                      
+                                              crc_val = crc16(sub_data_buffer,test_register_len * 2 + 5 - 2);
+                                      
+                                              if(crc_val == sub_data_buffer[test_register_len * 2 + 5 - 2] * 256 + sub_data_buffer[test_register_len
+             - * 2 + 5 - 1])
+                                              {
+                                                      flag_retry = 0;
+                                                      retry = 0;
+                                              }
+                                              else
+                                              {
+                                                      loop1--;
+                                                      flag_retry = 1;
+                                                      retry++;
+                                              }
+                                      
+                                      }                       
+                                      else  
+                                      {
+                                              flag_retry = 1;
+                                              loop1--;
+                                              retry++;                                
+                                      }
+                                              
+                                      if(retry == 10)
+                                      {       
+                                              loop1++;
+                                              retry = 0;
+                                              emptypos = 0;
+                                              for(loop2 = 0;loop2 < temp_sub_no && emptypos == 0;loop2++)
+                                              {
+                                                      if(tempaddr[loop1] == tempaddr[loop2])  /* find the old position in address table */
+                                                      {
+                                                              emptypos = loop2; 
+                                                      }
+                                              }
+                                              for(loop2 = emptypos;loop2 < temp_sub_no;loop2++)
+                                              { /* fill the empty postion */
+                                                      tempaddr[loop2] = tempaddr[loop2 + 1];
+                                              }
+                                              tempaddr[loop2] = 0;
+                                              temp_sub_no--;
+C51 COMPILER V9.00   SCAN                                                                  05/08/2013 16:48:49 PAGE 6   
+
+                                              
+                                      }
+                              }
+                      #endif  
+ 302   2              }
+ 303   1      
+ 304   1      
+ 305   1      /* check whether there are duplicate id */
+ 306   1              
+ 307   1              sub_no = temp_sub_no;
+ 308   1              
+ 309   1              memcpy(sub_addr,tempaddr,8);
+ 310   1      }
+*** WARNING C280 IN LINE 155 OF SCAN\SCAN.C: 'emptypos': unreferenced local variable
+*** WARNING C280 IN LINE 155 OF SCAN\SCAN.C: 'loop1': unreferenced local variable
+*** WARNING C280 IN LINE 155 OF SCAN\SCAN.C: 'loop2': unreferenced local variable
+*** WARNING C280 IN LINE 157 OF SCAN\SCAN.C: 'i': unreferenced local variable
+*** WARNING C280 IN LINE 157 OF SCAN\SCAN.C: 'j': unreferenced local variable
+*** WARNING C280 IN LINE 158 OF SCAN\SCAN.C: 'test_register_len': unreferenced local variable
+ 311          
+ 312          
+ 313          
+ 314          void read_sn_for_assignment_id(U8_T address)
+ 315          {       
+ 316   1              sub_init_send_com();
+ 317   1              sub_init_crc16();
+ 318   1              sub_send_byte(address,CRC_NO);
+ 319   1              sub_send_byte(READ_VARIABLES,CRC_NO);
+ 320   1              sub_send_byte(0,CRC_NO);
+ 321   1              sub_send_byte(MODBUS_ADDRESS_PLUG_N_PLAY,CRC_NO);
+ 322   1              sub_send_byte(0,CRC_NO);
+ 323   1              sub_send_byte(1,CRC_NO);  // must be 1
+ 324   1              sub_send_byte(SubCRChi,CRC_YES);
+ 325   1              sub_send_byte(SubCRClo,CRC_YES);
+ 326   1      //      sub_rece_size = 11;
+ 327   1              sub_serial_restart();
+ 328   1      }
+ 329          
+ 330          void assignment_id_with_sn(U8_T address, U8_T new_address,unsigned long current_sn)
+ 331          {
+ 332   1      //      comm_tstat = CM5_Assign_ID;
+ 333   1              sub_init_send_com();
+ 334   1              sub_init_crc16();
+ 335   1              sub_send_byte(address,CRC_NO);
+ 336   1              sub_send_byte(WRITE_VARIABLES,CRC_NO);
+ 337   1              sub_send_byte(0,CRC_NO);
+ 338   1              sub_send_byte(MODBUS_ADDRESS_PLUG_N_PLAY,CRC_NO);
+ 339   1              sub_send_byte(0x55,CRC_NO);
+ 340   1              sub_send_byte(new_address,CRC_NO);
+ 341   1              sub_send_byte((U8_T)(current_sn >> 24),CRC_NO);
+ 342   1              sub_send_byte((U8_T)(current_sn >> 16),CRC_NO);
+ 343   1              sub_send_byte((U8_T)(current_sn >> 8),CRC_NO);
+ 344   1              sub_send_byte((U8_T)current_sn ,CRC_NO);
+ 345   1      
+ 346   1              sub_send_byte(SubCRChi,CRC_YES);
+ 347   1              sub_send_byte(SubCRClo,CRC_YES);
+ 348   1      //      sub_rece_size = 8;
+ 349   1              sub_serial_restart();
+ 350   1              
+ 351   1      }
+ 352          
+ 353          
+C51 COMPILER V9.00   SCAN                                                                  05/08/2013 16:48:49 PAGE 7   
+
+ 354          void check_on_line(void)
+ 355          {
+ 356   1              U8_T ret = 0;
+ 357   1              U8_T retry = 0; // no reply, retry 3 time
+ 358   1              U8_T retry1 = 0;
+ 359   1              U8_T emptypos,loop1,loop2;
+ 360   1              bit flag_retry = 0;  // whether retry
+ 361   1              U16_T crc_val = 0;
+ 362   1      
+ 363   1              U8_T i,j;
+ 364   1      
+ 365   1              U8_T test_register_len;
+ 366   1      
+ 367   1              memset(tempaddr,'0',8);
+ 368   1              memcpy(tempaddr,sub_addr,8);
+ 369   1              temp_sub_no = sub_no;
+ 370   1              #if 1
+ 371   1              retry = 0;
+ 372   1                      
+ 373   1              for(loop1 = 0;loop1 < temp_sub_no && retry < 10;loop1++)
+ 374   1              {               
+ 375   2                      flag_retry = 0;
+ 376   2                                                                                                        
+ 377   2                      test_register_len = 1;
+ 378   2                      Test[28] = tempaddr[loop1];
+ 379   2                      Test[27]++;     
+ 380   2              //      Test[40] = 50;
+ 381   2                      Send_Test_Tstat(tempaddr[loop1],101,test_register_len);         
+ 382   2              //      Com_Tstat(READ_ADDRESS,tempaddr[loop1]); 
+ 383   2                      ret = wait_SubSerial(10);
+ 384   2              //      Test[40] = 0;   
+ 385   2                      if(cQueueReceive( xSubRevQueue, ( void * )&sub_data_buffer, 0))
+ 386   2                      {
+ 387   3                              if(ret == 1)   // get reply
+ 388   3                              {               
+ 389   4                                              
+ 390   4                                      crc_val = crc16(sub_data_buffer,test_register_len * 2 + 5 - 2);
+ 391   4                              
+ 392   4                                      if(crc_val == sub_data_buffer[test_register_len * 2 + 5 - 2] * 256 + sub_data_buffer[test_register_len
+             - * 2 + 5 - 1])
+ 393   4                                      {        
+ 394   5                                              flag_retry = 0;
+ 395   5                                              retry = 0;
+ 396   5                                      }
+ 397   4                                      else
+ 398   4                                      {
+ 399   5                                              loop1--;
+ 400   5                                              flag_retry = 1;
+ 401   5                                              retry++;
+ 402   5                                      }                       
+ 403   4                                      
+ 404   4                              }                       
+ 405   3                              else if(ret == 0) 
+ 406   3                              {
+ 407   4                                      flag_retry = 1;
+ 408   4                                      loop1--;
+ 409   4                                      retry++;
+ 410   4                                      
+ 411   4                              }        
+ 412   3                      }       
+ 413   2                      
+ 414   2                      if(retry == 10)
+C51 COMPILER V9.00   SCAN                                                                  05/08/2013 16:48:49 PAGE 8   
+
+ 415   2                      {       
+ 416   3                              loop1++;
+ 417   3                              retry = 0;
+ 418   3      
+ 419   3                              emptypos = 0;
+ 420   3                              for(loop2 = 0;loop2 < temp_sub_no && emptypos == 0;loop2++)
+ 421   3                              {
+ 422   4                                      if(tempaddr[loop1] == tempaddr[loop2])  /* find the old position in address table */
+ 423   4                                      {
+ 424   5                                              emptypos = loop2; 
+ 425   5                                      }
+ 426   4                              }
+ 427   3                              for(loop2 = emptypos;loop2 < temp_sub_no;loop2++)
+ 428   3                              { /* fill the empty postion */
+ 429   4                                      tempaddr[loop2] = tempaddr[loop2 + 1];
+ 430   4                              }
+ 431   3                              tempaddr[loop2] = 0;
+ 432   3                              temp_sub_no--;
+ 433   3                              
+ 434   3                      }
+ 435   2                                              
+ 436   2              }
+ 437   1              #endif
+ 438   1              sub_no = temp_sub_no;
+ 439   1              
+ 440   1              memcpy(sub_addr,tempaddr,8);
+ 441   1      }
+*** WARNING C280 IN LINE 363 OF SCAN\SCAN.C: 'i': unreferenced local variable
+*** WARNING C280 IN LINE 363 OF SCAN\SCAN.C: 'j': unreferenced local variable
+ 442          
+ 443          
+ 444          
+ 445          
+ 446          char binarySearchforComDevice(unsigned char maxaddr,unsigned char minaddr) //reentrant
+ 447          {
+ 448   1              U16_T crc_val;
+ 449   1              U8_T ret;
+ 450   1              if(maxaddr > minaddr)
+ 451   1              {
+ 452   2                      Send_Scan_Cmd(maxaddr,minaddr);
+ 453   2                      ret = wait_SubSerial(10);
+ 454   2                      if(cQueueReceive( xSubRevQueue, &sub_data_buffer, 0))
+ 455   2                      {
+ 456   3                              Test[30] = sub_data_buffer[0];
+ 457   3                              Test[31] = sub_data_buffer[1];
+ 458   3                              Test[32] = sub_data_buffer[2];
+ 459   3                              Test[33] = sub_data_buffer[3];
+ 460   3                              Test[34] = sub_data_buffer[4];
+ 461   3                              Test[35] = sub_data_buffer[5];
+ 462   3                              Test[36] = sub_data_buffer[6];
+ 463   3                              Test[37] = sub_data_buffer[7];
+ 464   3                              Test[38] = sub_data_buffer[8];
+ 465   3                              Test[39] = sub_data_buffer[9];
+ 466   3                              Test[40] = sub_data_buffer[10];
+ 467   3                              Test[41] = sub_data_buffer[11];
+ 468   3                              Test[42] = sub_data_buffer[12];
+ 469   3                      //      Test[43] = sub_data_buffer[13];
+ 470   3                              if(sub_data_buffer[0] == 0xff && sub_data_buffer[1] == 0x19 )
+ 471   3                              {
+ 472   4                                      if(ret == 1)   // get reply 
+ 473   4                                      {
+ 474   5                                              crc_val = crc16(sub_data_buffer,7);
+C51 COMPILER V9.00   SCAN                                                                  05/08/2013 16:48:49 PAGE 9   
+
+ 475   5                      
+ 476   5                                              if(crc_val == sub_data_buffer[7] * 256 + sub_data_buffer[8])
+ 477   5                                              {       
+ 478   6                                                      Test[20]++;
+ 479   6                                                      //if(sub_data_buffer[9] != 0 || sub_data_buffer[10] != 0)
+ 480   6                                                      {       //      ttt[0] = 22;
+ 481   7                                                              return -2;   // continue check, many tstat is connecting
+ 482   7                                                      }       
+ 483   6                                              }
+ 484   5                                              else
+ 485   5                                              {       Test[21]++;                     
+ 486   6                                                      return -3;  
+ 487   6                                              }
+ 488   5                                      }
+ 489   4                                      else if(ret == 0)
+ 490   4                                      {
+ 491   5                                              crc_val = crc16(sub_data_buffer,7);
+ 492   5                      
+ 493   5                                              if(crc_val == sub_data_buffer[7] * 256 + sub_data_buffer[8])
+ 494   5                                              {       /* if crc is correct , unique ID */
+ 495   6                                                      /* store id and serial number to Modbus_Data.sub_addr*/ 
+ 496   6                                      //  stroe serial number for every tstat 
+ 497   6                                                      Test[22]++;
+ 498   6                                                      temp_scan_db.sn = ((unsigned long)sub_data_buffer[3] << 24) | ((unsigned long)sub_data_buffer[4] << 
+             -16) | 
+ 499   6                                                                                              ((unsigned long)sub_data_buffer[5] << 8) | sub_data_buffer[6];                                                          
+ 500   6                                                      temp_scan_db.id = sub_data_buffer[2];
+ 501   6                                                      //Modbus_Data.sub_addr[test_index++] = sub_data_buffer[2];
+ 502   6                                                      return 1;    /* if crc is correct , unique ID in this range */
+ 503   6                                              }
+ 504   5                                              else    /* if crc is error,  many tstat have same ID  */
+ 505   5                                              {
+ 506   6                                                      if(sub_data_buffer[0] == 0xff && sub_data_buffer[1] == 0x19 )
+ 507   6                                                      {
+ 508   7                                                              Test[23]++;
+ 509   7                                                              return -3;
+ 510   7                                                      }
+ 511   6                                                      Test[24]++;
+ 512   6                                              }
+ 513   5                                      }
+ 514   4                              }
+ 515   3                      }
+ 516   2              }
+ 517   1              else 
+ 518   1                      return -4;      // end whole search     
+ 519   1      
+ 520   1              return -1;
+ 521   1      }
+ 522          
+ 523          void Scan_Sub_ID(void)
+ 524          {
+ 525   1              char result;
+ 526   1              U8_T i;
+ 527   1      
+ 528   1              binsearch_Table[0].max = 254;
+ 529   1              binsearch_Table[0].min = 1; 
+ 530   1              binsearch_Table[0].valid = 1; 
+ 531   1      
+ 532   1      
+ 533   1              for(i = 0;i < 129;i++)
+ 534   1              {
+ 535   2                      if(binsearch_Table[i].valid == 0)
+C51 COMPILER V9.00   SCAN                                                                  05/08/2013 16:48:49 PAGE 10  
+
+ 536   2                      {// if the current range is invalid, the following sub range is invalid, too    
+ 537   3                              /* every range have two sub range */
+ 538   3                              if(2 * (i + 1) < 129)
+ 539   3                              {
+ 540   4                                      binsearch_Table[2 * i + 1].valid = 0;
+ 541   4                                      binsearch_Table[2 * (i + 1)].valid = 0;
+ 542   4                              }
+ 543   3                      } 
+ 544   2                      else
+ 545   2                      {
+ 546   3                              result = binarySearchforComDevice(binsearch_Table[i].max,binsearch_Table[i].min);
+ 547   3                              if(result == 1)         // unique ID in this range
+ 548   3                              {
+ 549   4                              //      Test[20]++;
+ 550   4                                      binsearch_Table[2 * i + 1].valid = 0;
+ 551   4                                      binsearch_Table[2 * (i + 1)].valid = 0;
+ 552   4                                      update_tstat_list(temp_scan_db.id);
+ 553   4                              }
+ 554   3                              else if(result == -2)           // continue check, many tstat is connecting
+ 555   3                              {
+ 556   4                              //      Test[21]++;
+ 557   4                                      binsearch_Table[2 * i + 1].valid = 1;
+ 558   4                                      binsearch_Table[2 * (i + 1)].valid = 1; 
+ 559   4                              }
+ 560   3                              else if(result == -3)   // many tstat have same ID 
+ 561   3                              {
+ 562   4                              //      Test[22]++;
+ 563   4                              //      deal_with_sameID(temp_scan_db);
+ 564   4                              }
+ 565   3                              else if(result == -4)            // end search
+ 566   3                              {
+ 567   4                              //      Test[23]++;
+ 568   4                                      binsearch_Table[2 * i + 1].valid = 0;
+ 569   4                                      binsearch_Table[2 * (i + 1)].valid = 0;
+ 570   4                              }
+ 571   3                      
+ 572   3                      }
+ 573   2              }
+ 574   1      }
+ 575          
+ 576          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   3464    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     54      65
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       3
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  8 WARNING(S),  0 ERROR(S)
