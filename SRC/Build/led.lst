@@ -1,0 +1,80 @@
+C51 COMPILER V7.50   LED                                                                   12/29/2009 13:05:32 PAGE 1   
+
+
+C51 COMPILER V7.50, COMPILATION OF MODULE LED
+OBJECT MODULE PLACED IN .\Build\led.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE LED\led.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR(..\SRC\FreeR
+                    -TOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\UART\;
+                    -..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\uIP\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\SRC\GSM\
+                    -;..\SRC\Web\) DEFINE(KEIL_AX11000) VARBANKING DEBUG PRINT(.\Build\led.lst) OBJECT(.\Build\led.obj)
+
+line level    source
+
+   1          
+   2          #include <stdio.h>
+   3          #include "reg80390.h"
+   4          #include "types.h"
+   5          
+   6          
+   7          #define         LED_LATCH       P3_7
+   8          #define         LED_CS0         P2_0
+   9          #define         LED_CS1         P2_1
+  10          
+  11          U8_T far Led_Data _at_ 0x88004;
+  12          
+  13          void DELAY_Us(U16_T loop);
+  14          
+  15          void LED_Test(void)
+  16          {
+  17   1              LED_CS0 = 1;LED_CS1 = 1;
+  18   1      //      LED_LATCH = 0;
+  19   1              while(1)
+  20   1              {
+  21   2                      LED_CS0 = 0;LED_CS1 = 1;
+  22   2                      LED_LATCH = 0;
+  23   2                      Led_Data = 0x55;                
+  24   2                      LED_LATCH = 1;
+  25   2                      DELAY_Us(100000);
+  26   2                      DELAY_Us(100000);
+  27   2                      DELAY_Us(100000);
+  28   2                      
+  29   2                      LED_CS0 = 1;LED_CS1 = 0;
+  30   2                      LED_LATCH = 0;
+  31   2                      Led_Data = 0xa0;
+  32   2                      LED_LATCH = 1;
+  33   2                      DELAY_Us(100000);
+  34   2                      DELAY_Us(100000);
+  35   2                      DELAY_Us(100000);
+  36   2              }
+  37   1      /*
+  38   1      //      LED_CS0 = 0;LED_CS1 = 1;
+  39   1      //      Led_Data = 0xaa;
+  40   1      
+  41   1              DELAY_Us(100000);
+  42   1              DELAY_Us(100000);
+  43   1              DELAY_Us(100000);
+  44   1              DELAY_Us(100000);
+  45   1              DELAY_Us(100000);*/
+  46   1      
+  47   1              
+  48   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     83    ----
+C51 COMPILER V7.50   LED                                                                   12/29/2009 13:05:32 PAGE 2   
+
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

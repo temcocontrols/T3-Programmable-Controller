@@ -1,0 +1,75 @@
+C51 COMPILER V9.00   FLASH_NAME                                                            03/04/2013 15:33:57 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE FLASH_NAME
+OBJECT MODULE PLACED IN .\Build\flash_name.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Flash\flash_name.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR(..\
+                    -SRC\FreeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\S
+                    -RC\UART\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;
+                    -..\SRC\GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management
+                    -\;..\SRC\dhcp\;..\SRC\pppoe\;..\SRC\flash;..\SRC\SNTP;..\SRC\display;..\SRC\key;..\SRC\schedule) DEFINE(KEIL_AX11000) VA
+                    -RBANKING DEBUG PRINT(.\Build\flash_name.lst) OBJECT(.\Build\flash_name.obj)
+
+line level    source
+
+   1          /***********************************
+   2          
+   3          this file is used for storing names of inputs and output
+   4          
+   5          ***********************************/
+   6          
+   7          #include "goal_flash.h"
+*** WARNING C318 IN LINE 7 OF Flash\flash_name.c: can't open file 'goal_flash.h'
+   8          #include "flash_schedule.h"
+*** ERROR C141 IN LINE 20 OF FLASH\FLASH_SCHEDULE.H: syntax error near 'U16_T'
+*** ERROR C129 IN LINE 20 OF FLASH\FLASH_SCHEDULE.H: missing ';' before 'addr'
+   9          #include "flash_name.h"
+  10          
+  11          
+  12          void Flash_Write_Name(unsigned char line,char* string)
+  13          {
+  14                  unsigned char xdata i;
+  15                  unsigned int xdata addr;
+  16          
+  17          
+  18                  addr = NAME_SIZE * line;
+  19          
+  20          
+  21                  Flash_Buffer_Read_Mass(P_NAME);
+  22          
+  23                  for(i = 0;i < NAME_SIZE;i++)
+  24                  {
+  25                          Flash_Write_Code_Buffer_Value(addr + i,string[i]);
+  26                  }
+  27          
+  28                  Flash_Buffer_Write_Mass(P_NAME);
+  29          }
+  30          
+  31          
+  32          unsigned char* Flash_Read_Name(unsigned char line)
+  33          {
+  34                  unsigned int i;
+  35                  unsigned int xdata addr;
+  36          
+  37                  addr = NAME_SIZE * line;
+  38          
+  39                  for(i = 0;i < NAME_SIZE;i++)
+  40                  {
+  41                          w_string[i] = Flash_Read(P_NAME,addr++);
+  42                                  
+  43                  }
+  44                  return w_string;
+  45                  
+  46          }
+  47                  
+C51 COMPILER V9.00   FLASH_NAME                                                            03/04/2013 15:33:57 PAGE 2   
+
+  48          
+  49          
+  50          
+  51          
+  52          
+  53          
+  54          
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  2 ERROR(S)

@@ -1,0 +1,443 @@
+C51 COMPILER V7.50   PID                                                                   02/02/2010 16:47:10 PAGE 1   
+
+
+C51 COMPILER V7.50, COMPILATION OF MODULE PID
+OBJECT MODULE PLACED IN .\Build\Pid.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Modbus\Pid.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR(..\SRC\Fr
+                    -eeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\UAR
+                    -T\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\uIP\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\SRC\G
+                    -SM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\) DEFINE(KEIL_AX11000) VARBANKING DEBUG
+                    - PRINT(.\Build\Pid.lst) OBJECT(.\Build\Pid.obj)
+
+line level    source
+
+   1          #include "T4IO.h"
+   2          
+   3          #if T4_IO
+   4          
+   5          
+   6          
+   7          #else
+              
+              #include "define.h"
+              #include "e2prom.h"
+              #include "types.h"
+              
+              #define NOCOASTING
+              unsigned char far pid[2] = {50, 50};
+              unsigned char  far universal_pid[2][6] ; 
+              unsigned char far pid_setpoint[2] = {50,50} ;
+              bit init_PID_flag = 0;
+              U16_T far  cooling_valve[2] = {0, 0} ;  //cooling valve position
+              U16_T far  heating_valve[2] = {0, 0} ;  //heating valve position    
+              signed long far iterm_sum_1sec[2] ;
+              signed int far temperature ; 
+              bit occupied;
+              
+              
+              extern unsigned char far eeprom[TOTAL_EE_PARAMETERS  - MAXEEPCONSTRANGE];
+              extern signed int  far original_setpoint ;  
+              extern U16_T far analog_input[12]; 
+              extern unsigned int far cooling_db ;
+              extern unsigned int far heating_db ;
+              
+              
+              signed long mul( signed long x1 , signed long x2 )
+              {
+                      return( x1 * x2 );
+              }
+              
+              signed long div( signed long dividend , signed long divisor )
+              {
+                      return( dividend / divisor );
+              }
+              
+              // ----------------update_pid() ---------------------
+              // service the PID and valve, control logic every second
+              // Note: cooling_pid and heating_pid are unsigned int's
+              //       to reduce rounding errors in control logic, these will be 
+              //       now stored internally as 0-1000=10 0.0%, the last digit as the 1/10'ths units
+              
+              void update_pid( void )  
+              {
+                      signed int idata temp_setpoint;
+                      signed int  temp_signed_long ; //temporary variable used in calculations 
+C51 COMPILER V7.50   PID                                                                   02/02/2010 16:47:10 PAGE 2   
+
+                      signed int  pid_error ;        //temperature error for cooling PID
+                      signed int  pterm ;            //temperature error for both PIDs        
+                      signed long iterm ;
+                      signed  int idata temp_i ;
+                      signed  int idata temp_j ;
+                      unsigned char idata n ;
+                      unsigned char idata heat_num ;
+                      unsigned char idata cool_num ;
+                  unsigned char idata i ;
+                      
+                      unsigned int temp;
+                
+                      if( init_PID_flag )        
+                      {                        
+                              for(n=0;n<6;n++)
+                              universal_pid[0][n] = 0;//clear the state value of PID1
+                              for(n=0;n<6;n++)
+                              universal_pid[1][n] = 0;//clear the state value of PID2                         
+              
+              //The following calulation is used for the PID1,the temperature pid,also called original pid
+              //Caculate how many stages totally,include the coasting stage
+              //      n = 1 + EEP_COOL_TABLE1 + EEP_HEAT_TABLE1;      
+              #ifdef NOCOASTING
+                                      n = EEP_HEAT_TABLE1 + EEP_COOL_TABLE1;
+              #else
+                                      n = 1 + EEP_HEAT_TABLE1 + EEP_COOL_TABLE1;
+              #endif
+                              //caculate the stage value for each heatinmg stage       
+                              if(EEP_HEAT_TABLE1 > 0)
+                              {
+                                      for(heat_num=0; heat_num<EEP_HEAT_TABLE1; heat_num++)
+                          universal_pid[0][heat_num] =    100 - (unsigned int)100*(EEP_HEAT_TABLE1 - heat_num)/n;
+                              }        
+                              //caculate the stage value for each cooling stage                        
+                              if(EEP_COOL_TABLE1 > 0)
+                              {   
+                                      for(cool_num=0; cool_num<EEP_COOL_TABLE1; cool_num++)
+                                      universal_pid[0][EEP_HEAT_TABLE1+cool_num] = (unsigned int)100*(EEP_COOL_TABLE1 - cool_num)/n;
+                              }
+                                      
+               
+              //The following calulation is used for the PID2,the customer sensor pid,also called universal pid
+              //Caculate how many stages totally,include the coasting stage
+              #ifdef NOCOASTING
+                                      n = EEP_HEAT_TABLE2 + EEP_COOL_TABLE2;
+              #else
+                                      n = 1 + EEP_HEAT_TABLE2 + EEP_COOL_TABLE2;
+              #endif
+                      //caculate the stage value for each heating stage       
+                              if(EEP_HEAT_TABLE2 > 0)
+                              {
+                                      for(heat_num=0; heat_num<EEP_HEAT_TABLE2; heat_num++)
+                                              universal_pid[1][heat_num] = 100 - (unsigned int)100*(EEP_HEAT_TABLE2 - heat_num)/n;
+                              }        
+                               
+                               //caculate the stage value for each cooling stage      
+                              if(EEP_COOL_TABLE2 > 0)
+                              {   
+                                      for(cool_num=0; cool_num<EEP_COOL_TABLE2; cool_num++)
+              
+                                              universal_pid[1][EEP_HEAT_TABLE2+cool_num] = (unsigned int)100*(EEP_COOL_TABLE2-cool_num)/n;                    
+                              }
+C51 COMPILER V7.50   PID                                                                   02/02/2010 16:47:10 PAGE 3   
+
+                              for(i=0; i<2; i++)// 
+                              {
+                                      iterm_sum_1sec[i] = 0;                           
+                                      n = eeprom[EEP_HEAT_ORIGINAL_TABLE - MAXEEPCONSTRANGE - (i<<1) ] + eeprom[EEP_COOL_ORIGINAL_TABLE - MAX
+             -EEPCONSTRANGE - (i<<1)];                               
+                                      if(eeprom[EEP_HEAT_ORIGINAL_TABLE - MAXEEPCONSTRANGE - (i<<1)] == 0)
+                                      pid_setpoint[i] = 100 ;//calculate the PID's value of setpoint                  
+                                      else if(eeprom[EEP_COOL_ORIGINAL_TABLE - MAXEEPCONSTRANGE - (i<<1)] == 0)
+                                      pid_setpoint[i] = 0;
+                                      else
+                                      pid_setpoint[i] = (unsigned int)(universal_pid[i][0] + universal_pid[i][eeprom[EEP_HEAT_ORIGINAL_TABLE 
+             -- MAXEEPCONSTRANGE - (i<<1)]])/2;//+eeprom[EEP_COOL_ORIGINAL_TABLE - MAXEEPCONSTRANGE - (i<<1)] - 1])/2;
+                              }                        
+                              init_PID_flag = 0;
+                      }         
+                       
+                      temp_i = original_setpoint + cooling_db;  //cooling_setpoint
+                      temp_j = original_setpoint - heating_db;  //heating_setpoint
+              
+                      if(temperature <=  temp_i && temperature >=  temp_j)//the temperature in deadband area
+                      {
+                              if (iterm_sum_1sec[0] > 10000)  // iterm greater than 10%
+                              {
+                                      pid_error = -20;                        //the temperature in deadband area ,make the iterm decrease quickly
+                              }                       
+                              else if (iterm_sum_1sec[0] > 0) //normal decay 
+                              {
+                                      if(temperature < original_setpoint - 1)
+                                              pid_error = temperature -  original_setpoint; 
+                                      else if(temperature > original_setpoint + 1)
+                                              pid_error = original_setpoint - temperature;
+                              }
+                              else if (iterm_sum_1sec[0] > -10000)
+                              {
+                                      if(temperature > original_setpoint + 1)
+                                              pid_error = temperature - original_setpoint;
+                                      else if(temperature < original_setpoint - 1)
+                                              pid_error = original_setpoint - temperature;
+                              }
+                              else //mhf:12-26-05,change the pid_error arithmetic when at coating mode to make iterm decrease and incr
+             -ease fast
+                              {
+                                      pid_error = 20;//the temperature in deadband area ,make the iterm increase quickly
+                              }
+                      }
+                        
+                      // outside of the deadbands             
+                      else if(temperature >  temp_i)
+                      {                
+                              pid_error =  temperature -  original_setpoint; 
+                      }
+                      else
+                      {
+                              pid_error =  original_setpoint - temperature;            
+                      } 
+              
+                      if(pid_error > 50)      pid_error  = 50;   //TBD we can never have pid_eror > 50, this is big. 
+               
+              
+                      if (EEP_ITERM1 > 0) // i term
+                      {
+                              //formula: I = (deltaS*iterm)/(60)
+C51 COMPILER V7.50   PID                                                                   02/02/2010 16:47:10 PAGE 4   
+
+                              if(temperature <=  temp_i && temperature >= temp_j)//the temperature in deadband area
+                                      iterm_sum_1sec[0] +=  pid_error * EEP_ITERM1/6; 
+                              else if(temperature >  temp_i)//the temperature is too high ,in the  cooling mode
+                                  iterm_sum_1sec[0] -= div(mul( pid_error, EEP_ITERM1),6); 
+                              else if(temperature < temp_j)//the teperature is too low,in heating mode
+                                      iterm_sum_1sec[0] += div(mul( pid_error, EEP_ITERM1),6);                
+                              
+                              // Divide by 500 to get the actual iterm
+                               //iterm =div( iterm_sum_1sec[0] , mul(500,eeprom[EEP_COOLING_PTERM - MAXEEPCONSTRANGE])); 
+                              iterm =div( iterm_sum_1sec[0] , 1000);  
+                      }
+                      else
+                      {
+                              iterm = 0;
+                      }
+                      // outside the deadband
+                      if(temperature > temp_i || temperature < temp_j)
+                      {        
+                              if (EEP_PTERM1 > 0 ) // p term bigger than zero 
+                              {
+                                      if(temperature >  temp_i)//the ambient temperature is high,go to cooling mode
+                                          pterm =     pid_setpoint[0] - div( mul(temperature - temp_i, 100), EEP_PTERM1 );   
+                                      else                             //the ambient temperature is slow,go to heat+ing mode
+                                              pterm = pid_setpoint[0] + div( mul(temp_j - temperature, 100), EEP_PTERM1 );
+                              }
+                              else// pterm is zero 
+                              {
+                                      pterm = pid_setpoint[0];
+                              }
+                      
+                              if( pterm > 100 )   pterm = 100;  //clip p term
+                              if( pterm < 0  )        pterm = 0; 
+                              
+                              
+                                      //clip the Iterm to avoid 'windup'
+                                              
+                              if( iterm + pterm > 100 )   //need to limit here, up to 110% of total value
+                              {       
+                                      iterm = 100 - pterm;
+                                      iterm_sum_1sec[0] = 1000 * iterm;
+                              }                               
+                              
+                              else if( iterm + pterm < 0)  //need to allow a negative value, up to -10% of total value
+                              {       
+                                      iterm = -pterm;
+                                      iterm_sum_1sec[0] = 1000 * iterm;
+                              }       
+                                      
+                              //mm[1]=iterm;
+                              temp_signed_long = pterm + iterm;
+              
+                      }
+                      else// We are in COASTING mode here.
+                      {  
+                              temp_signed_long = pid_setpoint[0];                     
+                              temp_signed_long += iterm;
+                      }
+              
+                      if( temp_signed_long < 0 )              temp_signed_long = 0;
+                      else if(temp_signed_long > 100)         temp_signed_long = 100;
+                      pid[0] = temp_signed_long; 
+              
+C51 COMPILER V7.50   PID                                                                   02/02/2010 16:47:10 PAGE 5   
+
+              //********************************************universal pid***********************************************
+             -*****************//
+              
+                      if(EEP_Input1Select == 1)// the analog iuput1 is the pid2's input
+                      {//The range of the corresponding input should be 10K thermistor or customer sensor when use the PID2
+                              if(EEP_AnalogIn1 != 4 && EEP_AnalogIn1 != 1)
+                              {
+                                      pid[1] = pid_setpoint[1];
+                                      return;
+                              }
+                              else
+                              {
+                                      temp_signed_long = analog_input[0];
+                              }
+                      }
+                      else if(EEP_Input1Select == 2)//the analog iuput2 is the pid2's input
+                      {
+                              if(EEP_AnalogIn2 != 4 && EEP_AnalogIn2 != 1)
+                              {
+                                      pid[1] =pid_setpoint[1];
+                                      return;
+                              }
+                              else
+                              {
+                                      temp_signed_long = analog_input[1];
+                              }
+                      }
+              
+                      else
+                      {
+                              pid[1] =pid_setpoint[1];
+                              return;
+                      }
+              
+              //   chelsea  delete temporarily
+              /*      if((!occupied && override_timer == OFF) || fan_speed_user == 0)
+                              temp_setpoint = (int)(EEP_UniversalNightSetpointHi << 8) + EEP_UniversalNightSetpointLo ;
+                      else
+                              temp_setpoint = (int)(EEP_UniversalSetpointHi << 8) + EEP_UniversalSetpointLo ;
+              */      
+              
+              //      temp_i = temp_setpoint + (int)(read_eeprom(EEP_UNIVERSAL_DB_LO + 1) << 8) + read_eeprom(EEP_UNIVERSAL_D
+             -B_LO);  //cooling_setpoint
+              //      temp_j = temp_setpoint - (int)(read_eeprom(EEP_UNIVERSAL_DB_HI + 1) << 8) - read_eeprom(EEP_UNIVERSAL_D
+             -B_HI);  //heating_setpoint
+              
+                      E2prom_Read_Int(EEP_UNIVERSAL_DB_LO,&temp);
+                      temp_i = temp_setpoint + temp;
+                      E2prom_Read_Int(EEP_UNIVERSAL_DB_HI,&temp);
+                      temp_j = temp_setpoint - temp;
+              
+                      if(temp_signed_long <= temp_i && temp_signed_long >= temp_j)//check if the temperature in deadband area
+                      {
+                              if (iterm_sum_1sec[1] > 10000)// iterm greater than 10%
+                              {
+                                      pid_error = -2;//the temperature in deadband area ,make the iterm decrease quickly
+                              }
+                                      
+                              else if (iterm_sum_1sec[1] > 0)//normal delay 
+                              {
+                                      if(temp_signed_long < temp_setpoint - 1)
+                                              pid_error = temp_signed_long -  temp_setpoint; 
+C51 COMPILER V7.50   PID                                                                   02/02/2010 16:47:10 PAGE 6   
+
+                                      else if(temp_signed_long > temp_setpoint + 1)
+                                              pid_error = temp_setpoint - temp_signed_long;
+                              }
+              
+                              else if (iterm_sum_1sec[1] > -10000)
+                              {
+                                      if(temp_signed_long > temp_setpoint + 1)
+                                              pid_error = temp_signed_long - temp_setpoint;
+                                      else if(temp_signed_long < temp_setpoint - 1)
+                                              pid_error = temp_setpoint - temp_signed_long;
+                              }
+              
+                              else //if(iterm_sum_1sec[0] < -10000)//mhf:12-26-05,change the pid_error arithmetic when at coating mode
+             - to make iterm decrease and increase fast
+                              {
+                                      pid_error = 2;//the temperature in deadband area ,make the iterm increase quickly
+                              }
+                      }
+              
+                       
+                      // outside of the deadbands             
+                      else if(temp_signed_long >  temp_i)
+                      {                
+                              pid_error =  temp_signed_long -  temp_setpoint; 
+                      }
+                      else
+                      {
+                              pid_error =  temp_setpoint - temp_signed_long;                   
+                      }
+              
+                       
+              
+                      if ((int)(EEP_ITERM2_HI << 8) + EEP_ITERM2_LO > 0)  // I term
+                      {
+                              //formula: I = (deltaS*iterm)/(60)
+                              if(temp_signed_long <=  temp_i && temp_signed_long >= temp_j)
+                              iterm_sum_1sec[0] +=  pid_error * ((int)(EEP_ITERM2_HI << 8) + EEP_ITERM2_LO)/6 ; 
+                              else if(temp_signed_long >  temp_i)
+                                  iterm_sum_1sec[1] -= div(mul( pid_error, (int)(EEP_ITERM2_HI << 8) + EEP_ITERM2_LO)*10,6); 
+                              else if(temp_signed_long < temp_j)
+                                      iterm_sum_1sec[1] += div(mul( pid_error, (int)(EEP_ITERM2_HI << 8) + EEP_ITERM2_LO)*10,6); 
+                              
+                              
+                               //Divide by 500 to get the actual iterm
+                              iterm = div(iterm_sum_1sec[1] , 1000) ; 
+                      }
+                      else
+                      {
+                              iterm = 0;
+                      }
+              // outside the deadband
+                      if(temp_signed_long > temp_i || temp_signed_long < temp_j)
+                      {        
+                              if ((int)(EEP_PTERM2_HI << 8) + EEP_PTERM2_LO > 0 ) // p term
+                              {
+                                      if(temp_signed_long >  temp_i)
+                                          pterm =     pid_setpoint[1] - div( mul(temp_signed_long - temp_i, 100), (int)(EEP_PTERM2_HI << 8) + EEP
+             -_PTERM2_LO);   
+                                      else
+                                              pterm = pid_setpoint[1] + div( mul(temp_j - temp_signed_long, 100), (int)(EEP_PTERM2_HI << 8) + EEP_PT
+             -ERM2_LO);
+                              }
+C51 COMPILER V7.50   PID                                                                   02/02/2010 16:47:10 PAGE 7   
+
+                              else
+                              {
+                                      pterm = pid_setpoint[1];
+                              }
+              
+                              if( pterm > 100 )   pterm = 100; //clip p term        
+                              if( pterm < 0  )  pterm = 0;    
+                      
+                      
+                              //clip the Iterm to avoid 'windup'                      
+                              if( iterm + pterm > 100 )   //need to limit here, up to 110% of total value
+                              {       
+                                      iterm = 100 - pterm;
+                                      iterm_sum_1sec[1] = 1000 * iterm;
+                              }                               
+                              
+                              else if( iterm + pterm < 0)  //need to allow a negative value, up to -10% of total value
+                              {       
+                                      iterm = -pterm;
+                                      iterm_sum_1sec[1] = 1000 * iterm;
+                              }               
+                       
+                              temp_signed_long = pterm + iterm;
+                      }
+                      else // We are in COASTING mode here.
+                      {  
+                              temp_signed_long = pid_setpoint[1];                     
+                              temp_signed_long += iterm;
+                      }
+              
+                      if( temp_signed_long < 0 )              temp_signed_long = 0;
+                      else if(temp_signed_long > 100)         temp_signed_long = 100;
+              
+                      pid[1] = temp_signed_long;  
+                                                               
+              }   //end of update_pid() -------
+              
+              
+              #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
