@@ -1,0 +1,25 @@
+//======================================================================
+// AX11000 Firmware Revision History
+// Module Name: PCA (Programmable Counter Array)
+//
+// This document describes the major changes, additions and bug fixes made 
+// to the AX11000 Firmware between released versions. 
+//======================================================================
+Version 1.0.2  (2008-09-10) 
+
+1. Fixed the CCON register accessing. When a PCA interrupt occurring,
+   saving the CCON flag by a global variable "pcaIntrFlag".
+   To check this flag to know which module is working.
+
+
+Version 1.0.1  (2007-03-23)
+
+1. Add a configuration file pca_cfg.h into PCA module.
+2. Separate the PCA driver module by module with definition.
+   The specific module function only be included when enables its definition.
+
+
+Version 1.0.0  (2006-06-23)
+
+1. Initial release
+

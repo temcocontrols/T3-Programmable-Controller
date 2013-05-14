@@ -1,0 +1,922 @@
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE SCANSUB
+OBJECT MODULE PLACED IN .\Build\scansub.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Modbus\scansub.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR(..\SR
+                    -C\FreeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC
+                    -\UART\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..
+                    -\SRC\GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;
+                    -..\SRC\dhcp\;..\SRC\pppoe\;..\SRC\flash;..\SRC\SNTP;..\SRC\display;..\SRC\key) DEFINE(KEIL_AX11000) VARBANKING DEBUG PRI
+                    -NT(.\Build\scansub.lst) OBJECT(.\Build\scansub.obj)
+
+line level    source
+
+   1          #include "main.h"
+   2          #include "serial.h"
+   3          #include "subcmd.h"
+   4          
+   5          #include <stdio.h>
+   6          #include <stdlib.h>
+   7          #include <string.h>
+   8          
+   9          typedef struct
+  10          {
+  11                  unsigned char id;
+  12                  unsigned long sn;
+  13          }SCAN_DB;
+  14          
+  15          
+  16                   
+  17          //void read_sn_for_assignment_id(unsigned char address);
+  18          void assignment_id_with_sn(unsigned char address, unsigned char new_address,unsigned long current_sn);
+  19          //void deal_with_sameID(SCAN_DB id);
+  20          
+  21          /* record every tstat on and off time, to check whether the tstat is off and have same ID */
+  22          unsigned int time_tstat_off[254];     // record off line time for every ID 
+  23          unsigned int time_tstat_on[254];                
+  24          unsigned char error_rate[254];
+  25          
+  26          SCAN_DB scan_db[8];
+  27          SCAN_DB temp_scan_db;
+  28          
+  29          
+  30          typedef struct
+  31          {
+  32                  unsigned int max;
+  33                  unsigned int min;
+  34                  unsigned char valid;
+  35          }BinSearch;
+  36          
+  37          BinSearch binsearch_Table[129];  // 129 is tested, the max time
+  38          
+  39          unsigned char test1;
+  40          unsigned char test_index = 0;
+  41          extern unsigned char  ttt[50];
+  42          // if the current search item is i, then the next search item is (2i + 1 , 2(i + 1))
+  43          void calculate_table(void)
+  44          {
+  45   1              unsigned char i;
+  46   1      
+  47   1              memset(binsearch_Table,'\0',sizeof(BinSearch) * 129);
+  48   1              memset(time_tstat_off,0,2 * 254);
+  49   1              memset(time_tstat_on,0,2 * 254);
+  50   1              memset(error_rate,0,254);
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 2   
+
+  51   1      
+  52   1              binsearch_Table[0].max = 254;
+  53   1              binsearch_Table[0].min = 1; 
+  54   1              binsearch_Table[0].valid = 1; 
+  55   1      
+  56   1      
+  57   1              for(i = 0;i<64;)
+  58   1              {
+  59   2                      binsearch_Table[2 * i + 1].max = binsearch_Table[i].max;
+  60   2                      binsearch_Table[2 * i + 1].min = (binsearch_Table[i].max + binsearch_Table[i].min) / 2;
+  61   2                      binsearch_Table[2 * i + 1].valid = 0;
+  62   2      
+  63   2      
+  64   2                      binsearch_Table[2 * (i + 1)].max = (binsearch_Table[i].max + binsearch_Table[i].min) / 2 - 1;
+  65   2                      binsearch_Table[2 * (i + 1)].min =  binsearch_Table[i].min;
+  66   2                      binsearch_Table[2 * (i + 1)].valid = 0;
+  67   2      
+  68   2                      if((binsearch_Table[2 * i + 1].max > binsearch_Table[2 * i + 1].min) && 
+  69   2                              (binsearch_Table[2 * (i + 1)].max  > binsearch_Table[2 * (i + 1)].min))
+  70   2                              i++;    
+  71   2                              
+  72   2              }
+  73   1      }
+  74          
+  75          void Com_Tstat(unsigned char  types,unsigned char addr)
+  76          {
+  77   1              unsigned char data send_buffer[8];
+  78   1              sub_init_send_com();
+  79   1              sub_init_crc16();
+  80   1      
+  81   1              switch(types)
+  82   1              {       
+  83   2                      
+  84   2                      case READ_ROOM_SETPOINT:                        
+  85   2                              send_buffer[0] = addr;
+  86   2                              send_buffer[1] = READ_VARIABLES;
+  87   2                              send_buffer[2] = 0;
+  88   2                              send_buffer[3] = TSTAT_ROOM_SETPOINT;//135;  // 174
+  89   2                              send_buffer[4] = 0;
+  90   2                              send_buffer[5] = 1;             
+  91   2                              send_string(&send_buffer,6);
+*** WARNING C206 IN LINE 91 OF MODBUS\SCANSUB.C: 'send_string': missing function-prototype
+*** ERROR C267 IN LINE 91 OF MODBUS\SCANSUB.C: 'send_string': requires ANSI-style prototype
+  92   2                              break;
+  93   2      
+  94   2                      case WRITE_ROOM_SETPOINT:
+  95   2                              send_buffer[0] = addr;
+  96   2                              send_buffer[1] = WRITE_VARIABLES;
+  97   2                              send_buffer[2] = 0;
+  98   2                              send_buffer[3] = TSTAT_ROOM_SETPOINT;//135;  // 174
+  99   2                              send_buffer[4] = 0;
+ 100   2                              send_buffer[5] = tstat_setpoint[by_tstat_index];
+*** ERROR C202 IN LINE 100 OF MODBUS\SCANSUB.C: 'by_tstat_index': undefined identifier
+ 101   2                              send_string(&send_buffer,6);
+ 102   2                              break;
+ 103   2      
+ 104   2                      case READ_HEATTING_SETPOINT:
+ 105   2                              send_buffer[0] = addr;
+ 106   2                              send_buffer[1] = READ_VARIABLES;
+ 107   2                              send_buffer[2] = 0;
+ 108   2                              send_buffer[3] = TSTAT_HEAT_SETPOINT;//136;
+ 109   2                              send_buffer[4] = 0;
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 3   
+
+ 110   2                              send_buffer[5] = 1;             
+ 111   2                              send_string(&send_buffer,6);
+ 112   2                              break;
+ 113   2      
+ 114   2                      case WRITE_HEATTING_SETPOINT:
+ 115   2                              send_buffer[0] = addr;
+ 116   2                              send_buffer[1] = WRITE_VARIABLES;       
+ 117   2                              send_buffer[2] = 0;
+ 118   2                              send_buffer[3] = TSTAT_HEAT_SETPOINT;//136;                                     
+ 119   2                              send_buffer[4] = 0;
+ 120   2                              send_buffer[5] = tstat_heat_setpoint[by_tstat_index];
+*** ERROR C202 IN LINE 120 OF MODBUS\SCANSUB.C: 'by_tstat_index': undefined identifier
+ 121   2                              send_string(&send_buffer,6);
+ 122   2                              break;
+ 123   2      
+ 124   2                      case READ_COOLING_SETPOINT:
+ 125   2                              send_buffer[0] = addr;
+ 126   2                              send_buffer[1] = READ_VARIABLES;        
+ 127   2                              send_buffer[2] = 0x01;
+ 128   2                              send_buffer[3] = 0x7c;//TSTAT_COOL_SETPOINT;//380 = 0x17c;      
+ 129   2                              send_buffer[4] = 0;
+ 130   2                              send_buffer[5] = 1;             
+ 131   2                              send_string(&send_buffer,6);
+ 132   2                              break;
+ 133   2                      case WRITE_COOLING_SETPOINT:
+ 134   2                              send_buffer[0] = addr;
+ 135   2                              send_buffer[1] = WRITE_VARIABLES;       
+ 136   2                              send_buffer[2] = 0x01;
+ 137   2                              send_buffer[3] = 0x7c;//TSTAT_COOL_SETPOINT;//380;      
+ 138   2                              send_buffer[4] = 0;
+ 139   2                              send_buffer[5] = tstat_cool_setpoint[by_tstat_index];
+*** ERROR C202 IN LINE 139 OF MODBUS\SCANSUB.C: 'by_tstat_index': undefined identifier
+ 140   2                              send_string(&send_buffer,6);
+ 141   2                              break;
+ 142   2      
+ 143   2                      case READ_TEMPERAUTE:   
+ 144   2                              send_buffer[0] = addr;
+ 145   2                              send_buffer[1] = READ_VARIABLES;        
+ 146   2                              send_buffer[2] = 0;
+ 147   2                              send_buffer[3] = TSTAT_ROOM_TEM;//101;
+ 148   2                              send_buffer[4] = 0;
+ 149   2                              send_buffer[5] = 1;
+ 150   2                              send_string(&send_buffer,6);            
+ 151   2                              break;
+ 152   2                              
+ 153   2                      case READ_MODE_OPERATION:
+ 154   2                              send_buffer[0] = addr;
+ 155   2                              send_buffer[1] = READ_VARIABLES;        
+ 156   2                              send_buffer[2] = 0;
+ 157   2                              send_buffer[3] = TSTAT_MODE;//107;
+ 158   2                              send_buffer[4] = 0;
+ 159   2                              send_buffer[5] = 1;
+ 160   2                              send_string(&send_buffer,6);            
+ 161   2                              break;
+ 162   2      
+ 163   2                      case READ_OUTPUT_STATE:
+ 164   2                              send_buffer[0] = addr;
+ 165   2                              send_buffer[1] = READ_VARIABLES;        
+ 166   2                              send_buffer[2] = 0;
+ 167   2                              send_buffer[3] = TSTAT_OUTPUT_STATE;//108;
+ 168   2                              send_buffer[4] = 0;
+ 169   2                              send_buffer[5] = 1;
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 4   
+
+ 170   2                              send_string(&send_buffer,6);            
+ 171   2                              break;
+ 172   2      
+ 173   2                      case READ_OCCUPIED_STATE:   // 184.0   read 
+ 174   2                              send_buffer[0] = addr;
+ 175   2                              send_buffer[1] = READ_VARIABLES;        
+ 176   2                              send_buffer[2] = 0;
+ 177   2                              send_buffer[3] = TSTAT_OCCUPIED;
+ 178   2                              send_buffer[4] = 0;
+ 179   2                              send_buffer[5] = 1;
+ 180   2                              send_string(&send_buffer,6);            
+ 181   2                              break;
+ 182   2                      case READ_NIGHT_HEAT_DB:
+ 183   2                              send_buffer[0] = addr;
+ 184   2                              send_buffer[1] = READ_VARIABLES;
+ 185   2                              send_buffer[2] = 0;
+ 186   2                              send_buffer[3] = TSTAT_NIGHT_HEAT_DB;//123;
+ 187   2                              send_buffer[4] = 0;
+ 188   2                              send_buffer[5] = 1;
+ 189   2                              send_string(&send_buffer,6);                            
+ 190   2                              break;
+ 191   2      
+ 192   2                      case WRITE_NIGHT_HEAT_DB:
+ 193   2                              send_buffer[0] = addr;
+ 194   2                              send_buffer[1] = WRITE_VARIABLES;
+ 195   2                              send_buffer[2] = 0;
+ 196   2                              send_buffer[3] = TSTAT_NIGHT_HEAT_DB;//123;
+ 197   2                              send_buffer[4] = 0;
+ 198   2                              send_buffer[5] = tstat_night_heat_db[by_tstat_index];
+*** ERROR C202 IN LINE 198 OF MODBUS\SCANSUB.C: 'by_tstat_index': undefined identifier
+ 199   2                              send_string(&send_buffer,6);            
+ 200   2                              break;
+ 201   2      
+ 202   2                      case READ_NIGHT_COOL_DB:
+ 203   2                              send_buffer[0] = addr;
+ 204   2                              send_buffer[1] = READ_VARIABLES;
+ 205   2                              send_buffer[2] = 0;
+ 206   2                              send_buffer[3] = TSTAT_NIGHT_COOL_DB;//124;
+ 207   2                              send_buffer[4] = 0;
+ 208   2                              send_buffer[5] = 1;
+ 209   2                              send_string(&send_buffer,6);            
+ 210   2                              break;
+ 211   2      
+ 212   2                      case WRITE_NIGHT_COOL_DB:
+ 213   2                              send_buffer[0] = addr;
+ 214   2                              send_buffer[1] = WRITE_VARIABLES;
+ 215   2                              send_buffer[2] = 0;
+ 216   2                              send_buffer[3] = TSTAT_NIGHT_COOL_DB;//124;
+ 217   2                              send_buffer[4] = 0;
+ 218   2                              send_buffer[5] = tstat_night_cool_db[by_tstat_index];
+*** ERROR C202 IN LINE 218 OF MODBUS\SCANSUB.C: 'by_tstat_index': undefined identifier
+ 219   2                              send_string(&send_buffer,6);            
+ 220   2                              break;
+ 221   2      
+ 222   2                      case READ_NIGHT_HEAT_SP:        
+ 223   2                              send_buffer[0] = addr;
+ 224   2                              send_buffer[1] = READ_VARIABLES;
+ 225   2                              send_buffer[2] = 0;
+ 226   2                              send_buffer[3] = TSTAT_NIGHT_HEAT_SP;//182;
+ 227   2                              send_buffer[4] = 0;
+ 228   2                              send_buffer[5] = 1;
+ 229   2                              send_string(&send_buffer,6);    
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 5   
+
+ 230   2                              break;
+ 231   2      
+ 232   2                      case WRITE_NIGHT_HEAT_SP:
+ 233   2                              send_buffer[0] = addr;
+ 234   2                              send_buffer[1] = WRITE_VARIABLES;
+ 235   2                              send_buffer[2] = 0;
+ 236   2                              send_buffer[3] = TSTAT_NIGHT_HEAT_SP;//182;
+ 237   2                              send_buffer[4] = 0;
+ 238   2                              send_buffer[5] = tstat_night_heat_sp[by_tstat_index];
+*** ERROR C202 IN LINE 238 OF MODBUS\SCANSUB.C: 'by_tstat_index': undefined identifier
+ 239   2                              send_string(&send_buffer,6);
+ 240   2                              break;
+ 241   2      
+ 242   2                      case READ_NIGHT_COOL_SP:
+ 243   2                              send_buffer[0] = addr;
+ 244   2                              send_buffer[1] = READ_VARIABLES;
+ 245   2                              send_buffer[2] = 0;
+ 246   2                              send_buffer[3] = TSTAT_NIGHT_COOL_SP;//183;
+ 247   2                              send_buffer[4] = 0;
+ 248   2                              send_buffer[5] = 1;
+ 249   2                              send_string(&send_buffer,6);            
+ 250   2                              break;
+ 251   2      
+ 252   2                      case WRITE_NIGHT_COOL_SP:
+ 253   2                              send_buffer[0] = addr;
+ 254   2                              send_buffer[1] = WRITE_VARIABLES;
+ 255   2                              send_buffer[2] = 0;
+ 256   2                              send_buffer[3] = TSTAT_NIGHT_COOL_SP;//183;             
+ 257   2                              send_buffer[4] = 0;
+ 258   2                              send_buffer[5] = tstat_night_cool_sp[by_tstat_index];
+*** ERROR C202 IN LINE 258 OF MODBUS\SCANSUB.C: 'by_tstat_index': undefined identifier
+ 259   2                              send_string(&send_buffer,6);            
+ 260   2                              break;
+ 261   2      
+ 262   2                      case READ_PRODUCT_MODLE:
+ 263   2                              send_buffer[0] = addr;
+ 264   2                              send_buffer[1] = READ_VARIABLES;
+ 265   2                              send_buffer[2] = 0;
+ 266   2                              send_buffer[3] = TSTAT_PRODUCT_MODEL;//7;               
+ 267   2                              send_buffer[4] = 0;
+ 268   2                              send_buffer[5] = 1;
+ 269   2                              send_string(&send_buffer,6);            
+ 270   2                              break;
+ 271   2      
+ 272   2                      case READ_OVER_RIDE:
+ 273   2                              send_buffer[0] = addr;
+ 274   2                              send_buffer[1] = READ_VARIABLES;
+ 275   2                              send_buffer[2] = 0;
+ 276   2                              send_buffer[3] = TSTAT_OVER_RIDE;//211          
+ 277   2                              send_buffer[4] = 0;
+ 278   2                              send_buffer[5] = 1;
+ 279   2                              send_string(&send_buffer,6);            
+ 280   2                              break;
+ 281   2              /* tstat_over_ride have two bytes  */
+ 282   2                      case WRITE_OVER_RIDE:
+ 283   2                              send_buffer[0] = addr;
+ 284   2                              send_buffer[1] = WRITE_VARIABLES;
+ 285   2                              send_buffer[2] = 0;
+ 286   2                              send_buffer[3] = TSTAT_OVER_RIDE;//211          
+ 287   2                              send_buffer[4] = tstat_over_ride[by_tstat_index] >> 8;
+*** ERROR C202 IN LINE 287 OF MODBUS\SCANSUB.C: 'by_tstat_index': undefined identifier
+ 288   2                              send_buffer[5] = (unsigned char)tstat_over_ride[by_tstat_index];
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 6   
+
+*** ERROR C202 IN LINE 288 OF MODBUS\SCANSUB.C: 'by_tstat_index': undefined identifier
+ 289   2                              send_string(&send_buffer,6);            
+ 290   2                              break;
+ 291   2              /*  serial number have 4 bytes */
+ 292   2                      case READ_SERIAL_NUMBER_0:
+ 293   2                              send_buffer[0] = addr;
+ 294   2                              send_buffer[1] = READ_VARIABLES;
+ 295   2                              send_buffer[2] = 0;
+ 296   2                              send_buffer[3] = TSTAT_SERIAL_NUM_0; // the start address of tstat serial number 
+ 297   2                              send_buffer[4] = 0;
+ 298   2                              send_buffer[5] = 1;  
+ 299   2                              send_string(&send_buffer,6);            
+ 300   2                              break;
+ 301   2                      case READ_SERIAL_NUMBER_1:
+ 302   2                              send_buffer[0] = addr;
+ 303   2                              send_buffer[1] = READ_VARIABLES;
+ 304   2                              send_buffer[2] = 0;
+ 305   2                              send_buffer[3] = TSTAT_SERIAL_NUM_1; // the start address of tstat serial number 
+ 306   2                              send_buffer[4] = 0;
+ 307   2                              send_buffer[5] = 1;  
+ 308   2                              send_string(&send_buffer,6);            
+ 309   2                              break;
+ 310   2                      case READ_SERIAL_NUMBER_2:
+ 311   2                              send_buffer[0] = addr;
+ 312   2                              send_buffer[1] = READ_VARIABLES;
+ 313   2                              send_buffer[2] = 0;
+ 314   2                              send_buffer[3] = TSTAT_SERIAL_NUM_2; // the start address of tstat serial number 
+ 315   2                              send_buffer[4] = 0;
+ 316   2                              send_buffer[5] = 1;  
+ 317   2                              send_string(&send_buffer,6);            
+ 318   2                              break;
+ 319   2                      case READ_SERIAL_NUMBER_3:
+ 320   2                              send_buffer[0] = addr;
+ 321   2                              send_buffer[1] = READ_VARIABLES;
+ 322   2                              send_buffer[2] = 0;
+ 323   2                              send_buffer[3] = TSTAT_SERIAL_NUM_3; // the start address of tstat serial number 
+ 324   2                              send_buffer[4] = 0;
+ 325   2                              send_buffer[5] = 1;  
+ 326   2                              send_string(&send_buffer,6);            
+ 327   2                              break;
+ 328   2                      case READ_WALL_SETPOINT:                        
+ 329   2                              send_buffer[0] = addr;
+ 330   2                              send_buffer[1] = READ_VARIABLES;
+ 331   2                              send_buffer[2] = 1;  // 341 = 1 * 256 + 0x55
+ 332   2                              send_buffer[3] = 0x55;
+ 333   2                              send_buffer[4] = 0;
+ 334   2                              send_buffer[5] = 1;
+ 335   2                              send_string(&send_buffer,6);
+ 336   2                              break;
+ 337   2      
+ 338   2                      case WRITE_WALL_SETPOINT:                       
+ 339   2                              send_buffer[0] = addr;
+ 340   2                              send_buffer[1] = WRITE_VARIABLES;
+ 341   2                              send_buffer[2] = 1;  // 341 = 1 * 256 + 0x55
+ 342   2                              send_buffer[3] = 0x55;
+ 343   2                              send_buffer[4] = 0;
+ 344   2                              send_buffer[5] = tstat_setpoint[by_tstat_index];
+*** ERROR C202 IN LINE 344 OF MODBUS\SCANSUB.C: 'by_tstat_index': undefined identifier
+ 345   2                              send_string(&send_buffer,6);
+ 346   2                              break;
+ 347   2      
+ 348   2                      case SEND_SCHEDUEL:  // write command                                           
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 7   
+
+ 349   2                              send_buffer[0] = addr;
+ 350   2                              send_buffer[1] = WRITE_VARIABLES;                       
+ 351   2                              send_buffer[2] = 0;  
+ 352   2                              send_buffer[3] = TSTAT_OCCUPIED;//184;
+ 353   2                              send_buffer[4] = 0;
+ 354   2                              send_buffer[5] = schedule_data[schedule_id];
+*** ERROR C202 IN LINE 354 OF MODBUS\SCANSUB.C: 'schedule_id': undefined identifier
+ 355   2                              send_string(&send_buffer,6);
+ 356   2                              break;
+ 357   2      
+ 358   2                      case READ_ADDRESS:  // read command                                             
+ 359   2                              send_buffer[0] = addr;
+ 360   2                              send_buffer[1] = READ_VARIABLES;
+ 361   2                              send_buffer[2] = 0;  
+ 362   2                              send_buffer[3] = TSTAT_ADDRESS;//6;
+ 363   2                              send_buffer[4] = 0;
+ 364   2                              send_buffer[5] = 1;
+ 365   2                              send_string(&send_buffer,6);
+ 366   2                              break;
+ 367   2              /*      case WRITE_ADDRESS:
+ 368   2                              send_buffer[0] = addr;
+ 369   2                              send_buffer[1] = WRITE_VARIABLES;                       
+ 370   2                              send_buffer[2] = 0;  
+ 371   2                              send_buffer[3] = TSTAT_ADDRESS;//184;
+ 372   2                              send_buffer[4] = 0;
+ 373   2                              send_buffer[5] = schedule_data[schedule_id];
+ 374   2                              send_string(&send_buffer,6);
+ 375   2                              break;
+ 376   2              */              
+ 377   2                      default:        
+ 378   2                      break;                  
+ 379   2              }
+ 380   1              if(send_buffer[1] == READ_VARIABLES)
+ 381   1                      sub_rece_size = 7;
+ 382   1              else if(send_buffer[1] == WRITE_VARIABLES)
+ 383   1                      sub_rece_size = 8;
+ 384   1              serial_sub_restart();   
+ 385   1      }
+ 386          
+ 387          
+ 388          void Send_Test_Tstat(unsigned char addr,unsigned char start,unsigned char len)
+ 389          { 
+ 390   1              unsigned char buf[8];
+ 391   1              unsigned int crc_val;
+ 392   1              unsigned char i;
+ 393   1      
+ 394   1              sub_int_send_com();
+ 395   1              sub_init_crc16();
+ 396   1              
+ 397   1              buf[0] = addr;
+ 398   1              buf[1] = 0x03;
+ 399   1              buf[2] = 0x00;
+ 400   1              buf[3] = start;
+ 401   1              buf[4] = 0x00;
+ 402   1              buf[5] = len;
+ 403   1      
+ 404   1              crc_val = crc16(buf,6);
+ 405   1                      
+ 406   1              buf[6] = crc_val >> 8;
+ 407   1              buf[7] = (unsigned char)crc_val;
+ 408   1      
+ 409   1              for(i = 0;i < 8;i++)
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 8   
+
+ 410   1              {
+ 411   2                      sub_send_byte(buf[i],CRC_YES);
+ 412   2              }
+ 413   1      
+ 414   1              sub_rece_size = 5 + len * 2;;
+ 415   1              sub_serial_restart();   
+ 416   1      }
+ 417          
+ 418          
+ 419          unsigned char Get_Idle_ID(unsigned char *subaddr,unsigned char subno)
+ 420          {
+ 421   1              unsigned char i,j;
+ 422   1              bit end = 0;
+ 423   1              if(subno == 0)  
+ 424   1              {
+ 425   2                      if(Modbus.address != 20)
+ 426   2                              return 20;
+ 427   2                      else 
+ 428   2                              return 30;
+ 429   2              }
+ 430   1              for(i = 20;i <= 254 ;i++)  /* valid address is 1 to 254 */
+ 431   1              {
+ 432   2                      end = 0;
+ 433   2                      for(j = 0;j < (subno + 1) && !end;j++)
+ 434   2                              if((i != subaddr[j]) && (i != Modbus.address))  /* Modbus_Data.address is CM5'S address */
+ 435   2                                      end = 0;
+ 436   2                              else
+ 437   2                                      end = 1;
+ 438   2                      if(j == (subno + 1))  /* find idle id   */
+ 439   2                              return i;
+ 440   2              }
+ 441   1              return 0;
+ 442   1      }
+ 443          
+ 444          void Send_Scan_Cmd(unsigned char max, unsigned char min)
+ 445          {       
+ 446   1      
+ 447   1              unsigned char buf[8];
+ 448   1              unsigned int crc_val;
+ 449   1              unsigned char i;
+ 450   1      //      comm_tstat = 1;
+ 451   1      
+ 452   1              sub_init_send_com();
+ 453   1              sub_init_crc16();
+ 454   1              
+ 455   1              buf[0] = 0xff;
+ 456   1              buf[1] = 0x19;
+ 457   1              buf[2] = max;
+ 458   1              buf[3] = min;
+ 459   1      
+ 460   1              crc_val = crc16(buf,4);
+ 461   1                      
+ 462   1              buf[4] = crc_val >> 8;
+ 463   1              buf[5] = (unsigned char)crc_val;
+ 464   1      
+ 465   1              for(i = 0;i < 6;i++)
+ 466   1              {
+ 467   2                      sub_send_byte(buf[i],CRC_YES);
+ 468   2              }
+ 469   1              sub_rece_size = 11;
+ 470   1              sub_serial_restart();
+ 471   1              for(i = 0;i < 12;i++)
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 9   
+
+ 472   1                      sub_net_buf[i] = 0;
+ 473   1      }
+ 474          
+ 475          
+ 476          extern unsigned char sub_no; // record sub_tstat's no when scanning, the max is 8
+ 477          /* check tstat id, make sure whether add new tstat list or remove the old one form tstat list */
+ 478          void update_tstat_list(unsigned char tstat_id)
+ 479          {
+ 480   1              unsigned int crc_val = 0;
+ 481   1              bit old_tstat = 0;
+ 482   1              unsigned char retry = 0; // no reply, retry 3 time
+ 483   1              unsigned char retry1 = 0;
+ 484   1              unsigned char emptypos,loop0,loop1,loop2;
+ 485   1              unsigned char i,j;
+ 486   1              unsigned char tempaddr[8];
+ 487   1              unsigned char temp_sub_no;
+ 488   1              unsigned char test_register_len;
+ 489   1              unsigned char tempID;
+ 490   1              bit flag_retry = 0;  // whether retry
+ 491   1              memset(tempaddr,'\0',8);
+ 492   1              memcpy(tempaddr,Modbus.sub_addr,8);
+ 493   1              temp_sub_no = sub_no;
+ 494   1              if(tstat_id <= 0 || tstat_id >= 255)  // make sure correct id   
+ 495   1                      return;
+ 496   1              
+ 497   1              if(tstat_id == Modbus.address)
+ 498   1              {// if current tstat ID is same as CM5's ID, Must change it
+ 499   2                      tempID = Get_Idle_ID(tempaddr,temp_sub_no);      // get new id  
+ 500   2      
+ 501   2                      if(tstat_id != tempID)
+ 502   2                      {       
+ 503   3                              assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn); //wait_SubSerial(9999);                 
+ 504   3                              assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn); //wait_SubSerial(9999);
+ 505   3                              assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn); //wait_SubSerial(9999);
+ 506   3                              assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn); //wait_SubSerial(9999);
+ 507   3                              tstat_id = tempID;      
+ 508   3                      }               
+ 509   2              }
+ 510   1      
+ 511   1              /* get new id, update tstat id list */
+ 512   1      
+ 513   1              if(temp_sub_no == 0)
+ 514   1              {/* if check tstat on line first time or no tstat in tstat list*/
+ 515   2                      Com_Tstat(READ_ADDRESS,tstat_id);
+ 516   2              //      comm_tstat = 1; 
+ 517   2                      
+ 518   2                      if(wait_SubSerial(500))   // get reply
+ 519   2                      {
+ 520   3                      //      EA = 0;         
+ 521   3                              crc_val = CRC16(sub_net_buf,5);
+ 522   3                      //      EA = 1;
+ 523   3      
+ 524   3                              if(crc_val == sub_net_buf[5] * 256 + sub_net_buf[6])
+ 525   3                              {
+ 526   4                                      tempaddr[0] = tstat_id;  /* add new one */
+ 527   4                                      scan_db[0].id = tstat_id;
+ 528   4                                      scan_db[0].sn = temp_scan_db.sn;
+ 529   4                                      temp_sub_no = 1;        
+ 530   4                                      
+ 531   4                              }
+ 532   3                              
+ 533   3                      }
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 10  
+
+ 534   2              } 
+ 535   1              else
+ 536   1              {       
+ 537   2                      old_tstat = 0;
+ 538   2                      /* scan old tstat list , add or remove tstat id */
+ 539   2                      //  old_tstat 0: continue compare  1: end compare
+ 540   2                      for(loop0 = 0;loop0 < temp_sub_no && !old_tstat;loop0++)
+ 541   2                      {
+ 542   3                      /* search whether the current tstat is in old tstat list */             
+ 543   3                              if(tstat_id == tempaddr[loop0]) 
+ 544   3                              {  /* if the tstat id is in tstat list, the current id is old one,end compare   */
+ 545   4                              //      old_tstat = 1;
+ 546   4                              #if 1
+ 547   4                                      if(scan_db[loop0].sn == temp_scan_db.sn)  // compare serail number, whether this one is new one
+ 548   4                                              old_tstat = 1;
+ 549   4                                      else 
+ 550   4                                      {                                       
+ 551   5                                              tempID = Get_Idle_ID(tempaddr,temp_sub_no);                             
+ 552   5                                              
+ 553   5                                              old_tstat = 1;
+ 554   5                                              if(tstat_id != tempID)
+ 555   5                                              {       
+ 556   6                                                      old_tstat = 0;
+ 557   6                                                      assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn); wait_SubSerial(9999);                   
+ 558   6                                                      assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn); wait_SubSerial(9999);
+ 559   6                                                      assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn); wait_SubSerial(9999);
+ 560   6                                                      assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn); wait_SubSerial(9999);
+ 561   6                                                      tstat_id = tempID;      
+ 562   6                                              }                               
+ 563   5                                      }
+ 564   4                              #endif
+ 565   4                              }
+ 566   3      
+ 567   3                      }
+ 568   2                      /* if not in list, it is a new one, add it */
+ 569   2                      if(!old_tstat && tstat_id != 0) 
+ 570   2                      {       
+ 571   3                              tempaddr[temp_sub_no] = tstat_id; /* add new one */
+ 572   3                              scan_db[temp_sub_no].id = tstat_id;
+ 573   3                              scan_db[temp_sub_no].sn = temp_scan_db.sn;
+ 574   3                              /* new tstat , increase temp_sub_no */
+ 575   3                              temp_sub_no++;
+ 576   3                              
+ 577   3                      }
+ 578   2                      retry = 0;
+ 579   2                      
+ 580   2                      for(loop1 = 0;loop1 < temp_sub_no && retry < 10;loop1++)
+ 581   2                      {               
+ 582   3                              flag_retry = 0;
+ 583   3                              /* caculate error rate,acorrding to the error rate, to identify whehter dupilicated ID */
+ 584   3                              if(time_tstat_on[tempaddr[loop1]] > 0)
+ 585   3                                      error_rate[tempaddr[loop1]] = time_tstat_off[tempaddr[loop1]] * 10 / time_tstat_on[tempaddr[loop1]];
+ 586   3                              else
+ 587   3                                      error_rate[tempaddr[loop1]] = 0;
+ 588   3                      
+ 589   3                              test_register_len = 5;
+ 590   3                              Send_Test_Tstat(tempaddr[loop1],101,test_register_len);
+ 591   3                      
+ 592   3                              if(wait_SubSerial(500))   // get reply
+ 593   3                              {                                       
+ 594   4                                      crc_val = CRC16(sub_net_buf,test_register_len * 2 + 5 - 2);
+ 595   4                              
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 11  
+
+ 596   4                                      if(crc_val == sub_net_buf[test_register_len * 2 + 5 - 2] * 256 + sub_net_buf[test_register_len * 2 + 5
+             - - 1])
+ 597   4                                      {
+ 598   5                                      //      ttt[4]++;
+ 599   5                                              flag_retry = 0;
+ 600   5                                              retry = 0;
+ 601   5                                              time_tstat_on[tempaddr[loop1]]++;
+ 602   5                                      }
+ 603   4                                      else
+ 604   4                                      {
+ 605   5                                              time_tstat_off[tempaddr[loop1]]++;
+ 606   5                                      
+ 607   5                                              loop1--;
+ 608   5                                              flag_retry = 1;
+ 609   5                                              retry++;
+ 610   5                                              
+ 611   5                                      }
+ 612   4                                      
+ 613   4                              }                       
+ 614   3                              else  
+ 615   3                              {
+ 616   4                                      time_tstat_off[tempaddr[loop1]]++;
+ 617   4                                      flag_retry = 1;
+ 618   4                                      loop1--;
+ 619   4                                      retry++;
+ 620   4                                      
+ 621   4                              }
+ 622   3                                      
+ 623   3                              #if 1
+ 624   3                              if(retry == 10)
+ 625   3                              {       
+ 626   4                                      loop1++;
+ 627   4                                      retry = 0;
+ 628   4                              //      error_rate[tempaddr[loop1]] = time_tstat_off[tempaddr[loop1]] / time_tstat_on[tempaddr[loop1]];
+ 629   4                              //      if(time_tstat_on[tempaddr[loop1]] > 10 && error_rate[tempaddr[loop1]] > 20) 
+ 630   4                                      {
+ 631   5                                              //if(old_tstat) /* no replay ,dont find this tstat */
+ 632   5                                                /* the address is old tstat, means the old one is removed */
+ 633   5                                              {
+ 634   6                                                      emptypos = 0;
+ 635   6                                                      for(loop2 = 0;loop2 < temp_sub_no && emptypos == 0;loop2++)
+ 636   6                                                      {
+ 637   7                                                              if(tempaddr[loop1] == tempaddr[loop2])  /* find the old position in address table */
+ 638   7                                                              {
+ 639   8                                                                      emptypos = loop2; 
+ 640   8                                                              }
+ 641   7                                                      }
+ 642   6                                                      for(loop2 = emptypos;loop2 < temp_sub_no;loop2++)
+ 643   6                                                      { /* fill the empty postion */
+ 644   7                                                              tempaddr[loop2] = tempaddr[loop2 + 1];
+ 645   7                                                      }
+ 646   6                                                      tempaddr[loop2] = 0;
+ 647   6                                                      temp_sub_no--;
+ 648   6                                                                              
+ 649   6                                              }
+ 650   5                                      }
+ 651   4                                      
+ 652   4                              }
+ 653   3                              #endif                                  
+ 654   3                      }       
+ 655   2              }
+ 656   1      
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 12  
+
+ 657   1      
+ 658   1      /* check whether there are duplicate id */
+ 659   1              
+ 660   1              sub_no = temp_sub_no;
+ 661   1              
+ 662   1              memcpy(Modbus_Data.sub_addr,tempaddr,8);
+ 663   1      
+ 664   1      }
+ 665          
+ 666          
+ 667          #if 1
+ 668          /*
+ 669          because of small internal ram, cant use reentrant function
+ 670          split segments step by step
+ 671          */
+ 672          char binarySearchforComDevice(unsigned char maxaddr,unsigned char minaddr) //reentrant
+ 673          {
+ 674   1              unsigned int crc_val;
+ 675   1              unsigned char ret;
+ 676   1      //      ttt[2]++;
+ 677   1              if(maxaddr > minaddr)
+ 678   1              {
+ 679   2                      Send_Scan_Cmd(maxaddr,minaddr);
+ 680   2                      ret = wait_SubSerial(500);
+ 681   2              
+ 682   2                      if(ret == 1)   // get reply 
+ 683   2                      {       
+ 684   3                      //      EA = 0;         
+ 685   3                              crc_val = CRC16(sub_net_buf,7);
+ 686   3                      //      EA = 1;
+ 687   3      
+ 688   3                              if(crc_val == sub_net_buf[7] * 256 + sub_net_buf[8])
+ 689   3                              {       
+ 690   4                                      //if(sub_net_buf[9] != 0 || sub_net_buf[10] != 0)
+ 691   4                                      {       //      ttt[0] = 22;
+ 692   5                                              return -2;   // continue check, many tstat is connecting
+ 693   5                                      }       
+ 694   4                              }
+ 695   3                              else
+ 696   3                              {
+ 697   4                                      
+ 698   4                              //      ttt[0] = 23;
+ 699   4                                      return -3;  
+ 700   4                              }
+ 701   3                      }
+ 702   2                      else if(ret == 0)
+ 703   2                      {
+ 704   3                      //      EA = 0;         
+ 705   3                              crc_val = CRC16(sub_net_buf,7);
+ 706   3                      //      EA = 1;
+ 707   3      
+ 708   3                              if(crc_val == sub_net_buf[7] * 256 + sub_net_buf[8])
+ 709   3                              {       /* if crc is correct , unique ID */
+ 710   4                                      /* store id and serial number to Modbus_Data.sub_addr*/ 
+ 711   4                      
+ 712   4                              /*      ttt[0] = sub_net_buf[3];
+ 713   4                                      ttt[1] = sub_net_buf[4];
+ 714   4                                      ttt[2] = sub_net_buf[5];
+ 715   4                                      ttt[3] = sub_net_buf[6];
+ 716   4                                      ttt[4] = sub_net_buf[2];
+ 717   4                              */      
+ 718   4                              //  stroe serial number for every tstat 
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 13  
+
+ 719   4                                      temp_scan_db.sn = ((unsigned long)sub_net_buf[3] << 24) | ((unsigned long)sub_net_buf[4] << 16) | 
+ 720   4                                                                              ((unsigned long)sub_net_buf[5] << 8) | sub_net_buf[6];                                                          
+ 721   4                                      temp_scan_db.id = sub_net_buf[2];
+ 722   4      
+ 723   4                                      //Modbus_Data.sub_addr[test_index++] = sub_net_buf[2];
+ 724   4                                      return 1;    /* if crc is correct , unique ID in this range */
+ 725   4                              }
+ 726   3                              else    /* if crc is error,  many tstat have same ID  */
+ 727   3                              {
+ 728   4                                      if(sub_net_buf[0] == 0xff && sub_net_buf[1] == 0x19 )
+ 729   4                                      {
+ 730   5                                      //      ttt[0] = 25;
+ 731   5                                              return -3;
+ 732   5                                      }
+ 733   4                              }
+ 734   3                      }
+ 735   2              }
+ 736   1              else 
+ 737   1                      return -4;      // end whole search     
+ 738   1      }
+ 739          
+ 740          void Check_Online_task(void)
+ 741          {
+ 742   1              char result;
+ 743   1              unsigned char i;
+ 744   1      
+ 745   1              binsearch_Table[0].max = 254;
+ 746   1              binsearch_Table[0].min = 1; 
+ 747   1              binsearch_Table[0].valid = 1; 
+ 748   1      
+ 749   1      
+ 750   1              for(i = 0;i < 129 /*&& binsearch_Table[i].retry < 3*/;i++)
+ 751   1              {
+ 752   2                      if(binsearch_Table[i].valid == 0)
+ 753   2                      {// if the current range is invalid, the following sub range is invalid, too    
+ 754   3                              /* every range have two sub range */
+ 755   3                              if(2 * (i + 1) < 129)
+ 756   3                              {
+ 757   4                                      binsearch_Table[2 * i + 1].valid = 0;
+ 758   4                                      binsearch_Table[2 * (i + 1)].valid = 0;
+ 759   4                              }
+ 760   3                      } 
+ 761   2                      else
+ 762   2                      {
+ 763   3                              result = binarySearchforComDevice(binsearch_Table[i].max,binsearch_Table[i].min);
+ 764   3                      //      ttt[2] = result + 10;   
+ 765   3                              switch(result)
+ 766   3                              {
+ 767   4                                      case 1: // unique ID in this range
+ 768   4                                              binsearch_Table[2 * i + 1].valid = 0;
+ 769   4                                              binsearch_Table[2 * (i + 1)].valid = 0;
+ 770   4                                              update_tstat_list(temp_scan_db.id);
+ 771   4                                              break;
+ 772   4                                      case -1: // retry
+ 773   4                                              //binsearch_Table[i].retry++;
+ 774   4                                              //ttt[3]++;
+ 775   4                                              //i--;
+ 776   4                                              break;                          
+ 777   4                                      case -2:  // continue check, many tstat is connecting
+ 778   4                                              binsearch_Table[2 * i + 1].valid = 1;
+ 779   4                                              binsearch_Table[2 * (i + 1)].valid = 1;                                 
+ 780   4                                              //ttt[1]++;
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 14  
+
+ 781   4                                              break;
+ 782   4                                      case -3:  // many tstat have same ID 
+ 783   4                                              // tbd:
+ 784   4                                              // deal_with_sameID(temp_scan_db);
+ 785   4                                              
+ 786   4                                              break;
+ 787   4                                      case -4:  // end search
+ 788   4                                              binsearch_Table[2 * i + 1].valid = 0;
+ 789   4                                              binsearch_Table[2 * (i + 1)].valid = 0;
+ 790   4                                              //ttt[2]++;
+ 791   4                                              break;
+ 792   4                              }
+ 793   3                      }
+ 794   2                      //test++;
+ 795   2              }
+ 796   1      }
+ 797          
+ 798          
+ 799          #endif
+ 800          
+ 801          void deal_with_sameID(SCAN_DB scanDB)
+ 802          {
+ 803   1              unsigned char i,j;
+ 804   1      //      read_sn_for_assignment_id(scanDB.id);
+ 805   1              
+ 806   1      //      if(wait_SubSerial(500)==1)   // get reply , add current serail no to sn table
+ 807   1              {       
+ 808   2      //              scanDB.sn = ((unsigned long)sub_net_buf[5] << 24) | ((unsigned long)sub_net_buf[6] << 16) | 
+ 809   2      //                                                                      ((unsigned long)sub_net_buf[7] << 8) | sub_net_buf[8];
+ 810   2                      // get new free address
+ 811   2                      for(i = 0;i < 254 ;i++)
+ 812   2                      {
+ 813   3                              for(j = 0;j < sub_no;j++)
+ 814   3                                      if(i != Modbus_Data.sub_addr[j])
+ 815   3                                              return; 
+ 816   3                      }
+ 817   2                      // assign id with sn
+ 818   2              
+ 819   2                              
+ 820   2                      assignment_id_with_sn(scanDB.id,i,scanDB.sn);
+ 821   2              }       
+ 822   1      }
+ 823          
+ 824          
+ 825          void read_sn_for_assignment_id(unsigned char address)
+ 826          {
+ 827   1      
+ 828   1      //      comm_tstat = 1;
+ 829   1              sub_init_send_com();
+ 830   1              sub_init_crc16();
+ 831   1              Send_Byte(address,CRC_NO);
+ 832   1              Send_Byte(READ_VARIABLES,CRC_NO);
+ 833   1              Send_Byte(0,CRC_NO);
+ 834   1              Send_Byte(MODBUS_ADDRESS_PLUG_N_PLAY,CRC_NO);
+ 835   1              Send_Byte(0,CRC_NO);
+ 836   1              Send_Byte(1,CRC_NO);  // must be 1
+ 837   1              Send_Byte(CRChi,CRC_YES);
+ 838   1              Send_Byte(CRClo,CRC_YES);
+ 839   1              sub_rece_size = 11;
+ 840   1              serial_sub_restart();
+ 841   1      }
+ 842          
+C51 COMPILER V9.00   SCANSUB                                                               01/28/2013 14:32:33 PAGE 15  
+
+ 843          void assignment_id_with_sn(unsigned char address, unsigned char new_address,unsigned long current_sn)
+ 844          {
+ 845   1      //      comm_tstat = 1;
+ 846   1              sub_init_send_com();
+ 847   1              sub_init_crc16();
+ 848   1              Send_Byte(address,CRC_NO);
+ 849   1              Send_Byte(WRITE_VARIABLES,CRC_NO);
+ 850   1              Send_Byte(0,CRC_NO);
+ 851   1              Send_Byte(MODBUS_ADDRESS_PLUG_N_PLAY,CRC_NO);
+ 852   1              Send_Byte(0x55,CRC_NO);
+ 853   1              Send_Byte(new_address,CRC_NO);
+ 854   1              Send_Byte((unsigned char)(current_sn >> 24),CRC_NO);
+ 855   1              Send_Byte((unsigned char)(current_sn >> 16),CRC_NO);
+ 856   1              Send_Byte((unsigned char)(current_sn >> 8),CRC_NO);
+ 857   1              Send_Byte((unsigned char)current_sn ,CRC_NO);
+ 858   1      
+ 859   1              Send_Byte(CRChi,CRC_YES);
+ 860   1              Send_Byte(CRClo,CRC_YES);
+ 861   1              sub_rece_size = 8;
+ 862   1              serial_sub_restart();
+ 863   1              
+ 864   1      }
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  12 ERROR(S)

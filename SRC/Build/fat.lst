@@ -1,0 +1,529 @@
+C51 COMPILER V7.50   FAT                                                                   12/12/2011 14:14:53 PAGE 1   
+
+
+C51 COMPILER V7.50, COMPILATION OF MODULE FAT
+OBJECT MODULE PLACED IN .\Build\fat.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE SD_Card\fat.c LARGE OMF2 ROM(D16M) BROWSE INCDIR(..\SRC\FreeRTOSSource\incl
+                    -ude\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\UART\;..\SRC\ETHERNE
+                    -T\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\SRC\GSM\;..\SRC\Web\
+                    -;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;..\SRC\dhcp\;..\SRC\p
+                    -ppoe\;..\SRC\MINI_262\;..\SRC\flash) DEFINE(KEIL_AX11000) VARBANKING DEBUG PRINT(.\Build\fat.lst) OBJECT(.\Build\fat.obj
+                    -)
+
+line level    source
+
+   1          #if 1
+   2          #include "mmc.h"
+   3          #include <string.h>
+   4          //#include "NC_IO.h" 
+   5          #include "sd.h"
+   6          
+   7          
+   8          #define BlockSize                       512
+   9          #define MASTER_BOOT_RECORD      0
+  10          #define VBR_ADDR                        0x1C6
+  11          
+  12          U8_T    SectorBuffer[600];
+  13          
+  14          U32_T    Fat1Address=0;            //  FAT1  ±íµÄ¾ø¶ÔÉÈÇøµØÖ·
+  15          U16_T     FatLength;
+  16          U8_T      FatNumber;
+  17          U32_T    RootDirAddress=0;       //  ¸ùÄ¿Â¼µÄ¾ø¶ÔÉÈÇøµØÖ·
+  18          U32_T    DataAddress=0;          //  Êý¾ÝÇøµÄ¾ø¶ÔÉÈÇøµØÖ·
+  19          U8_T    cluster_size;               //  ´ØµÄ´óÐ¡£¬¼´Ò»¸ö´Ø¶àÉÙ¸öÉÈÇø¡£
+  20          U16_T    sector_size;                //  ´ØµÄ´óÐ¡£¬¼´Ò»¸ö´Ø¶àÉÙ¸öÉÈÇø¡£
+  21          
+  22          
+  23          //  Ð´ÎÄ¼þ²Ù×÷
+  24          U32_T         FileNameSectorNumber;
+  25          U16_T         FileNamePageLocate;
+  26          U16_T         FileCluster;
+  27          U32_T       FileSize;
+  28          U8_T      FileAttrib;
+  29          U32_T       FileWriteSectorAdd;
+  30          
+  31          
+  32          U16_T  fat_offset;            //  ±£ÁôÉÈÇøÊýÁ¿
+  33          U16_T  cluster_offset;      //  Êý¾ÝÉÈÇøµÄµØÖ·
+  34          U16_T  volume_boot_record_addr;           //  ÏµÍ³Òýµ¼¼ÇÂ¼µÄ¾ø¶ÔÉÈÇøµØÖ·¡£
+  35          
+  36          U8_T CompareString(U8_T *str1 ,U8_T *str2 ,U16_T leng);
+  37          void  UlongToByte(U32_T ulVal  , U8_T *uVal);
+  38          
+  39          
+  40          unsigned long FirstSectorofCluster(unsigned int clusterNum)
+  41          {
+  42   1              unsigned long temp;
+  43   1              temp=clusterNum-2;
+  44   1              temp=temp*cluster_size;
+  45   1              temp=temp+DataAddress;
+  46   1              return temp;
+  47   1      }
+  48          
+  49          
+  50          
+C51 COMPILER V7.50   FAT                                                                   12/12/2011 14:14:53 PAGE 2   
+
+  51          
+  52          unsigned long ThisFatSecNum(unsigned int clusterNum)
+  53          {
+  54   1         unsigned long temp;
+  55   1         temp=clusterNum*2;
+  56   1         temp=temp/sector_size;             
+  57   1         temp=temp+Fat1Address;
+  58   1         return temp;
+  59   1      }
+  60          
+  61          
+  62          
+  63          unsigned int ThisFatEntOffset(unsigned int clusterNum)
+  64          {
+  65   1              unsigned long temp1,temp2;
+  66   1              temp1=2*clusterNum;
+  67   1              temp2=temp1/sector_size;
+  68   1              temp1=temp1-temp2*sector_size;
+  69   1              return temp1;
+  70   1      }
+  71          
+  72          
+  73          
+  74          unsigned int GetNextClusterNum(unsigned int clusterNum)
+  75          {
+  76   1              unsigned long FatSecNum,FatEntOffset;
+  77   1              
+  78   1              FatSecNum=ThisFatSecNum(clusterNum);
+  79   1              FatEntOffset=ThisFatEntOffset(clusterNum);
+  80   1              mmc_read_sector(FatSecNum,SectorBuffer);
+  81   1              
+  82   1              clusterNum=SectorBuffer[FatEntOffset+1];
+  83   1              clusterNum=clusterNum<<8;
+  84   1              clusterNum+=SectorBuffer[FatEntOffset]; 
+  85   1              return clusterNum;
+  86   1      }
+  87          
+  88          
+  89          unsigned int GetFreeCusterNum(void)
+  90          {
+  91   1              unsigned int clusterNum,i;
+  92   1              unsigned long sectorNum;
+  93   1              unsigned char j;
+  94   1              clusterNum=0;
+  95   1              sectorNum=Fat1Address;
+  96   1              while(sectorNum<FatLength+Fat1Address)
+  97   1              {
+  98   2                      
+  99   2                      mmc_read_sector(sectorNum,SectorBuffer);
+ 100   2                      for(i=0;i<sector_size;i=i+2)
+ 101   2                      {
+ 102   3                               if((SectorBuffer[i]==0)&&(SectorBuffer[i+1]==0))
+ 103   3                              {       
+ 104   4                                      SectorBuffer[i]=0xff;
+ 105   4                                      SectorBuffer[i+1]=0xff;
+ 106   4      
+ 107   4                                      //   Ð´Fat ±í
+ 108   4                                      for(j=0;j<FatNumber ;j++)
+ 109   4                                      {
+ 110   5                                              mmc_write_sector(sectorNum+j*FatLength,SectorBuffer);
+ 111   5                                      }       
+ 112   4                                      return  clusterNum; 
+C51 COMPILER V7.50   FAT                                                                   12/12/2011 14:14:53 PAGE 3   
+
+ 113   4                              }
+ 114   3                               clusterNum++;
+ 115   3                      }       
+ 116   2                      sectorNum=((2*clusterNum)/sector_size)+Fat1Address;     
+ 117   2              }
+ 118   1              
+ 119   1              return 0x0;
+ 120   1      }
+ 121          
+ 122          
+ 123          unsigned int CreateClusterLink(unsigned int currentCluster)
+ 124          {
+ 125   1              unsigned int newCluster;
+ 126   1              unsigned long  FatSecNum;
+ 127   1              unsigned int     FatEntOffset;
+ 128   1              unsigned char i;
+ 129   1      
+ 130   1              newCluster=GetFreeCusterNum();
+ 131   1      
+ 132   1              if(newCluster==0)
+ 133   1                      return 0x00;
+ 134   1              FatSecNum=ThisFatSecNum(currentCluster);
+ 135   1              FatEntOffset=ThisFatEntOffset(currentCluster);
+ 136   1              mmc_read_sector(FatSecNum, SectorBuffer);
+ 137   1              SectorBuffer[FatEntOffset]=newCluster;
+ 138   1              SectorBuffer[FatEntOffset+1]=newCluster>>8;
+ 139   1              for(i=0;i<FatNumber ;i++)
+ 140   1              {
+ 141   2                      mmc_write_sector(FatSecNum+i*FatLength,SectorBuffer);
+ 142   2              }       
+ 143   1              return newCluster;
+ 144   1      }
+ 145          
+ 146          
+ 147          
+ 148          
+ 149          U16_T fat_DBR_addr (void)
+ 150          {
+ 151   1              U16_T volume_boot_record_addr;
+ 152   1              mmc_read_sector (MASTER_BOOT_RECORD,SectorBuffer); //Read Master Boot Record    MBR
+ 153   1              if((SectorBuffer[0]==0xEB)&&(SectorBuffer[1]==0x3C)&&(SectorBuffer[2]==0x90))
+ 154   1              {
+ 155   2                      volume_boot_record_addr=0;
+ 156   2              }
+ 157   1              else
+ 158   1              {
+ 159   2                  volume_boot_record_addr = SectorBuffer[VBR_ADDR] + (SectorBuffer[VBR_ADDR+1] << 8);
+ 160   2              }
+ 161   1          return (volume_boot_record_addr);
+ 162   1      }
+ 163          
+ 164          
+ 165          //  ¶Á³öÏµÍ³ÎÄ¼þÄ¿Â¼±íµÄµØÖ·
+ 166          U16_T fat_root_dir_addr (void) 
+ 167          {
+ 168   1              U16_T FirstRootDirSecNum;
+ 169   1              mmc_read_sector (volume_boot_record_addr,SectorBuffer);
+ 170   1              FirstRootDirSecNum = ( SectorBuffer[14]+SectorBuffer[15]*256 +  SectorBuffer[16] * (SectorBuffer[22]+Sect
+             -orBuffer[23]*256));      //James@070607
+ 171   1              FirstRootDirSecNum+= volume_boot_record_addr;
+ 172   1              return(FirstRootDirSecNum);
+ 173   1      }
+C51 COMPILER V7.50   FAT                                                                   12/12/2011 14:14:53 PAGE 4   
+
+ 174          
+ 175          //  ·ÖÎöDBR Êý¾Ý
+ 176          void fat_cluster_data_store (void)
+ 177          {
+ 178   1              struct BootSec *bootp; //Zeiger auf Bootsektor Struktur
+ 179   1      
+ 180   1              volume_boot_record_addr = fat_DBR_addr ();      //¶Á¾ø¶ÔµØÖ·Êý¾Ý·ÖÎö
+ 181   1              mmc_read_sector (volume_boot_record_addr,SectorBuffer);
+ 182   1          bootp=(struct BootSec *)SectorBuffer;
+ 183   1              cluster_size = bootp->BPB_SecPerClus;            //    Ã¿¸ö´ØµÄÉÈÇøÊý¡£
+ 184   1              fat_offset = SectorBuffer[14]+SectorBuffer[15]*256 ;              //    ±£ÁôÉÈÇøÊý       //James@070607
+ 185   1              sector_size=SectorBuffer[11]+SectorBuffer[12]*256;
+ 186   1              cluster_offset = ((( SectorBuffer[11]+SectorBuffer[12]*256)* 32)/BlockSize);      
+ 187   1              RootDirAddress= fat_root_dir_addr();       // ÎÄ¼þÄ¿Â¼±íÎ»ÖÃ
+ 188   1              Fat1Address=SectorBuffer[14]+SectorBuffer[15]*256+volume_boot_record_addr;
+ 189   1              cluster_offset += RootDirAddress;      
+ 190   1              DataAddress=cluster_offset;
+ 191   1              FatNumber=SectorBuffer[16];
+ 192   1              FatLength=SectorBuffer[22]+SectorBuffer[23]*256;
+ 193   1      }
+ 194          
+ 195          
+ 196          
+ 197          void fat_load ( U16_T Cluster,          //Angabe Startcluster
+ 198                                          U32_T *Block)
+ 199          {
+ 200   1              U16_T FAT_Block_Store = 0;      
+ 201   1              U16_T a;
+ 202   1              U16_T FAT_Byte_Addresse;        
+ 203   1              U16_T FAT_Block_Addresse;
+ 204   1              for ( a = 0;;a++)
+ 205   1              {       
+ 206   2                      if (a == *Block)
+ 207   2                      {
+ 208   3                              *Block = (0x0000FFFF & Cluster);
+ 209   3                              return;
+ 210   3                      }
+ 211   2                      
+ 212   2                      if (Cluster == 0xFFFF)
+ 213   2                      {
+ 214   3                              break; // End  File
+ 215   3                      }
+ 216   2                      FAT_Byte_Addresse = (Cluster*2) % BlockSize;
+ 217   2                              
+ 218   2                      FAT_Block_Addresse = ((Cluster*2) / BlockSize) + volume_boot_record_addr + fat_offset;  
+ 219   2      
+ 220   2                      if (FAT_Block_Addresse != FAT_Block_Store)
+ 221   2                      {
+ 222   3                              FAT_Block_Store = FAT_Block_Addresse;
+ 223   3      
+ 224   3                              mmc_read_sector (FAT_Block_Addresse,SectorBuffer);      
+ 225   3                      }
+ 226   2      
+ 227   2                      Cluster = (SectorBuffer[FAT_Byte_Addresse + 1] << 8) +  SectorBuffer[FAT_Byte_Addresse];                
+ 228   2              }
+ 229   1              return;
+ 230   1      }
+ 231          
+ 232          
+ 233          
+ 234          U16_T fat_read_dir_ent (U16_T dir_cluster,      U8_T * filename, U32_T *Size,   U8_T *Dir_Attrib)  
+ 235          {
+C51 COMPILER V7.50   FAT                                                                   12/12/2011 14:14:53 PAGE 5   
+
+ 236   1              U32_T xdata Block = 0;
+ 237   1              U32_T xdata blk ;
+ 238   1              U16_T a ;
+ 239   1              struct DirEntry *dir; 
+ 240   1              if (dir_cluster == 0)
+ 241   1              {
+ 242   2                      Block = fat_root_dir_addr();
+ 243   2              }
+ 244   1              else
+ 245   1              {
+ 246   2                      fat_load (dir_cluster,&Block);                   
+ 247   2                      Block = ((Block-2) * cluster_size) + cluster_offset;
+ 248   2              }
+ 249   1              for ( blk = Block;blk<Block+32;blk++)
+ 250   1              {
+ 251   2                      mmc_read_sector (blk,SectorBuffer);     
+ 252   2                      for ( a=0;a<BlockSize; a = a + 32)
+ 253   2                      {
+ 254   3                               dir=(struct DirEntry *)&SectorBuffer[a]; 
+ 255   3                       
+ 256   3                              if (dir->DIR_Name[0] == 0) 
+ 257   3                              {
+ 258   4                                      return (0xFFFF);
+ 259   4                              }
+ 260   3                              if ((dir->DIR_Attr != ATTR_LONG_NAME) && (dir->DIR_Name[0] != DIR_ENTRY_IS_FREE)) 
+ 261   3                              {
+ 262   4                                      if(CompareString(dir->DIR_Name,filename,11))
+ 263   4                                      {
+ 264   5                                              *Dir_Attrib = dir->DIR_Attr;
+ 265   5                                              *Size=SectorBuffer[a+28]+SectorBuffer[a+29]*256+(U32_T)SectorBuffer[a+30]*65536+(U32_T)SectorBuffer[a
+             -+31]*16777216;
+ 266   5                                              dir_cluster = SectorBuffer[a+26]+SectorBuffer[a+27]*256;           //James@070607
+ 267   5                                              return(dir_cluster);
+ 268   5                                      }
+ 269   4                              }
+ 270   3                      }
+ 271   2              }
+ 272   1              return (0xFFFF); 
+ 273   1      }
+ 274          
+ 275          
+ 276          
+ 277          
+ 278          
+ 279          U16_T    xdata  gcluster ;
+ 280          U8_T xdata   gpage ;
+ 281          U16_T   xdata   glocate ;
+ 282          
+ 283          U8_T  fat_read_file(U16_T Cluster, U32_T  offset, U16_T  length)
+ 284          {
+ 285   1              U32_T  Block;
+ 286   1              U16_T     i;
+ 287   1      
+ 288   1              gcluster=(offset/512)/cluster_size;
+ 289   1              gpage=(offset%(512*cluster_size))/512;
+ 290   1              glocate=(offset%(512*cluster_size))%512;
+ 291   1              if(length>(512-glocate))
+ 292   1                      length=(512-glocate     );
+ 293   1              for(i=0;i<gcluster;i++)
+ 294   1              {
+ 295   2                      Cluster=GetNextClusterNum(Cluster);
+ 296   2              }
+C51 COMPILER V7.50   FAT                                                                   12/12/2011 14:14:53 PAGE 6   
+
+ 297   1              Block=FirstSectorofCluster(Cluster);
+ 298   1              Block=Block+gpage;
+ 299   1              mmc_read_sector (Block,SectorBuffer);   
+ 300   1              if(glocate)
+ 301   1              {
+ 302   2                      for(i=0;i<length;i++)
+ 303   2                      {
+ 304   3                              SectorBuffer[i]=SectorBuffer[i+glocate];
+ 305   3                      }
+ 306   2              }
+ 307   1              return 1;
+ 308   1      }
+ 309          
+ 310          
+ 311          U16_T   fat_Next_lock(U16_T Cluster, U32_T  offset)
+ 312          {
+ 313   1              U16_T     i;
+ 314   1              U16_T     oldcluster;
+ 315   1      
+ 316   1              gcluster=(offset/512)/cluster_size;
+ 317   1              gpage=(offset%(512*cluster_size))/512;
+ 318   1              glocate=(offset%(512*cluster_size))%512;
+ 319   1              if(offset==0)
+ 320   1              {
+ 321   2                      FileWriteSectorAdd=FirstSectorofCluster(Cluster);
+ 322   2                      return  Cluster;
+ 323   2              }
+ 324   1              for(i=0;i<gcluster;i++)
+ 325   1              {
+ 326   2                      oldcluster=Cluster;
+ 327   2                      Cluster=GetNextClusterNum(Cluster);
+ 328   2              }
+ 329   1              if(gpage==0)
+ 330   1              {  //  Òª²éÕÒÐÂµÄ´Ø
+ 331   2                      FileCluster=CreateClusterLink(oldcluster);
+ 332   2                      if(FileCluster==0)
+ 333   2                      {  
+ 334   3                              //  Ã»ÓÐ´Ø¿ÉÒÔ·ÖÅä
+ 335   3                              return 0;
+ 336   3                      }
+ 337   2                      FileWriteSectorAdd=FirstSectorofCluster(FileCluster);
+ 338   2              }
+ 339   1              else
+ 340   1              {
+ 341   2                      FileWriteSectorAdd=FirstSectorofCluster(FileCluster);
+ 342   2                      FileWriteSectorAdd=FileWriteSectorAdd+gpage ;
+ 343   2              }
+ 344   1              return FileCluster;
+ 345   1      }
+ 346          
+ 347          
+ 348          
+ 349          
+ 350          U8_T fat_search_file (U8_T *File_Name,U16_T *Cluster,   U32_T *Size, U8_T *Dir_Attrib)
+ 351          {
+ 352   1              U16_T Dir_Cluster_Store = *Cluster;
+ 353   1      
+ 354   1              *Cluster = fat_read_dir_ent(Dir_Cluster_Store,File_Name,Size,Dir_Attrib);
+ 355   1              if (*Cluster == 0xffff)
+ 356   1              {
+ 357   2                      return 0; //File not Found
+ 358   2              }
+C51 COMPILER V7.50   FAT                                                                   12/12/2011 14:14:53 PAGE 7   
+
+ 359   1              return 1; //File Found
+ 360   1      }
+ 361          
+ 362          
+ 363          U8_T   fat_write_file_lock(U8_T   * file_name)
+ 364          {
+ 365   1              U32_T xdata Block = 0;
+ 366   1              U32_T xdata blk ;
+ 367   1              U16_T a ;
+ 368   1              struct DirEntry *dir; 
+ 369   1              Block = fat_root_dir_addr();
+ 370   1              for ( blk = Block;blk<Block+32;blk++)
+ 371   1              {
+ 372   2                      mmc_read_sector (blk,SectorBuffer);     
+ 373   2                      for ( a=0;a<BlockSize; a = a + 32)
+ 374   2                      {
+ 375   3                               dir=(struct DirEntry *)&SectorBuffer[a]; 
+ 376   3                       
+ 377   3                              if (dir->DIR_Name[0] == 0) 
+ 378   3                              {  
+ 379   4                                      FileNameSectorNumber=   blk;    
+ 380   4                                      FileNamePageLocate=a;
+ 381   4                                      FileSize=0;
+ 382   4                                      FileAttrib=0x20;  //  Ä¿Â¼ÊôÐÔ
+ 383   4                                      FileCluster=GetFreeCusterNum();
+ 384   4                                      if(FileCluster==0)
+ 385   4                                      {  
+ 386   5                                              return 0;
+ 387   5                                      }
+ 388   4                                      FileWriteSectorAdd=FirstSectorofCluster(FileCluster);
+ 389   4                                      mmc_read_sector (FileNameSectorNumber,SectorBuffer);        //  ¶Á³ö¸ùÄ¿Â¼Êý¾Ý£¬Ó¦ÎªSectorBufferÖÐÊý¾ÝÒÑ¾
+             -­¸Ä±äÁË
+ 390   4                                      SectorBuffer[a]=file_name[0];
+ 391   4                                      SectorBuffer[a+1]=file_name[1];
+ 392   4                                      SectorBuffer[a+2]=file_name[2];
+ 393   4                                      SectorBuffer[a+3]=file_name[3];
+ 394   4                                      SectorBuffer[a+4]=file_name[4];
+ 395   4                                      SectorBuffer[a+5]=file_name[5];
+ 396   4                                      SectorBuffer[a+6]=file_name[6];
+ 397   4                                      SectorBuffer[a+7]=file_name[7];
+ 398   4                                      SectorBuffer[a+8]=file_name[8];
+ 399   4                                      SectorBuffer[a+9]=file_name[9];
+ 400   4                                      SectorBuffer[a+10]=file_name[10];
+ 401   4                                      SectorBuffer[a+11]=0x20;  //  Ä¿Â¼ÊôÐÔ
+ 402   4                                      SectorBuffer[a+26]=FileCluster;  //  
+ 403   4                                      SectorBuffer[a+27]=FileCluster/256;  //  
+ 404   4                                      SectorBuffer[a+28]=0x00;  //  
+ 405   4                                      SectorBuffer[a+29]=0x00;  //  
+ 406   4                                      SectorBuffer[a+30]=0x00;  //  
+ 407   4                                      SectorBuffer[a+31]=0x00;  //  
+ 408   4                                      mmc_write_sector (FileNameSectorNumber,SectorBuffer);       
+ 409   4                                      return (2);
+ 410   4                              }
+ 411   3                              
+ 412   3                              if ((dir->DIR_Attr != ATTR_LONG_NAME) && (dir->DIR_Name[0] != DIR_ENTRY_IS_FREE)) 
+ 413   3                              {
+ 414   4                                      if(CompareString(dir->DIR_Name,file_name,11))
+ 415   4                                      {
+ 416   5                                              FileAttrib = dir->DIR_Attr;
+ 417   5                                              FileSize=SectorBuffer[a+28]+SectorBuffer[a+29]*256+(U32_T)SectorBuffer[a+30]*65536+(U32_T)SectorBuffe
+             -r[a+31]*16777216;
+ 418   5                                              FileCluster = SectorBuffer[a+26]+SectorBuffer[a+27]*256;           //James@070607
+C51 COMPILER V7.50   FAT                                                                   12/12/2011 14:14:53 PAGE 8   
+
+ 419   5                                              FileNameSectorNumber=   blk;    
+ 420   5                                              FileNamePageLocate=a;
+ 421   5                                              fat_Next_lock(FileCluster,FileSize);                                    
+ 422   5                                              return(1);
+ 423   5                                      }
+ 424   4                              }
+ 425   3                      }
+ 426   2              }
+ 427   1              return (0); 
+ 428   1      }
+ 429          
+ 430          
+ 431          
+ 432          void    fat_write_file(void)
+ 433          {
+ 434   1              mmc_write_sector (FileWriteSectorAdd,SectorBuffer);         
+ 435   1              FileSize=FileSize+512;
+ 436   1              mmc_read_sector (FileNameSectorNumber,SectorBuffer);        //  ¶Á³ö¸ùÄ¿Â¼Êý¾Ý£¬ÒòÎªSectorBufferÖÐÊý¾ÝÒÑ¾­¸Ä
+             -±äÁË
+ 437   1              UlongToByte(FileSize, &SectorBuffer[FileNamePageLocate+28]);
+ 438   1              mmc_write_sector (FileNameSectorNumber,SectorBuffer);       
+ 439   1      }
+ 440          
+ 441          
+ 442          
+ 443          U8_T CompareString(U8_T *str1 ,U8_T *str2 ,U16_T leng)
+ 444          {
+ 445   1              U16_T   i;
+ 446   1              for(i=0;i<leng;i++)
+ 447   1              {
+ 448   2                      if(str1[i]!=str2[i])
+ 449   2                      {
+ 450   3                              return 0;
+ 451   3                      }
+ 452   2              }
+ 453   1              return 1;
+ 454   1      }
+ 455          
+ 456          
+ 457          
+ 458          void  UlongToByte(U32_T ulVal  , U8_T *uVal)
+ 459          {
+ 460   1              U8_T temp;
+ 461   1              uVal[0]=ulVal%256;
+ 462   1              temp=ulVal%256;
+ 463   1              ulVal=ulVal/256;
+ 464   1              uVal[1]=ulVal%256;
+ 465   1              temp=ulVal%256;
+ 466   1              ulVal=ulVal/256;
+ 467   1              uVal[2]=ulVal%256;
+ 468   1              temp=ulVal%256;
+ 469   1              ulVal=ulVal/256;
+ 470   1              uVal[3]=ulVal%256;
+ 471   1              temp=ulVal%256;
+ 472   1      
+ 473   1      }
+ 474          
+ 475          
+ 476          #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+C51 COMPILER V7.50   FAT                                                                   12/12/2011 14:14:53 PAGE 9   
+
+   CODE SIZE        =   5463    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    646     150
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

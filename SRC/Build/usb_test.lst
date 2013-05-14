@@ -1,0 +1,448 @@
+C51 COMPILER V7.50   USB_TEST                                                              12/29/2009 13:05:32 PAGE 1   
+
+
+C51 COMPILER V7.50, COMPILATION OF MODULE USB_TEST
+OBJECT MODULE PLACED IN .\Build\usb_test.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE usb\usb_test.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR(..\SRC\
+                    -FreeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\U
+                    -ART\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\uIP\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\SRC
+                    -\GSM\;..\SRC\Web\) DEFINE(KEIL_AX11000) VARBANKING DEBUG PRINT(.\Build\usb_test.lst) OBJECT(.\Build\usb_test.obj)
+
+line level    source
+
+   1          /*================================================================================
+   2           * Module Name : usb_test.c
+   3           * Purpose     :
+   4           * Author      : Chelsea Liu
+   5           * Date        : 2009-6-5
+   6           * Notes       :
+   7           * 
+   8           *
+   9           *================================================================================
+  10           */
+  11          #include <stdio.h>
+  12          #include "CH375INC.H"
+  13          #include "reg80390.h"
+  14          #include "types.h"
+  15          
+  16          #define  UINT8     unsigned char
+  17          #define  UINT16    unsigned short
+  18          #define  UINT32    unsigned long
+  19          #define  UINT32X   unsigned long xdata
+  20          #define  UINT8X    unsigned char xdata
+  21          #define  UINT8VX   unsigned char volatile xdata
+  22          #define  UINT8VF   unsigned char volatile far
+  23          
+  24          UINT8VF    CH375_CMD_PORT _at_ 0X88001;  
+  25          UINT8VF    CH375_DAT_PORT _at_ 0X88000; 
+  26          #define    CH375_INT_WIRE               P2_7     // for test
+  27          UINT8VF     DISK_BUFFER[512 * 64] ;
+  28          
+  29          UINT32  DiskStart;    /* start sector of logic disk                     LBA */
+  30          UINT32  SecPerClus;   /* how many clusters per sector           [13] */
+  31          UINT8   RsvdSecCnt;   /* reserved sector                                        [14] */
+  32          UINT16  FATSz;
+  33          UINT32  BytesPesSec;    // how many bytes per sector                                            [11]   512
+  34          UINT16  NumFAT;                 // the num of FAT                                                                       [16]
+  35          UINT32  RootClus;      // the first cluster NO of the root directory      [44]  
+  36          UINT32  TotalClus;
+  37          UINT8   FlagFAT = 0;
+  38          UINT8   FlagReadEnd = 0;
+  39          bit flag_out = 0;
+  40          
+  41          
+  42          void DELAY_Us(UINT16 loop);
+  43          //void //Lcd_Show_String(char pos_x,char pos_y,char* str,unsigned char mode,unsigned char length);
+  44          //U8_T IntFlashReadByte(U32_T location/*, U8_T *value*/);
+  45          
+  46          
+  47          void  mDelaymS( UINT8 delay ) {
+  48   1        UINT8  i, j, c;
+  49   1        for ( i = delay; i != 0; i -- ) {
+  50   2          for ( j = 200; j != 0; j -- ) c += 3;
+  51   2          for ( j = 200; j != 0; j -- ) c += 3;
+  52   2        }
+C51 COMPILER V7.50   USB_TEST                                                              12/29/2009 13:05:32 PAGE 2   
+
+  53   1      }
+  54          
+  55          
+  56          /*
+  57           *--------------------------------------------------------------------------------
+  58           * void CH375_WR_CMD_PORT( UINT8 cmd )
+  59           * Purpose : write one command
+  60           * Params  : cmd - the command you want to write
+  61           * Returns : none
+  62           * Note    :
+  63           *--------------------------------------------------------------------------------
+  64           */
+  65          void CH375_WR_CMD_PORT( UINT8 cmd ) 
+  66          { 
+  67   1              CH375_CMD_PORT = cmd;
+  68   1              DELAY_Us(10);
+  69   1      }
+  70          
+  71          /*
+  72           *--------------------------------------------------------------------------------
+  73           * void CH375_WR_DAT_PORT( UINT8 dat )
+  74           * Purpose : write one data
+  75           * Params  : dat - the data you want to write
+  76           * Returns : none
+  77           * Note    :
+  78           *--------------------------------------------------------------------------------
+  79           */
+  80          void CH375_WR_DAT_PORT( UINT8 dat ) { 
+  81   1        CH375_DAT_PORT=dat;        
+  82   1        DELAY_Us(10);
+  83   1      }
+  84          
+  85          /*
+  86           *--------------------------------------------------------------------------------
+  87           * UINT8 CH375_RD_DAT_PORT( void )
+  88           * Purpose : read a data from port
+  89           * Params  : none
+  90           * Returns : return the data of port
+  91           * Note    :
+  92           *--------------------------------------------------------------------------------
+  93           */
+  94          UINT8 CH375_RD_DAT_PORT( void ) {   
+  95   1              DELAY_Us(12);
+  96   1        return( CH375_DAT_PORT );    
+  97   1      
+  98   1      }
+  99          
+ 100          /*
+ 101           *--------------------------------------------------------------------------------
+ 102           * UINT8   mWaitInterrupt( void )
+ 103           * Purpose : enter interrupt and return the status
+ 104           * Params  : none
+ 105           * Returns : return the status
+ 106           * Note    :
+ 107           *--------------------------------------------------------------------------------
+ 108           */
+ 109          UINT8 mWaitInterrupt( void ) {  
+ 110   1      /* query the CH375_INT_WIRE, if this port is pulled down, indicate an interrupt event */
+ 111   1        while( CH375_INT_WIRE );
+ 112   1        CH375_WR_CMD_PORT( CMD_GET_STATUS ); 
+ 113   1        return( CH375_RD_DAT_PORT( ) );
+ 114   1      }
+C51 COMPILER V7.50   USB_TEST                                                              12/29/2009 13:05:32 PAGE 3   
+
+ 115          
+ 116          /*
+ 117           *--------------------------------------------------------------------------------
+ 118           * UINT8  mInitDisk( void )  
+ 119           * Purpose : initial disk
+ 120           * Params  : 
+ 121           * Returns : if success ,return CH_OK, else return CH_ERROR 
+ 122           * Note    : some roution are from the fat.obj file which suppiled by the usb vendor
+ 123           *--------------------------------------------------------------------------------
+ 124           */
+ 125          UINT8  mInitDisk( void ) {  
+ 126   1        UINT8 Status;
+ 127   1        CH375_WR_CMD_PORT( CMD_GET_STATUS );  /* get status */
+ 128   1        Status = CH375_RD_DAT_PORT( );
+ 129   1        if ( Status == USB_INT_DISCONNECT ) return( Status );  /* USB device disconnect */
+ 130   1        CH375_WR_CMD_PORT( CMD_DISK_INIT );  /* intial disk */
+ 131   1        Status = mWaitInterrupt( );  /* wait interrupt and get status*/
+ 132   1        if ( Status != USB_INT_SUCCESS ) return( Status );   /* fail */
+ 133   1        CH375_WR_CMD_PORT( CMD_DISK_SIZE );   /* get the disk size */
+ 134   1        Status = mWaitInterrupt( );   /* wait interrupt and get status*/
+ 135   1        if( Status != USB_INT_SUCCESS ) {  /* try again if error */
+ 136   2      /* if fail, do CMD_DISK_R_SENSE */
+ 137   2              CH375_WR_CMD_PORT( CMD_DISK_R_SENSE );
+ 138   2          mDelaymS( 250 );
+ 139   2          CH375_WR_CMD_PORT( CMD_DISK_SIZE );  /* get the disk size */
+ 140   2          Status = mWaitInterrupt( );  /* wait interrupt and get status*/
+ 141   2        }
+ 142   1        if ( Status != USB_INT_SUCCESS ) return( Status );  /* fail */
+ 143   1        return( 0 );  /* success */
+ 144   1      }
+ 145          
+ 146          
+ 147          /*
+ 148           *--------------------------------------------------------------------------------
+ 149           * UINT8  mReadSector( UINT32 iLbaStart, UINT8 iSectorCount, UINT8X *oDataBuffer ) 
+ 150           * Purpose : read datas of many sectors and store them to the buffer
+ 151           * Params  : iLbaStart - start sector
+ 152           *                   iSectorCount - sector num you want to read
+ 153           *                       mBufferPoint - buffer for storing datas from sectos     
+ 154           * Returns : if success ,return 0, else return CH_ERROR 
+ 155           * Note    : some roution are from the fat.obj file which suppiled by the usb vendor
+ 156           *--------------------------------------------------------------------------------
+ 157           */
+ 158          UINT8  mReadSector( UINT32 iLbaStart, UINT8 iSectorCount, UINT8VF *oDataBuffer ) 
+ 159          {
+ 160   1        UINT16  mBlockCount;
+ 161   1        UINT8  c;
+ 162   1      
+ 163   1      // DISK_READ  0x54 5 parameters 
+ 164   1       /* read data block form usb memory */
+ 165   1        CH375_WR_CMD_PORT( CMD_DISK_READ );  /* 0x54*/
+ 166   1        CH375_WR_DAT_PORT( (UINT8)iLbaStart );   /* start address*/
+ 167   1        CH375_WR_DAT_PORT( (UINT8)( iLbaStart >> 8 ) );
+ 168   1        CH375_WR_DAT_PORT( (UINT8)( iLbaStart >> 16 ) );
+ 169   1        CH375_WR_DAT_PORT( (UINT8)( iLbaStart >> 24 ) ); 
+ 170   1        CH375_WR_DAT_PORT( iSectorCount );  
+ 171   1      
+ 172   1       // mBlockCount     8 = 512 / 64     
+ 173   1      // 512 byte numbers per sectors   64  data block length 
+ 174   1      // printf("enter read\r\n");
+ 175   1      // printf("mBlockCount = %d\r\n",(int) iSectorCount * 8);
+ 176   1        for ( mBlockCount = iSectorCount * 8; mBlockCount != 0; mBlockCount -- )
+C51 COMPILER V7.50   USB_TEST                                                              12/29/2009 13:05:32 PAGE 4   
+
+ 177   1       {
+ 178   2      
+ 179   2          c = mWaitInterrupt( );  
+ 180   2              
+ 181   2          if ( c == USB_INT_DISK_READ ) {  
+ 182   3      
+ 183   3            CH375_WR_CMD_PORT( CMD_RD_USB_DATA );  
+ 184   3            c = CH375_RD_DAT_PORT( );  /* get the lenght of remainder datas*/
+ 185   3                while ( c -- ) *oDataBuffer++ = CH375_RD_DAT_PORT( );
+ 186   3            CH375_WR_CMD_PORT( CMD_DISK_RD_GO );  /* continue read */
+ 187   3            
+ 188   3          }
+ 189   2          else 
+ 190   2              {
+ 191   3      //      printf("c = %d,mBlockCount = %d\r\n",(int)c,(int)mBlockCount);
+ 192   3              break;  /*return error  */
+ 193   3              }
+ 194   2              
+ 195   2        }
+ 196   1      
+ 197   1      
+ 198   1        if ( mBlockCount == 0 ) {
+ 199   2          c = mWaitInterrupt( );  /* wait interrupt and return status */
+ 200   2      //      printf("c = %d,\r\n",(int)c);
+ 201   2          if ( c== USB_INT_SUCCESS ) return( 0 );  /* success */
+ 202   2        }
+ 203   1        return( c );  /* fail */
+ 204   1      }
+ 205          
+ 206          
+ 207          /*
+ 208           *--------------------------------------------------------------------------------
+ 209           * UINT16  mGetPointWord( UINT8X *iAddr )
+ 210           * Purpose : transform the data to match the mcu
+ 211           * Params  :
+ 212           * Returns : 
+ 213           * Note    : because the mcu is big-end format, need to transform it
+ 214           *--------------------------------------------------------------------------------
+ 215           */
+ 216          UINT16  mGetPointWord( UINT8VF *iAddr ) { 
+ 217   1        return( iAddr[0] | (UINT16)iAddr[1] << 8 );
+ 218   1      }
+ 219          
+ 220          
+ 221          /*
+ 222           *--------------------------------------------------------------------------------
+ 223           * UINT8  mIdenDisk( void )
+ 224           * Purpose : identify the current logic disk
+ 225           * Params  :
+ 226           * Returns : success, return 0, or return error code.
+ 227           * Note    : the following analyse is very simple, maybe it is not perfect , 
+ 228           *                       if you are familiar with the fat system, you will be clear about it 
+ 229           *--------------------------------------------------------------------------------
+ 230           */
+ 231          UINT8  mIdenDisk( void ) {  
+ 232   1        UINT8  Status;
+ 233   1        DiskStart = 0;        //MBR_LBA=0x00000000 
+ 234   1        Status = mReadSector( 0, 1, DISK_BUFFER );  /* read the boot information of the logic disk */ 
+ 235   1        
+ 236   1        if ( Status != 0 ) return( Status );
+ 237   1        if ( DISK_BUFFER[0] != 0xEB && DISK_BUFFER[0] != 0xE9 )
+ 238   1        {  /* check the flag of the disk, pls refer to the document of FAT  */   
+C51 COMPILER V7.50   USB_TEST                                                              12/29/2009 13:05:32 PAGE 5   
+
+ 239   2          DiskStart = DISK_BUFFER[0x1C6] | (UINT16)DISK_BUFFER[0x1C7] << 8| (UINT32)DISK_BUFFER[0x1C8] << 16 | (
+             -UINT32)DISK_BUFFER[0x1C9] << 24; 
+ 240   2              // DBR_LBA=MBR.PT[0].RelativeSectors [457][456][455][454] 
+ 241   2          Status = mReadSector( DiskStart, 1, DISK_BUFFER );
+ 242   2          if ( Status != 0 ) return( Status );
+ 243   2        }
+ 244   1        SecPerClus = DISK_BUFFER[0x0D];  /* sector numbers per cluster */
+ 245   1        RsvdSecCnt = mGetPointWord( &DISK_BUFFER[0x0e] );   /* reserved cluster numbers of logic disk */
+ 246   1        FATSz = mGetPointWord( &DISK_BUFFER[0x16] );  
+ 247   1        NumFAT = DISK_BUFFER[0x10];
+ 248   1        BytesPesSec = mGetPointWord( &DISK_BUFFER[0x0b]);
+ 249   1        FlagFAT = 0;  // FAT16
+ 250   1        TotalClus = 0xFFF8;
+ 251   1      /* the following is for fat 32*/
+ 252   1        if(FATSz == 0)         // fat 32
+ 253   1              {
+ 254   2              FlagFAT = 1;
+ 255   2              TotalClus = 0x0FFFFFF8;
+ 256   2              FATSz = DISK_BUFFER[0x24] | (UINT16)DISK_BUFFER[0x25] << 8 | (UINT32)DISK_BUFFER[0x26] << 16 | (UINT32)DI
+             -SK_BUFFER[0x27] << 24;;  
+ 257   2              RootClus = DISK_BUFFER[0x2C] | (UINT16)DISK_BUFFER[0x2d] << 8 | (UINT32)DISK_BUFFER[0x2e] << 16 | (UINT
+             -32)DISK_BUFFER[0x2f] << 24;
+ 258   2              }
+ 259   1              printf("SecPerClus = %d\r\n,RsvdSecCnt = %d\r\n,FATSz = %d\r\n,NumFAT = %d\r\n,BytesPesSec = %d\r\n",(int
+             -)SecPerClus,(int)RsvdSecCnt,(int)FATSz,(int)NumFAT,(int)BytesPesSec);
+ 260   1        return( 0 );  /* success*/
+ 261   1      }
+ 262          
+ 263          
+ 264          /*
+ 265           *--------------------------------------------------------------------------------
+ 266           * UINT16  mLinkCluster( UINT16 iCluster )
+ 267           * Purpose : get the link-cluster of the appointed cluster
+ 268           * Params  : iCluster - appointed cluster
+ 269           * Returns : return the link-cluster
+ 270           * Note    : next cluster = (iCluster * FATsiz2) % BytesPesSec
+ 271           *--------------------------------------------------------------------------------
+ 272           */
+ 273          UINT16  mLinkCluster( UINT16 iCluster ) {  
+ 274   1        UINT8  Status;
+ 275   1        if(FlagFAT == 0) Status = mReadSector( DiskStart + RsvdSecCnt + iCluster * 2 / BytesPesSec, SecPerClus, 
+             -DISK_BUFFER ); 
+ 276   1        else Status = mReadSector( DiskStart + RsvdSecCnt + iCluster * 4 / BytesPesSec, SecPerClus, DISK_BUFFER 
+             -); 
+ 277   1       
+ 278   1        if ( Status != 0 ) return( 0 );  /* if return 0,error */
+ 279   1        if(FlagFAT == 0) return( mGetPointWord( &DISK_BUFFER[ ( iCluster * 2) % BytesPesSec ] ) );
+ 280   1        else  return( mGetPointWord( &DISK_BUFFER[ ( iCluster * 4) % BytesPesSec ]) );         
+ 281   1      }
+ 282          
+ 283          /*
+ 284           *--------------------------------------------------------------------------------
+ 285           * UINT32  mClusterToLba( UINT16 iCluster ) 
+ 286           * Purpose : transform the cluster number to LBA sector address
+ 287           * Params  : iErrCode - error code
+ 288           * Returns :
+ 289           * Note    : logic sector NO = DiskStart + RsvdSecCnt + ( iCluster - 2 ) * SecPerClus
+ 290           *--------------------------------------------------------------------------------
+ 291           */
+ 292          UINT32  mClusterToLba( UINT16 iCluster ) { 
+ 293   1        //return( DiskStart + RsvdSecCnt + FATSz16 * 2 + 32 + ( iCluster - 2 ) * SecPerClus );
+ 294   1              if(FlagFAT == 0)        return( DiskStart + RsvdSecCnt + FATSz * NumFAT + 32 + ( iCluster - 2 ) * SecPerClus ) 
+C51 COMPILER V7.50   USB_TEST                                                              12/29/2009 13:05:32 PAGE 6   
+
+             -;
+ 295   1              return( DiskStart + RsvdSecCnt + FATSz * NumFAT + ( iCluster - 2 ) * SecPerClus ) ;
+ 296   1      }
+ 297          
+ 298          
+ 299          /*
+ 300           *--------------------------------------------------------------------------------
+ 301           * void  mStopIfError( UINT8 iErrCode ) 
+ 302           * Purpose : show error imformation
+ 303           * Params  : iErrCode - error code
+ 304           * Returns :
+ 305           * Note    :
+ 306           *--------------------------------------------------------------------------------
+ 307           */
+ 308          void  mStopIfError( UINT8 iErrCode ) {  
+ 309   1        if ( iErrCode == 0 ) return;
+ 310   1        printf( "Error status, %02X\n", (UINT16)iErrCode );
+ 311   1      //  //Lcd_Show_String(4,5,"USB ERROR",1,18);
+ 312   1        flag_out = 1; /* error handle when reading usb*/
+ 313   1      }
+ 314          
+ 315          
+ 316          
+ 317          /*
+ 318           *--------------------------------------------------------------------------------
+ 319           * void Usb_Read(void) 
+ 320           * Purpose : read usb disk, find file you want and write the data into memory
+ 321           * Params  :
+ 322           * Returns :
+ 323           * Note    :
+ 324           *--------------------------------------------------------------------------------
+ 325           */
+ 326          void Usb_Read(void) 
+ 327          {
+ 328   1              UINT8  Status;
+ 329   1              UINT32  loop = 1;
+ 330   1              UINT8 k = 0;
+ 331   1          UINT16  temp = 0;
+ 332   1          UINT16  temp1 = 0;
+ 333   1              UINT32 temp32 = 0;
+ 334   1              bit flag_find = 0;
+ 335   1          unsigned char *CurrentDir;
+ 336   1      //      U8_T tempstr[16];
+ 337   1      //      U32_T length;
+ 338   1              UINT32  count = 0;
+ 339   1      //      UINT32X  Cluster;       
+ 340   1              printf("enter usb \r\n");
+ 341   1      Start:
+ 342   1              DELAY_Us(50000);        
+ 343   1              DELAY_Us(50000);
+ 344   1              DELAY_Us(50000);
+ 345   1              DELAY_Us(50000);
+ 346   1              DELAY_Us(50000);
+ 347   1              DELAY_Us(50000);
+ 348   1              DELAY_Us(50000);
+ 349   1              CH375_CMD_PORT = CMD_SET_USB_MODE; DELAY_Us(5);
+ 350   1              CH375_CMD_PORT = 0x06;  DELAY_Us(5);
+ 351   1              CH375_DAT_PORT = 0x55 ;  /* 0x06, test command ,check the usb chip is ready */  
+ 352   1              DELAY_Us(10);   
+ 353   1          printf("CH375_DAT_PORT = %d\r\n",(int)CH375_DAT_PORT);
+ 354   1              
+ 355   1              //Lcd_Show_String(1,1,"1. INSERT USB DISK",1,20);
+C51 COMPILER V7.50   USB_TEST                                                              12/29/2009 13:05:32 PAGE 7   
+
+ 356   1              
+ 357   1              if(mWaitInterrupt( ) != USB_INT_CONNECT) goto Start; 
+ 358   1              printf("start \r\n");
+ 359   1              //Lcd_Show_String(1,1,"1. USB ready      ",1,20);
+ 360   1          mDelaymS( 250 );  /* delay , wait for the usb disk entering to normal work status */
+ 361   1              
+ 362   1          //init:
+ 363   1              /* initial usb disk, identify the type of the usb disk , it is important*/
+ 364   1              Status = mInitDisk( );  
+ 365   1              //if(Status != 0)       goto init;
+ 366   1              mStopIfError( Status );
+ 367   1              printf("init \r\n");
+ 368   1              mDelaymS( 250 );
+ 369   1              //identify:
+ 370   1              /* identify the file system of Usb Disk ,it is necessay and important*/
+ 371   1              Status = mIdenDisk( );  
+ 372   1              //if(Status != 0)       goto identify;
+ 373   1              mStopIfError( Status );
+ 374   1              printf("identify \r\n");
+ 375   1              //read:
+ 376   1              /* read the root directory of the logic disk, common lengh is 32 sectors*/
+ 377   1              Status = mReadSector( DiskStart + RsvdSecCnt + FATSz * NumFAT, 32,DISK_BUFFER ); 
+ 378   1          //if(Status != 0)   goto read;
+ 379   1              mStopIfError( Status );
+ 380   1              printf("read \r\n");
+ 381   1              /* query the names of the files in the disk, if find "ax1****.bin" ,erase the memory */
+ 382   1              for ( CurrentDir = DISK_BUFFER; ((CurrentDir[0] != 0) && (!flag_find)); CurrentDir += 32 ) 
+ 383   1              {
+ 384   2                  temp++;                   
+ 385   2                      if((CurrentDir[8] == 'B') && (CurrentDir[9] == 'I') && (CurrentDir[10] == 'N') && (CurrentDir[0] == 'A')
+             - && (CurrentDir[1] == 'X')&& (CurrentDir[2] == '1'))
+ 386   2                  {
+ 387   3                              flag_find = 1;
+ 388   3                              printf("find\r\n");
+ 389   3      
+ 390   3                      }
+ 391   2              } 
+ 392   1              /* if dont find "ax1****.bin",show "no right file" */
+ 393   1              printf("end\r\n");
+ 394   1              mDelaymS( 250 );
+ 395   1      }
+ 396          
+ 397          
+ 398          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2233    ----
+   CONSTANT SIZE    =    187    ----
+   XDATA SIZE       =     27      40
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1       1
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =  32768    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

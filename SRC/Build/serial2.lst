@@ -1,0 +1,677 @@
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE SERIAL2
+OBJECT MODULE PLACED IN .\Build\serial2.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Modbus\serial2.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR(..\SR
+                    -C\FreeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC
+                    -\UART\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..
+                    -\SRC\GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;
+                    -..\SRC\dhcp\;..\SRC\pppoe\;..\SRC\flash;..\SRC\SNTP;..\SRC\display;..\SRC\key) DEFINE(KEIL_AX11000) VARBANKING DEBUG PRI
+                    -NT(.\Build\serial2.lst) OBJECT(.\Build\serial2.obj)
+
+line level    source
+
+   1          
+   2          #include "main.h"
+   3          #include "lcd.h"
+   4          #include "display.h"
+   5          #include "string.h"
+   6          #include <Intrins.h>
+   7          
+   8          void PWM_control_Relay(void);
+   9          
+  10          bit comm_tstat = 0;   /* TRUE -- CM5 control Tstat directly 
+  11                                                          FALSE -- MBPOLL or T3000 control TstaT */
+  12          extern bit flag_send;
+  13          
+  14          unsigned char test = 0;
+  15          
+  16          unsigned char tstat_product_model[8];
+  17          unsigned int tstat_temperature[8] = 0;
+  18          unsigned int tstat_mode[8] = 0;
+  19          unsigned int tstat_setpoint[8] = 15;
+  20          unsigned int tstat_cool_setpoint[8] = 0;
+  21          unsigned int tstat_heat_setpoint[8] = 0;
+  22          unsigned char tstat_occupied; // occupied is 1 bit, 8 BIT is CHAR
+  23          unsigned char tstat_output_state[8];
+  24          unsigned char tstat_night_heat_db[8];
+  25          unsigned char tstat_night_cool_db[8];
+  26          unsigned char tstat_night_heat_sp[8];
+  27          unsigned char tstat_night_cool_sp[8];
+  28          unsigned char tstat_over_ride[8];
+  29          unsigned char tstat_serial_number[8][4];
+  30          unsigned char tstat_address[8];
+  31          
+  32          unsigned char schedule_data[254];
+  33          unsigned char schedule_id;
+  34          
+  35          unsigned char sub_packet_size = 0;
+  36          
+  37          void delay_us (unsigned int data time);
+  38          
+  39          
+  40          unsigned char subnet_buffer[DATABUFLEN];
+  41          unsigned int  rece_sub_count = 0;
+  42          unsigned char serial_sub_receive_timeout_count = 1;
+  43          unsigned char bdata com_temp ;
+  44          
+  45          unsigned int data datalen = 0;
+  46          
+  47          bit dealwithSubTag;        
+  48          bit resend_subnet_data_flag;
+  49          bit read_flg = 0;
+  50          
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 2   
+
+  51          extern bit HEAT_VAL;
+  52          extern unsigned char ttt[50];
+  53          bit checkSubData(void);
+  54          
+  55          extern unsigned char data by_tstat_index;
+  56          extern unsigned char data laddress;
+  57          
+  58          
+  59          
+  60          extern unsigned int test0;
+  61          
+  62          
+  63          void clear_recebuf(void)
+  64          {
+  65   1              unsigned char i;
+  66   1              for(i = 0;i < 50;i++)
+  67   1                      subnet_buffer[i] = 0;
+  68   1      }
+  69          
+  70          
+  71          void serial_sub_restart(void)
+  72          {
+  73   1              TX_EN2 = RECEIVE;
+  74   1              delay_us(10);
+  75   1              rece_sub_count = 0;
+  76   1              dealwithSubTag = 0;
+  77   1      //      clear_recebuf();
+  78   1      }
+  79          
+  80          void initSend_COM2(void)
+  81          {       
+  82   1              TX_EN2 = SEND;
+  83   1              delay_us(10);
+  84   1      }
+  85          
+  86          
+  87          void send_string(unsigned char *bufs,char len)
+  88          {
+  89   1              char data i;
+  90   1              unsigned int crc_val;
+  91   1              unsigned char buf[20];
+  92   1      
+  93   1              crc_val = CRC16(bufs,len);
+*** WARNING C206 IN LINE 93 OF MODBUS\SERIAL2.C: 'CRC16': missing function-prototype
+*** ERROR C267 IN LINE 93 OF MODBUS\SERIAL2.C: 'CRC16': requires ANSI-style prototype
+  94   1              memcpy(buf,bufs,len);
+  95   1              buf[len] =  crc_val >> 8;
+  96   1              buf[len + 1] =  crc_val;
+  97   1      
+  98   1              for(i = 0;i < len + 2;i++)
+  99   1              {
+ 100   2                      SBUF = buf[i];
+*** ERROR C202 IN LINE 100 OF MODBUS\SERIAL2.C: 'SBUF': undefined identifier
+ 101   2                      transmit_finished = 0;
+*** ERROR C202 IN LINE 101 OF MODBUS\SERIAL2.C: 'transmit_finished': undefined identifier
+ 102   2                      while (!transmit_finished){}
+*** ERROR C202 IN LINE 102 OF MODBUS\SERIAL2.C: 'transmit_finished': undefined identifier
+ 103   2              }
+ 104   1              
+ 105   1      }
+ 106          
+ 107          
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 3   
+
+ 108          
+ 109          
+ 110          void Com_Tstat(unsigned char  types,unsigned char addr)
+ 111          {
+ 112   1              unsigned char data send_buffer[8];
+ 113   1              initSend_COM2();
+ 114   1              InitCRC16();
+ 115   1      
+ 116   1              switch(types)
+ 117   1              {       
+ 118   2                      
+ 119   2                      case READ_ROOM_SETPOINT:                        
+ 120   2                              send_buffer[0] = addr;
+ 121   2                              send_buffer[1] = READ_VARIABLES;
+ 122   2                              send_buffer[2] = 0;
+ 123   2                              send_buffer[3] = TSTAT_ROOM_SETPOINT;//135;  // 174
+ 124   2                              send_buffer[4] = 0;
+ 125   2                              send_buffer[5] = 1;             
+ 126   2                              send_string(&send_buffer,6);
+ 127   2                              break;
+ 128   2      
+ 129   2                      case WRITE_ROOM_SETPOINT:
+ 130   2                              send_buffer[0] = addr;
+ 131   2                              send_buffer[1] = WRITE_VARIABLES;
+ 132   2                              send_buffer[2] = 0;
+ 133   2                              send_buffer[3] = TSTAT_ROOM_SETPOINT;//135;  // 174
+ 134   2                              send_buffer[4] = 0;
+ 135   2                              send_buffer[5] = tstat_setpoint[by_tstat_index];
+ 136   2                              send_string(&send_buffer,6);
+ 137   2                              break;
+ 138   2      
+ 139   2                      case READ_HEATTING_SETPOINT:
+ 140   2                              send_buffer[0] = addr;
+ 141   2                              send_buffer[1] = READ_VARIABLES;
+ 142   2                              send_buffer[2] = 0;
+ 143   2                              send_buffer[3] = TSTAT_HEAT_SETPOINT;//136;
+ 144   2                              send_buffer[4] = 0;
+ 145   2                              send_buffer[5] = 1;             
+ 146   2                              send_string(&send_buffer,6);
+ 147   2                              break;
+ 148   2      
+ 149   2                      case WRITE_HEATTING_SETPOINT:
+ 150   2                              send_buffer[0] = addr;
+ 151   2                              send_buffer[1] = WRITE_VARIABLES;       
+ 152   2                              send_buffer[2] = 0;
+ 153   2                              send_buffer[3] = TSTAT_HEAT_SETPOINT;//136;                                     
+ 154   2                              send_buffer[4] = 0;
+ 155   2                              send_buffer[5] = tstat_heat_setpoint[by_tstat_index];
+ 156   2                              send_string(&send_buffer,6);
+ 157   2                              break;
+ 158   2      
+ 159   2                      case READ_COOLING_SETPOINT:
+ 160   2                              send_buffer[0] = addr;
+ 161   2                              send_buffer[1] = READ_VARIABLES;        
+ 162   2                              send_buffer[2] = 0x01;
+ 163   2                              send_buffer[3] = 0x7c;//TSTAT_COOL_SETPOINT;//380 = 0x17c;      
+ 164   2                              send_buffer[4] = 0;
+ 165   2                              send_buffer[5] = 1;             
+ 166   2                              send_string(&send_buffer,6);
+ 167   2                              break;
+ 168   2                      case WRITE_COOLING_SETPOINT:
+ 169   2                              send_buffer[0] = addr;
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 4   
+
+ 170   2                              send_buffer[1] = WRITE_VARIABLES;       
+ 171   2                              send_buffer[2] = 0x01;
+ 172   2                              send_buffer[3] = 0x7c;//TSTAT_COOL_SETPOINT;//380;      
+ 173   2                              send_buffer[4] = 0;
+ 174   2                              send_buffer[5] = tstat_cool_setpoint[by_tstat_index];
+ 175   2                              send_string(&send_buffer,6);
+ 176   2                              break;
+ 177   2      
+ 178   2                      case READ_TEMPERAUTE:   
+ 179   2                              send_buffer[0] = addr;
+ 180   2                              send_buffer[1] = READ_VARIABLES;        
+ 181   2                              send_buffer[2] = 0;
+ 182   2                              send_buffer[3] = TSTAT_ROOM_TEM;//101;
+ 183   2                              send_buffer[4] = 0;
+ 184   2                              send_buffer[5] = 1;
+ 185   2                              send_string(&send_buffer,6);            
+ 186   2                              break;
+ 187   2                              
+ 188   2                      case READ_MODE_OPERATION:
+ 189   2                              send_buffer[0] = addr;
+ 190   2                              send_buffer[1] = READ_VARIABLES;        
+ 191   2                              send_buffer[2] = 0;
+ 192   2                              send_buffer[3] = TSTAT_MODE;//107;
+ 193   2                              send_buffer[4] = 0;
+ 194   2                              send_buffer[5] = 1;
+ 195   2                              send_string(&send_buffer,6);            
+ 196   2                              break;
+ 197   2      
+ 198   2                      case READ_OUTPUT_STATE:
+ 199   2                              send_buffer[0] = addr;
+ 200   2                              send_buffer[1] = READ_VARIABLES;        
+ 201   2                              send_buffer[2] = 0;
+ 202   2                              send_buffer[3] = TSTAT_OUTPUT_STATE;//108;
+ 203   2                              send_buffer[4] = 0;
+ 204   2                              send_buffer[5] = 1;
+ 205   2                              send_string(&send_buffer,6);            
+ 206   2                              break;
+ 207   2      
+ 208   2                      case READ_OCCUPIED_STATE:   // 184.0   read 
+ 209   2                              send_buffer[0] = addr;
+ 210   2                              send_buffer[1] = READ_VARIABLES;        
+ 211   2                              send_buffer[2] = 0;
+ 212   2                              send_buffer[3] = TSTAT_OCCUPIED;
+ 213   2                              send_buffer[4] = 0;
+ 214   2                              send_buffer[5] = 1;
+ 215   2                              send_string(&send_buffer,6);            
+ 216   2                              break;
+ 217   2                      case READ_NIGHT_HEAT_DB:
+ 218   2                              send_buffer[0] = addr;
+ 219   2                              send_buffer[1] = READ_VARIABLES;
+ 220   2                              send_buffer[2] = 0;
+ 221   2                              send_buffer[3] = TSTAT_NIGHT_HEAT_DB;//123;
+ 222   2                              send_buffer[4] = 0;
+ 223   2                              send_buffer[5] = 1;
+ 224   2                              send_string(&send_buffer,6);                            
+ 225   2                              break;
+ 226   2      
+ 227   2                      case WRITE_NIGHT_HEAT_DB:
+ 228   2                              send_buffer[0] = addr;
+ 229   2                              send_buffer[1] = WRITE_VARIABLES;
+ 230   2                              send_buffer[2] = 0;
+ 231   2                              send_buffer[3] = TSTAT_NIGHT_HEAT_DB;//123;
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 5   
+
+ 232   2                              send_buffer[4] = 0;
+ 233   2                              send_buffer[5] = tstat_night_heat_db[by_tstat_index];
+ 234   2                              send_string(&send_buffer,6);            
+ 235   2                              break;
+ 236   2      
+ 237   2                      case READ_NIGHT_COOL_DB:
+ 238   2                              send_buffer[0] = addr;
+ 239   2                              send_buffer[1] = READ_VARIABLES;
+ 240   2                              send_buffer[2] = 0;
+ 241   2                              send_buffer[3] = TSTAT_NIGHT_COOL_DB;//124;
+ 242   2                              send_buffer[4] = 0;
+ 243   2                              send_buffer[5] = 1;
+ 244   2                              send_string(&send_buffer,6);            
+ 245   2                              break;
+ 246   2      
+ 247   2                      case WRITE_NIGHT_COOL_DB:
+ 248   2                              send_buffer[0] = addr;
+ 249   2                              send_buffer[1] = WRITE_VARIABLES;
+ 250   2                              send_buffer[2] = 0;
+ 251   2                              send_buffer[3] = TSTAT_NIGHT_COOL_DB;//124;
+ 252   2                              send_buffer[4] = 0;
+ 253   2                              send_buffer[5] = tstat_night_cool_db[by_tstat_index];
+ 254   2                              send_string(&send_buffer,6);            
+ 255   2                              break;
+ 256   2      
+ 257   2                      case READ_NIGHT_HEAT_SP:        
+ 258   2                              send_buffer[0] = addr;
+ 259   2                              send_buffer[1] = READ_VARIABLES;
+ 260   2                              send_buffer[2] = 0;
+ 261   2                              send_buffer[3] = TSTAT_NIGHT_HEAT_SP;//182;
+ 262   2                              send_buffer[4] = 0;
+ 263   2                              send_buffer[5] = 1;
+ 264   2                              send_string(&send_buffer,6);    
+ 265   2                              break;
+ 266   2      
+ 267   2                      case WRITE_NIGHT_HEAT_SP:
+ 268   2                              send_buffer[0] = addr;
+ 269   2                              send_buffer[1] = WRITE_VARIABLES;
+ 270   2                              send_buffer[2] = 0;
+ 271   2                              send_buffer[3] = TSTAT_NIGHT_HEAT_SP;//182;
+ 272   2                              send_buffer[4] = 0;
+ 273   2                              send_buffer[5] = tstat_night_heat_sp[by_tstat_index];
+ 274   2                              send_string(&send_buffer,6);
+ 275   2                              break;
+ 276   2      
+ 277   2                      case READ_NIGHT_COOL_SP:
+ 278   2                              send_buffer[0] = addr;
+ 279   2                              send_buffer[1] = READ_VARIABLES;
+ 280   2                              send_buffer[2] = 0;
+ 281   2                              send_buffer[3] = TSTAT_NIGHT_COOL_SP;//183;
+ 282   2                              send_buffer[4] = 0;
+ 283   2                              send_buffer[5] = 1;
+ 284   2                              send_string(&send_buffer,6);            
+ 285   2                              break;
+ 286   2      
+ 287   2                      case WRITE_NIGHT_COOL_SP:
+ 288   2                              send_buffer[0] = addr;
+ 289   2                              send_buffer[1] = WRITE_VARIABLES;
+ 290   2                              send_buffer[2] = 0;
+ 291   2                              send_buffer[3] = TSTAT_NIGHT_COOL_SP;//183;             
+ 292   2                              send_buffer[4] = 0;
+ 293   2                              send_buffer[5] = tstat_night_cool_sp[by_tstat_index];
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 6   
+
+ 294   2                              send_string(&send_buffer,6);            
+ 295   2                              break;
+ 296   2      
+ 297   2                      case READ_PRODUCT_MODLE:
+ 298   2                              send_buffer[0] = addr;
+ 299   2                              send_buffer[1] = READ_VARIABLES;
+ 300   2                              send_buffer[2] = 0;
+ 301   2                              send_buffer[3] = TSTAT_PRODUCT_MODEL;//7;               
+ 302   2                              send_buffer[4] = 0;
+ 303   2                              send_buffer[5] = 1;
+ 304   2                              send_string(&send_buffer,6);            
+ 305   2                              break;
+ 306   2      
+ 307   2                      case READ_OVER_RIDE:
+ 308   2                              send_buffer[0] = addr;
+ 309   2                              send_buffer[1] = READ_VARIABLES;
+ 310   2                              send_buffer[2] = 0;
+ 311   2                              send_buffer[3] = TSTAT_OVER_RIDE;//211          
+ 312   2                              send_buffer[4] = 0;
+ 313   2                              send_buffer[5] = 1;
+ 314   2                              send_string(&send_buffer,6);            
+ 315   2                              break;
+ 316   2              /* tstat_over_ride have two bytes  */
+ 317   2                      case WRITE_OVER_RIDE:
+ 318   2                              send_buffer[0] = addr;
+ 319   2                              send_buffer[1] = WRITE_VARIABLES;
+ 320   2                              send_buffer[2] = 0;
+ 321   2                              send_buffer[3] = TSTAT_OVER_RIDE;//211          
+ 322   2                              send_buffer[4] = tstat_over_ride[by_tstat_index] >> 8;
+ 323   2                              send_buffer[5] = (unsigned char)tstat_over_ride[by_tstat_index];
+ 324   2                              send_string(&send_buffer,6);            
+ 325   2                              break;
+ 326   2              /*  serial number have 4 bytes */
+ 327   2                      case READ_SERIAL_NUMBER_0:
+ 328   2                              send_buffer[0] = addr;
+ 329   2                              send_buffer[1] = READ_VARIABLES;
+ 330   2                              send_buffer[2] = 0;
+ 331   2                              send_buffer[3] = TSTAT_SERIAL_NUM_0; // the start address of tstat serial number 
+ 332   2                              send_buffer[4] = 0;
+ 333   2                              send_buffer[5] = 1;  
+ 334   2                              send_string(&send_buffer,6);            
+ 335   2                              break;
+ 336   2                      case READ_SERIAL_NUMBER_1:
+ 337   2                              send_buffer[0] = addr;
+ 338   2                              send_buffer[1] = READ_VARIABLES;
+ 339   2                              send_buffer[2] = 0;
+ 340   2                              send_buffer[3] = TSTAT_SERIAL_NUM_1; // the start address of tstat serial number 
+ 341   2                              send_buffer[4] = 0;
+ 342   2                              send_buffer[5] = 1;  
+ 343   2                              send_string(&send_buffer,6);            
+ 344   2                              break;
+ 345   2                      case READ_SERIAL_NUMBER_2:
+ 346   2                              send_buffer[0] = addr;
+ 347   2                              send_buffer[1] = READ_VARIABLES;
+ 348   2                              send_buffer[2] = 0;
+ 349   2                              send_buffer[3] = TSTAT_SERIAL_NUM_2; // the start address of tstat serial number 
+ 350   2                              send_buffer[4] = 0;
+ 351   2                              send_buffer[5] = 1;  
+ 352   2                              send_string(&send_buffer,6);            
+ 353   2                              break;
+ 354   2                      case READ_SERIAL_NUMBER_3:
+ 355   2                              send_buffer[0] = addr;
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 7   
+
+ 356   2                              send_buffer[1] = READ_VARIABLES;
+ 357   2                              send_buffer[2] = 0;
+ 358   2                              send_buffer[3] = TSTAT_SERIAL_NUM_3; // the start address of tstat serial number 
+ 359   2                              send_buffer[4] = 0;
+ 360   2                              send_buffer[5] = 1;  
+ 361   2                              send_string(&send_buffer,6);            
+ 362   2                              break;
+ 363   2                      case READ_WALL_SETPOINT:                        
+ 364   2                              send_buffer[0] = addr;
+ 365   2                              send_buffer[1] = READ_VARIABLES;
+ 366   2                              send_buffer[2] = 1;  // 341 = 1 * 256 + 0x55
+ 367   2                              send_buffer[3] = 0x55;
+ 368   2                              send_buffer[4] = 0;
+ 369   2                              send_buffer[5] = 1;
+ 370   2                              send_string(&send_buffer,6);
+ 371   2                              break;
+ 372   2      
+ 373   2                      case WRITE_WALL_SETPOINT:                       
+ 374   2                              send_buffer[0] = addr;
+ 375   2                              send_buffer[1] = WRITE_VARIABLES;
+ 376   2                              send_buffer[2] = 1;  // 341 = 1 * 256 + 0x55
+ 377   2                              send_buffer[3] = 0x55;
+ 378   2                              send_buffer[4] = 0;
+ 379   2                              send_buffer[5] = tstat_setpoint[by_tstat_index];
+ 380   2                              send_string(&send_buffer,6);
+ 381   2                              break;
+ 382   2      
+ 383   2                      case SEND_SCHEDUEL:  // write command                                           
+ 384   2                              send_buffer[0] = addr;
+ 385   2                              send_buffer[1] = WRITE_VARIABLES;                       
+ 386   2                              send_buffer[2] = 0;  
+ 387   2                              send_buffer[3] = TSTAT_OCCUPIED;//184;
+ 388   2                              send_buffer[4] = 0;
+ 389   2                              send_buffer[5] = schedule_data[schedule_id];
+ 390   2                              send_string(&send_buffer,6);
+ 391   2                              break;
+ 392   2      
+ 393   2                      case READ_ADDRESS:  // read command                                             
+ 394   2                              send_buffer[0] = addr;
+ 395   2                              send_buffer[1] = READ_VARIABLES;
+ 396   2                              send_buffer[2] = 0;  
+ 397   2                              send_buffer[3] = TSTAT_ADDRESS;//6;
+ 398   2                              send_buffer[4] = 0;
+ 399   2                              send_buffer[5] = 1;
+ 400   2                              send_string(&send_buffer,6);
+ 401   2                              break;
+ 402   2              /*      case WRITE_ADDRESS:
+ 403   2                              send_buffer[0] = addr;
+ 404   2                              send_buffer[1] = WRITE_VARIABLES;                       
+ 405   2                              send_buffer[2] = 0;  
+ 406   2                              send_buffer[3] = TSTAT_ADDRESS;//184;
+ 407   2                              send_buffer[4] = 0;
+ 408   2                              send_buffer[5] = schedule_data[schedule_id];
+ 409   2                              send_string(&send_buffer,6);
+ 410   2                              break;
+ 411   2              */              
+ 412   2                      default:        
+ 413   2                      break;                  
+ 414   2              }
+ 415   1              if(send_buffer[1] == READ_VARIABLES)
+ 416   1                      sub_packet_size = 7;
+ 417   1              else if(send_buffer[1] == WRITE_VARIABLES)
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 8   
+
+ 418   1                      sub_packet_size = 8;
+ 419   1              serial_sub_restart();   
+ 420   1      }
+ 421          
+ 422          
+ 423          
+ 424          /*
+ 425          mode : 1 - the command from T3000
+ 426                          0 - the command from CM5's button
+ 427          */
+ 428          
+ 429          void internal_sub_deal(char index,char mode)
+ 430          {
+ 431   1              if(subnet_buffer[1] == READ_VARIABLES)
+ 432   1              {               
+ 433   2                      switch(index)
+ 434   2                      {
+ 435   3                              
+ 436   3                              case READ_ROOM_SETPOINT:
+ 437   3                                      if(mode)  /* T3000 or Mbpoll */
+ 438   3                                      {
+ 439   4                                              tstat_setpoint[tempSub] = subnet_buffer[3] * 256 + subnet_buffer[4];                                            
+ 440   4                                      }
+ 441   3                                      else
+ 442   3                                      {
+ 443   4                                              tstat_setpoint[by_tstat_index] = subnet_buffer[3] * 256 + subnet_buffer[4];     
+ 444   4                                      }
+ 445   3                                      break;
+ 446   3                              case READ_HEATTING_SETPOINT:
+ 447   3                                      if(mode)  /* T3000 or Mbpoll */
+ 448   3                                      {
+ 449   4                                              tstat_heat_setpoint[tempSub] = subnet_buffer[3] * 256 + subnet_buffer[4];       
+ 450   4                                      }
+ 451   3                                      else
+ 452   3                                      {
+ 453   4                                              tstat_heat_setpoint[by_tstat_index] = subnet_buffer[3] * 256 + subnet_buffer[4];        
+ 454   4                                      }
+ 455   3                                      break;
+ 456   3                              case READ_COOLING_SETPOINT:
+ 457   3                                      if(mode)  /* T3000 or Mbpoll */
+ 458   3                                      {
+ 459   4                                              tstat_cool_setpoint[tempSub] = subnet_buffer[3] * 256 + subnet_buffer[4];       
+ 460   4                                      }
+ 461   3                                      else
+ 462   3                                      {       
+ 463   4                                              tstat_cool_setpoint[by_tstat_index] = subnet_buffer[3] * 256 + subnet_buffer[4];        
+ 464   4                                      }
+ 465   3                                      break;
+ 466   3                              case READ_TEMPERAUTE:
+ 467   3                                      if(mode)  /* T3000 or Mbpoll */
+ 468   3                                      {
+ 469   4                                              tstat_temperature[tempSub] = subnet_buffer[3] * 256 + subnet_buffer[4];
+ 470   4                                      }
+ 471   3                                      else
+ 472   3                                      {
+ 473   4                                              tstat_temperature[by_tstat_index] = subnet_buffer[3] * 256 + subnet_buffer[4];
+ 474   4                                      /*      if(tstat_temperature[by_tstat_index] % 10 >= 5)         
+ 475   4                                                      tstat_temperature[by_tstat_index] =  (tstat_temperature[by_tstat_index] / 10 + 1) * 10;
+ 476   4                                              else
+ 477   4                                                      tstat_temperature[by_tstat_index] =  (tstat_temperature[by_tstat_index] / 10) * 10;
+ 478   4                                      */
+ 479   4                                      }
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 9   
+
+ 480   3                                      break;                          
+ 481   3                              case READ_MODE_OPERATION:       
+ 482   3                                      if(mode)  /* T3000 or Mbpoll */
+ 483   3                                      {
+ 484   4                                              tstat_mode[tempSub] = subnet_buffer[4]; 
+ 485   4                                      }       
+ 486   3                                      else
+ 487   3                                      {
+ 488   4                                              
+ 489   4                                              tstat_mode[by_tstat_index] = subnet_buffer[4];  
+ 490   4                                      }
+ 491   3                                      break;  
+ 492   3                              case READ_OUTPUT_STATE: 
+ 493   3                                      if(mode)  /* T3000 or Mbpoll */
+ 494   3                                      {       
+ 495   4                                              tstat_output_state[tempSub] = subnet_buffer[4]; 
+ 496   4                                      }       
+ 497   3                                      else
+ 498   3                                      {
+ 499   4                                              tstat_output_state[by_tstat_index] = subnet_buffer[4];  
+ 500   4                                      }
+ 501   3                                      break;  
+ 502   3                              case READ_OCCUPIED_STATE:       
+ 503   3                                      
+ 504   3                                      if(mode)  /* T3000 or Mbpoll */
+ 505   3                                      {       
+ 506   4                                              if(     subnet_buffer[5] == 1)
+ 507   4                                                      tstat_occupied |= (0x01 << tempSub);
+ 508   4                                              else 
+ 509   4                                                      tstat_occupied &= ~(0x01 << tempSub);
+ 510   4                                      }       
+ 511   3                                      else
+ 512   3                                      {       
+ 513   4                                              if(     subnet_buffer[5] == 1)
+ 514   4                                                      tstat_occupied |= (0x01 << by_tstat_index);
+ 515   4                                              else 
+ 516   4                                                      tstat_occupied &= ~(0x01 << by_tstat_index);
+ 517   4                                      }
+ 518   3                                      break;  
+ 519   3                              case READ_NIGHT_HEAT_DB:        
+ 520   3                                      if(mode)  /* T3000 or Mbpoll */
+ 521   3                                      {       
+ 522   4                                              tstat_night_heat_db[tempSub] = subnet_buffer[4];        
+ 523   4                                      }       
+ 524   3                                      else
+ 525   3                                      {       
+ 526   4                                              tstat_night_heat_db[by_tstat_index] = subnet_buffer[4]; 
+ 527   4                                      }
+ 528   3                                      break;  
+ 529   3                              case READ_NIGHT_COOL_DB:        
+ 530   3                                      if(mode)  /* T3000 or Mbpoll */
+ 531   3                                      {       
+ 532   4                                              tstat_night_cool_db[tempSub] = subnet_buffer[4];        
+ 533   4                                      }       
+ 534   3                                      else
+ 535   3                                      {       
+ 536   4                                              tstat_night_cool_db[by_tstat_index] = subnet_buffer[4]; 
+ 537   4                                      }
+ 538   3                                      break;  
+ 539   3                              case READ_NIGHT_HEAT_SP:        
+ 540   3                                      if(mode)  /* T3000 or Mbpoll */
+ 541   3                                      {       
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 10  
+
+ 542   4                                              tstat_night_heat_sp[tempSub] = subnet_buffer[4];        
+ 543   4                                      }       
+ 544   3                                      else
+ 545   3                                      {
+ 546   4                                              tstat_night_heat_sp[by_tstat_index] = subnet_buffer[4]; 
+ 547   4                                      }
+ 548   3                                      break;  
+ 549   3                              case READ_NIGHT_COOL_SP:        
+ 550   3                                      if(mode)  /* T3000 or Mbpoll */
+ 551   3                                      {       
+ 552   4                                              tstat_night_cool_sp[tempSub] = subnet_buffer[4];        
+ 553   4                                      }       
+ 554   3                                      else
+ 555   3                                      {       
+ 556   4                                              tstat_night_cool_sp[by_tstat_index] = subnet_buffer[4]; 
+ 557   4                                      }
+ 558   3                                      break;  
+ 559   3                              case READ_PRODUCT_MODLE:
+ 560   3                                      if(mode)  /* T3000 or Mbpoll */
+ 561   3                                      {       
+ 562   4                                              tstat_product_model[tempSub] = subnet_buffer[4];        
+ 563   4                                      }       
+ 564   3                                      else
+ 565   3                                      {       
+ 566   4                                              tstat_product_model[by_tstat_index] = subnet_buffer[4]; 
+ 567   4                                      }
+ 568   3                                      break;
+ 569   3                              case READ_OVER_RIDE:
+ 570   3                                      if(mode)  /* T3000 or Mbpoll */
+ 571   3                                      {       
+ 572   4                                              tstat_over_ride[tempSub] = subnet_buffer[4];    
+ 573   4                                      }       
+ 574   3                                      else
+ 575   3                                      {       
+ 576   4                                              tstat_over_ride[by_tstat_index] = subnet_buffer[4];     
+ 577   4                                      }
+ 578   3                                      break;
+ 579   3                              case READ_SERIAL_NUMBER_0:
+ 580   3                                      if(mode)  /* T3000 or Mbpoll */
+ 581   3                                      {                               
+ 582   4                                              tstat_serial_number[tempSub][0] = subnet_buffer[4];     
+ 583   4                                      }       
+ 584   3                                      else
+ 585   3                                      {
+ 586   4                                              tstat_serial_number[by_tstat_index][0] = subnet_buffer[4];      
+ 587   4                                      }
+ 588   3                                      break;  
+ 589   3                              case READ_SERIAL_NUMBER_1:
+ 590   3                                      if(mode)  /* T3000 or Mbpoll */
+ 591   3                                      {                               
+ 592   4                                              tstat_serial_number[tempSub][1] = subnet_buffer[4];     
+ 593   4                                      }       
+ 594   3                                      else
+ 595   3                                      {
+ 596   4                                              tstat_serial_number[by_tstat_index][1] = subnet_buffer[4];      
+ 597   4                                      }
+ 598   3                                      break;  
+ 599   3                              case READ_SERIAL_NUMBER_2:
+ 600   3                                      if(mode)  /* T3000 or Mbpoll */
+ 601   3                                      {                               
+ 602   4                                              tstat_serial_number[tempSub][2] = subnet_buffer[4];     
+ 603   4                                      }       
+C51 COMPILER V9.00   SERIAL2                                                               01/28/2013 10:56:46 PAGE 11  
+
+ 604   3                                      else
+ 605   3                                      {
+ 606   4                                              tstat_serial_number[by_tstat_index][2] = subnet_buffer[4];      
+ 607   4                                      }
+ 608   3                                      break;  
+ 609   3                              case READ_SERIAL_NUMBER_3:
+ 610   3                                      if(mode)  /* T3000 or Mbpoll */
+ 611   3                                      {                               
+ 612   4                                              tstat_serial_number[tempSub][3] = subnet_buffer[4];     
+ 613   4                                      }       
+ 614   3                                      else
+ 615   3                                      {
+ 616   4                                              tstat_serial_number[by_tstat_index][3] = subnet_buffer[4];      
+ 617   4                                      }
+ 618   3                                      break;  
+ 619   3                              case READ_WALL_SETPOINT:
+ 620   3                                      tstat_setpoint[by_tstat_index] = subnet_buffer[4];/*((unsigned int)subnet_buffer[4] * 256 + subnet_buf
+             -fer[5])/100;*/
+ 621   3                                      break;
+ 622   3                              case READ_ADDRESS:
+ 623   3                                      //ttt[0] = subnet_buffer[3];
+ 624   3                                      //ttt[1] = subnet_buffer[4];
+ 625   3                                      break;
+ 626   3              
+ 627   3                              default:
+ 628   3                                      break;                          
+ 629   3                      }
+ 630   2              
+ 631   2              }               
+ 632   1      }
+ 633          
+ 634          
+ 635          
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  4 ERROR(S)

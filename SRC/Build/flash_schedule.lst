@@ -1,0 +1,273 @@
+C51 COMPILER V9.00   FLASH_SCHEDULE                                                        05/08/2013 16:47:36 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE FLASH_SCHEDULE
+OBJECT MODULE PLACED IN .\Build\flash_schedule.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Flash\flash_schedule.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR
+                    -(..\SRC\FreeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;
+                    -..\SRC\UART\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Ca
+                    -rd\;..\SRC\GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\manage
+                    -ment\;..\SRC\dhcp\;..\SRC\pppoe\;..\SRC\flash;..\SRC\SNTP;..\SRC\display;..\SRC\key;..\SRC\schedule;..\SRC\program;..\SR
+                    -C\Scan) DEFINE(KEIL_AX11000) VARBANKING DEBUG PRINT(.\Build\flash_schedule.lst) OBJECT(.\Build\flash_schedule.obj)
+
+line level    source
+
+   1          #include "flash.h"
+   2          #include "flash_schedule.h"
+   3          #include "schedule.h"
+   4          #include <string.h>
+   5          
+   6          STR_FLASH flash;
+   7          STR_Flash_POS xdata Flash_Position[18] /*_at_ 0x800*/;
+   8          
+   9          extern U16_T far Test[50];
+  10          static  U8_T far tempbuf[1500] = {0};
+  11          
+  12          
+  13          
+  14          //extern U8_T  far Para[400]; 
+  15          
+  16          /* caclulate detailed position for every table */
+  17          void Flash_Inital(void)
+  18          {
+  19   1              U8_T loop;
+  20   1              U16_T baseAddr;
+  21   1              
+  22   1              U16_T  len;
+  23   1              for(loop = 0;loop < T_END;loop++)
+  24   1              {
+  25   2                      switch(loop)
+  26   2                      {
+  27   3                              case T_WEEK_DES:        
+  28   3                                      baseAddr = 6000;
+  29   3                                      len = WR_DESCRIPTION_SIZE * MAX_WR; // 31*20
+  30   3                                      break;
+  31   3                              case T_WEEK_ONTIME:
+  32   3                                      baseAddr += len;
+  33   3                                      len = WR_TIME_SIZE * MAX_WR; // 72*20
+  34   3                                      break;
+  35   3                              case T_WEEK_OFFTIME:
+  36   3                                      baseAddr += len;
+  37   3                                      len = WR_TIME_SIZE * MAX_WR; // 72*20
+  38   3                                      break;
+  39   3                              case T_ANNUAL_DES:
+  40   3                                      baseAddr += len;
+  41   3                                      len = AR_DESCRIPTION_SIZE * MAX_AR; // 29*16
+  42   3                                      break;
+  43   3                              case T_ANNUAL_TIME:
+  44   3                                      baseAddr += len;
+  45   3                                      len = AR_TIME_SIZE * MAX_AR;  // 46*16
+  46   3                                      break;
+  47   3                              case T_ID:
+  48   3      
+  49   3                                      baseAddr += len;
+  50   3                                      len = ID_SIZE * MAX_ID; // 3*254        
+C51 COMPILER V9.00   FLASH_SCHEDULE                                                        05/08/2013 16:47:36 PAGE 2   
+
+  51   3                                      break;  
+  52   3                              case T_NAME:  // FOR CM5
+  53   3                                      baseAddr += len;
+  54   3                                      len = NAME_SIZE * MAX_NAME;     
+  55   3                              default:
+  56   3                                      break;
+  57   3                      }
+  58   2                      Flash_Position[loop].addr = baseAddr;
+  59   2                      Flash_Position[loop].len = len;
+  60   2                      
+  61   2              }       
+  62   1      }
+  63          
+  64          void Flash_Write_Schedule(void)
+  65          {
+  66   1              STR_flag_flash ptr_flash;
+  67   1              U16_T base_addr;
+  68   1              U8_T loop;
+  69   1              U16_T loop1,loop2;
+  70   1      //      U16_T i;
+  71   1       /* only the first block, erase memory */
+  72   1              IntFlashErase(ERA_RUN,0x70000); 
+  73   1              IntFlashWriteByte(0x70000 + 0xfff0,0x55);
+  74   1              // MassFlashWrite(0,Para,400); //LHN add
+  75   1      
+  76   1              ptr_flash.index = 0;
+  77   1      
+  78   1              for(loop = 0;loop < T_END ;loop++)
+  79   1              {
+  80   2                      ptr_flash.table = loop; 
+  81   2                      
+  82   2                      ptr_flash.len = Flash_Position[loop].len;
+  83   2                      base_addr = Flash_Position[loop].addr;
+  84   2                      switch(loop)
+  85   2                      {                       
+  86   3                              case T_WEEK_DES:
+  87   3                                      for(loop1 = 0;loop1 < MAX_WR;loop1++)
+  88   3                                      {
+  89   4                                              memcpy(&tempbuf[WR_DESCRIPTION_SIZE * loop1],WR_Roution[loop1].UN.all,WR_DESCRIPTION_SIZE);                                     
+  90   4                                      }
+  91   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+  92   3                                              IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);  
+  93   3                                      break;
+  94   3                              case T_WEEK_ONTIME:
+  95   3                                      for(loop1 = 0;loop1 < MAX_WR;loop1++)
+  96   3                                      {
+  97   4                                              memcpy(&tempbuf[WR_TIME_SIZE * loop1],WR_Roution[loop1].OnTime,WR_TIME_SIZE);                                   
+  98   4                                      }
+  99   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 100   3                                              IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);
+ 101   3                                      break;
+ 102   3                              case T_WEEK_OFFTIME:
+ 103   3                                      for(loop1 = 0;loop1 < MAX_WR;loop1++)
+ 104   3                                      {
+ 105   4                                              memcpy(&tempbuf[WR_TIME_SIZE * loop1],WR_Roution[loop1].OffTime,WR_TIME_SIZE);                                  
+ 106   4                                      }
+ 107   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 108   3                                              IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);          
+ 109   3                                      break;
+ 110   3                              case T_ANNUAL_DES:
+ 111   3                                      for(loop1 = 0;loop1 < MAX_AR;loop1++)
+ 112   3                                      {
+C51 COMPILER V9.00   FLASH_SCHEDULE                                                        05/08/2013 16:47:36 PAGE 3   
+
+ 113   4                                              memcpy(&tempbuf[AR_DESCRIPTION_SIZE * loop1],AR_Roution[loop1].UN.all,AR_DESCRIPTION_SIZE);                                     
+ 114   4                                      }
+ 115   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 116   3                                              IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);          
+ 117   3                                      break;
+ 118   3                              case T_ANNUAL_TIME:
+ 119   3                                      for(loop1 = 0;loop1 < MAX_AR;loop1++)
+ 120   3                                      {
+ 121   4                                              memcpy(&tempbuf[AR_TIME_SIZE * loop1],AR_Roution[loop1].Time,AR_TIME_SIZE);                                     
+ 122   4                                      }
+ 123   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 124   3                                              IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);          
+ 125   3                                      break;
+ 126   3      
+ 127   3                              case T_ID:
+ 128   3                                      for(loop1 = 0;loop1 < MAX_ID;loop1++)
+ 129   3                                      {
+ 130   4                                              memcpy(&tempbuf[ID_SIZE * loop1],ID_Config[loop1].all,ID_SIZE);                                 
+ 131   4                                      }
+ 132   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 133   3                                              IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);          
+ 134   3                                      break;
+ 135   3                                               
+ 136   3                              case T_NAME:
+ 137   3                                      for(loop1 = 0;loop1 < MAX_NAME;loop1++)
+ 138   3                                      {
+ 139   4                                              memcpy(&tempbuf[NAME_SIZE * loop1],menu_name[loop1],NAME_SIZE);                                 
+ 140   4                                      }
+ 141   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 142   3                                              IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);          
+ 143   3                                      break;
+ 144   3                              default:        
+ 145   3                                      break;
+ 146   3                      
+ 147   3                      }
+ 148   2              }
+ 149   1      
+ 150   1      }
+ 151          
+ 152          void Flash_Read_Schedule(void)
+ 153          {
+ 154   1              STR_flag_flash ptr_flash;
+ 155   1              U16_T base_addr;
+ 156   1              U8_T loop;
+ 157   1              U16_T loop2,loop1;
+ 158   1      //      U8_T far tempbuf[500];
+ 159   1      
+ 160   1              ptr_flash.index = 0;
+ 161   1              for(loop = 0;loop < T_END;loop++)
+ 162   1              {
+ 163   2                      ptr_flash.table = loop; 
+ 164   2                      
+ 165   2                      ptr_flash.len = Flash_Position[loop].len;
+ 166   2                      base_addr = Flash_Position[loop].addr;
+ 167   2                      switch(loop)
+ 168   2                      {                       
+ 169   3                              case T_WEEK_DES:
+ 170   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 171   3                                              IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+ 172   3                                      for(loop1 = 0;loop1 < MAX_WR;loop1++)
+ 173   3                                      {
+ 174   4                                              memcpy(WR_Roution[loop1].UN.all,&tempbuf[WR_DESCRIPTION_SIZE * loop1],WR_DESCRIPTION_SIZE);                                     
+C51 COMPILER V9.00   FLASH_SCHEDULE                                                        05/08/2013 16:47:36 PAGE 4   
+
+ 175   4                                      }
+ 176   3                                      break;
+ 177   3                              case T_WEEK_ONTIME:
+ 178   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 179   3                                              IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+ 180   3                                      
+ 181   3                                      for(loop1 = 0;loop1 < MAX_WR;loop1++)
+ 182   3                                      {
+ 183   4                                              memcpy(&WR_Roution[loop1].OnTime,&tempbuf[WR_TIME_SIZE * loop1],WR_TIME_SIZE);                                  
+ 184   4                                      }
+ 185   3                                      break;
+ 186   3                              case T_WEEK_OFFTIME:
+ 187   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 188   3                                              IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+ 189   3                                      for(loop1 = 0;loop1 < MAX_WR;loop1++)
+ 190   3                                      {
+ 191   4                                              memcpy(WR_Roution[loop1].OffTime,&tempbuf[WR_TIME_SIZE * loop1],WR_TIME_SIZE);                                  
+ 192   4                                      }
+ 193   3                                      break;
+ 194   3                              case T_ANNUAL_DES:
+ 195   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 196   3                                              IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+ 197   3                                      for(loop1 = 0;loop1 < MAX_AR;loop1++)
+ 198   3                                      {
+ 199   4                                              memcpy(AR_Roution[loop1].UN.all,&tempbuf[AR_DESCRIPTION_SIZE * loop1],AR_DESCRIPTION_SIZE);                                     
+ 200   4                                      }
+ 201   3                                      break;
+ 202   3                              case T_ANNUAL_TIME:
+ 203   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 204   3                                              IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+ 205   3                                      for(loop1 = 0;loop1 < MAX_AR;loop1++)
+ 206   3                                      {
+ 207   4                                              memcpy(AR_Roution[loop1].Time,&tempbuf[AR_TIME_SIZE * loop1],AR_TIME_SIZE);                                     
+ 208   4                                      }
+ 209   3                                      break;
+ 210   3                              case T_ID:
+ 211   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 212   3                                              IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+ 213   3                                      for(loop1 = 0;loop1 < MAX_ID;loop1++)
+ 214   3                                      {
+ 215   4                                              memcpy(ID_Config[loop1].all,&tempbuf[ID_SIZE * loop1],ID_SIZE);                                 
+ 216   4                                      }
+ 217   3                                      break;  
+ 218   3      
+ 219   3                              case T_NAME:
+ 220   3                                      for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+ 221   3                                              IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+ 222   3                                      for(loop1 = 0;loop1 < MAX_NAME;loop1++)
+ 223   3                                      {
+ 224   4                                              memcpy(menu_name[loop1],&tempbuf[NAME_SIZE * loop1],NAME_SIZE);                                 
+ 225   4                                      }
+ 226   3                                      break;
+ 227   3                              default:
+ 228   3                                      break;
+ 229   3                      }
+ 230   2              }                                                                  
+ 231   1      }
+ 232          
+ 233          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+C51 COMPILER V9.00   FLASH_SCHEDULE                                                        05/08/2013 16:47:36 PAGE 5   
+
+   CODE SIZE        =   3794    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    146    1032
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   1500    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

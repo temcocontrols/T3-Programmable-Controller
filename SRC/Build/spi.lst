@@ -1,0 +1,593 @@
+C51 COMPILER V9.00   SPI                                                                   02/28/2013 15:46:43 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE SPI
+OBJECT MODULE PLACED IN .\Build\spi.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE SPI\spi.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X6020) INCDIR(..\SRC\FreeR
+                    -TOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\UART\;
+                    -..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\SRC\GS
+                    -M\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;..\SRC\
+                    -dhcp\;..\SRC\pppoe\;..\SRC\MINI_262\;..\SRC\flash;..\SRC\SNTP) DEFINE(KEIL_AX11000) VARBANKING DEBUG PRINT(.\Build\spi.l
+                    -st) OBJECT(.\Build\spi.obj)
+
+line level    source
+
+   1          /*
+   2           *********************************************************************************
+   3           *     Copyright (c) 2005   ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           *********************************************************************************
+  10           */
+  11          /*================================================================================
+  12           * Module Name : spi.c
+  13           * Purpose     : This file handles the I2C serial interface driver.
+  14           * Author      : Robin Lee
+  15           * Date        : 2005-03-31
+  16           * Notes       :
+  17           * $Log: spi.c,v $
+  18           * Revision 1.10  2005/11/24 12:51:51  robin6633
+  19           * initiate values of use.
+  20           *
+  21           * Revision 1.9  2005/08/17 06:48:22  robin6633
+  22           * no message
+  23           *
+  24           * Revision 1.8  2005/08/11 09:00:06  borbin
+  25           * no message
+  26           *
+  27           * Revision 1.7  2005/08/03 03:41:39  robin6633
+  28           * Extended the spi receive length.
+  29           *
+  30           * Revision 1.6  2005/07/27 05:18:30  robin6633
+  31           * Re-order the burst read/write command address byte of slave mode.
+  32           *
+  33           * Revision 1.5  2005/07/21 12:14:14  robin6633
+  34           * Fixed the software receive buffer of single write/read SFR command process.
+  35           *
+  36           * Revision 1.4  2005/07/21 02:56:48  robin6633
+  37           * Change the opcode definition of slave mode instruction set.
+  38           *
+  39           * Revision 1.3  2005/07/16 02:58:07  robin6633
+  40           * Add Slave mode function
+  41           *
+  42           * Revision 1.2  2005/06/14 02:50:12  arthur
+  43           * changed interrupt.h include
+  44           *
+  45           * Revision 1.1.1.1  2005/06/06 05:55:57  robin6633
+  46           * no message
+  47           *
+  48           *================================================================================
+  49           */
+  50          
+C51 COMPILER V9.00   SPI                                                                   02/28/2013 15:46:43 PAGE 2   
+
+  51          /* INCLUDE FILE DECLARATIONS */
+  52          #include        "reg80390.h"
+  53          #include        "types.h"
+  54          #include        "spi.h"
+  55          
+  56          #if SPI_SLAVE_ENABLE
+              #include        "console_debug.h"
+              #endif
+  59          
+  60          #include "stdio.h"
+  61          
+  62          
+  63          /* STATIC VARIABLE DECLARATIONS */
+  64          static U8_T             spiActF = 0;
+  65          static U8_T             spiCtrl = 0;
+  66          static U8_T             spiPktDir = 0;
+  67          static U8_T             spiPktLen = 0;
+  68          static U16_T    spiLenCnt = 0;
+  69          static U16_T    spiTransLoop = 0;
+  70          static U16_T    spiTransLoopCnt = 0;
+  71          static U8_T             spiRxBuf[4] = {0,0,0,0};
+  72          static U8_T             spiSlvTxBuf[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  73          static U8_T             spiSlvRxBuf[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  74          
+  75          
+  76          /* LOCAL SUBPROGRAM DECLARATIONS */
+  77          static void     spi_MstRcvr(void);
+  78          static void spi_SlvRcvr(void);
+  79          
+  80          #if SPI_SLAVE_ENABLE
+              static void spi_SlvProcess(void);
+              #endif
+  83          
+  84          
+  85          /* LOCAL SUBPROGRAM BODIES */
+  86          
+  87          /*
+  88           *--------------------------------------------------------------------------------
+  89           * static void spi_MstRcvr(void)
+  90           * Purpose : SPI master get data from receive queue in one transfer.
+  91           * Params  :
+  92           * Returns :
+  93           * Note    :
+  94           *--------------------------------------------------------------------------------
+  95           */
+  96          static void spi_MstRcvr(void)
+  97          {
+  98   1              U8_T    i;
+  99   1              //P0_5 = 0;
+ 100   1              SPICIR = SPIRBR;
+ 101   1              for (i = 0 ; i < 4; i++ )
+ 102   1              {
+ 103   2                      spiRxBuf[i] = SPIDR;
+ 104   2              }
+ 105   1      }
+ 106          
+ 107          /*
+ 108           *--------------------------------------------------------------------------------
+ 109           * static void spi_SlvRcvr(void)
+ 110           * Purpose : SPI receive function for one transfer smaller than 32 bits.
+ 111           * Params  :
+ 112           * Returns :
+C51 COMPILER V9.00   SPI                                                                   02/28/2013 15:46:43 PAGE 3   
+
+ 113           * Note    :
+ 114           *--------------------------------------------------------------------------------
+ 115           */
+ 116          #if SPI_SLAVE_ENABLE
+              static void spi_SlvRcvr(void)
+              {
+                      U8_T    i;
+                      U8_T    rxLen = 0;
+                      U8_T    slvCmdType = 0;
+                      U8_T    dataLen = 0;
+              
+                      SPICIR = SPISB;
+                      spiSlvRxBuf[0] = SPIDR;
+                      slvCmdType = spiSlvRxBuf[0] & 0xF0;
+                      dataLen = (spiSlvRxBuf[0] & 0x0F) + 1;
+                      if (slvCmdType == SPI_SLV_SRSFR)
+                      {
+                              rxLen = 1;
+                      }
+                      else if (slvCmdType == SPI_SLV_SWSFR)
+                      {
+                              rxLen = datalen + 1;
+                      }
+                      else if (slvCmdType == SPI_SLV_IRSFR)
+                      {
+                              rxLen = 2;
+                      }
+                      else if (slvCmdType == SPI_SLV_IWSFR)
+                      {
+                              rxLen = datalen + 2;
+                      }
+                      else if (slvCmdType == SPI_SLV_BRMEM)
+                      {
+                              rxLen = 3;
+                      }
+                      else if (slvCmdType == SPI_SLV_BWMEM)
+                      {
+                              rxLen = datalen + 3;
+                      }
+                      for (i = 0 ; i < rxLen ; i ++ )
+                      {
+                              spiSlvRxBuf[1+i] = SPIDR;
+                      }
+                      /* Command abort*/
+                      SPICIR = 0xFF;
+              }
+              #endif
+ 160          
+ 161          /*
+ 162           *--------------------------------------------------------------------------------
+ 163           * static void spi_SlvProcess(void)
+ 164           * Purpose : SPI transmit function for one transfer smaller than 32 bits.
+ 165           * Params  :
+ 166           * Returns :
+ 167           * Note    :
+ 168           *--------------------------------------------------------------------------------
+ 169           */
+ 170          #if SPI_SLAVE_ENABLE
+              static void spi_SlvProcess(void)
+              {
+                      U8_T    slvCmdType = 0;
+                      U8_T    sfrAddr = 0;
+C51 COMPILER V9.00   SPI                                                                   02/28/2013 15:46:43 PAGE 4   
+
+                      U8_T    cmdIndReg = 0;
+                      U8_T    realReg = 0;
+                      U8_T    realLen = 0;
+                      U32_T   memAddr = 0;
+                      U32_T   tempData = 0;
+                      U16_T   i;
+              
+                      slvCmdType = spiSlvRxBuf[0] & 0xF0;
+                      if (slvCmdType == SPI_SLV_SRSFR)
+                      {
+                              realLen = (spiSlvRxBuf[0] & 0x07) + 1;
+                              sfrAddr = spiSlvRxBuf[1];
+                              for (i=0 ; i<realLen ; i++)
+                              {
+                                      CLI_SfrRd((U32_T)sfrAddr, &tempData);
+                                      spiSlvTxBuf[i] = (U8_T)tempData;
+                              }
+                              SPI_SlvXmit(SPI_SLV_RDY);
+                      }
+                      else if (slvCmdType == SPI_SLV_SWSFR)
+                      {
+                              realLen = (spiSlvRxBuf[0] & 0x07) + 1;
+                              sfrAddr = spiSlvRxBuf[1];
+                              for (i=0 ; i<realLen ; i++)
+                              {
+                                      tempData = (U32_T)spiSlvRxBuf[2+i];
+                                      CLI_SfrWr((U32_T)sfrAddr, tempData);
+                              }
+                              SPI_SlvXmit(SPI_SLV_RDY);
+                      }
+                      else if (slvCmdType  == SPI_SLV_IRSFR)
+                      {
+                              cmdIndReg = spiSlvRxBuf[1];
+                              realReg = spiSlvRxBuf[2];
+                              realLen = (spiSlvRxBuf[0] & 0x0F) + 1;
+                              if (cmdIndReg == SFR_SPICIR)
+                              {
+                                      CLI_SpiRd((U32_T)realReg, &spiSlvTxBuf[0], (U8_T)realLen);
+                              }
+                              else if (cmdIndReg == SFR_I2CCIR)
+                              {
+                                      CLI_I2cRd((U32_T)realReg, &spiSlvTxBuf[0], (U8_T)realLen);
+                              }
+                              else if (cmdIndReg == SFR_OWCIR)
+                              {
+                                      CLI_OwRd((U32_T)realReg, &spiSlvTxBuf[0], (U8_T)realLen);
+                              }
+                              else if (cmdIndReg == SFR_CANCIR)
+                              {
+                                      CLI_CanRd((U32_T)realReg, &spiSlvTxBuf[0], (U8_T)realLen);
+                              }
+                              else if (cmdIndReg == SFR_TCIR)
+                              {
+                                      CLI_ToeRd((U32_T)realReg, &spiSlvTxBuf[0], (U8_T)realLen);
+                              }
+                              else if (cmdIndReg == SFR_MCIR)
+                              {
+                                      CLI_MacRd((U32_T)realReg, &spiSlvTxBuf[0], (U8_T)realLen);
+                              }
+                              SPI_SlvXmit(SPI_SLV_RDY);
+                      }
+                      else if (slvCmdType  == SPI_SLV_IWSFR)
+C51 COMPILER V9.00   SPI                                                                   02/28/2013 15:46:43 PAGE 5   
+
+                      {
+                              cmdIndReg = spiSlvRxBuf[1];
+                              realReg = spiSlvRxBuf[2];
+                              realLen = (spiSlvRxBuf[0] & 0x0F) + 1;
+                              if (cmdIndReg == SFR_SPICIR)
+                              {
+                                      CLI_SpiWr((U32_T)realReg, &spiSlvRxBuf[3], (U8_T)realLen);
+                              }
+                              else if (cmdIndReg == SFR_I2CCIR)
+                              {
+                                      CLI_I2cWr((U32_T)realReg, &spiSlvRxBuf[3], (U8_T)realLen);
+                              }
+                              else if (cmdIndReg == SFR_OWCIR)
+                              {
+                                      CLI_OwWr((U32_T)realReg, &spiSlvRxBuf[3], (U8_T)realLen);
+                              }
+                              else if (cmdIndReg == SFR_CANCIR)
+                              {
+                                      CLI_CanWr((U32_T)realReg, &spiSlvRxBuf[3], (U8_T)realLen);
+                              }
+                              else if (cmdIndReg == SFR_TCIR)
+                              {
+                                      CLI_ToeWr((U32_T)realReg, &spiSlvRxBuf[3], (U8_T)realLen);
+                              }
+                              else if (cmdIndReg == SFR_MCIR)
+                              {
+                                      CLI_MacWr((U32_T)realReg, &spiSlvRxBuf[3], (U8_T)realLen);
+                              }
+                              SPI_SlvXmit(SPI_SLV_RDY);
+                      }
+                      else if (slvCmdType  == SPI_SLV_BRMEM)
+                      {
+                              memAddr = ((U32_T)spiSlvRxBuf[3] << 16) | ((U32_T)spiSlvRxBuf[2] << 8) | ((U32_T)spiSlvRxBuf[1]);
+                              realLen = (spiSlvRxBuf[0] & 0x0F) + 1;
+                              for (i = 0 ; i < realLen ; i ++)
+                              {
+                                      CLI_ExtMemRd((memAddr + i), &tempData);
+                                      spiSlvTxBuf[i] = (U8_T)tempData;
+                              }
+                              SPI_SlvXmit(SPI_SLV_RDY);
+                      }
+                      else if (slvCmdType  == SPI_SLV_BWMEM)
+                      {
+                              memAddr = ((U32_T)spiSlvRxBuf[3] << 16) | ((U32_T)spiSlvRxBuf[2] << 8) | ((U32_T)spiSlvRxBuf[1]);
+                              realLen = (spiSlvRxBuf[0] & 0x0F) + 1;
+                              for (i = 0 ; i < realLen ; i ++)
+                              {
+                                      tempData = (U32_T)spiSlvRxBuf[4 + i];
+                                      CLI_ExtMemWr((memAddr + i), tempData);
+                              }
+                              SPI_SlvXmit(SPI_SLV_RDY);
+                      }
+              }
+              #endif
+ 291          
+ 292          
+ 293          /* EXPORTED SUBPROGRAM BODIES */
+ 294          
+ 295          /*
+ 296           *--------------------------------------------------------------------------------
+ 297           * void SPI_Setup(U8_T ctrlCmd, U8_T intrEnb, U8_T baudrate, U8_T slvSel)
+ 298           * Purpose :
+C51 COMPILER V9.00   SPI                                                                   02/28/2013 15:46:43 PAGE 6   
+
+ 299           * Params  :
+ 300           * Returns :
+ 301           * Note    :
+ 302           *--------------------------------------------------------------------------------
+ 303           */
+ 304          void SPI_Setup(U8_T ctrlCmd, U8_T intrEnb, U8_T baudrate, U8_T slvSel)
+ 305          {
+ 306   1              U8_T    spiSlvCmd = 0;
+ 307   1              U16_T   i;
+ 308   1      
+ 309   1              spiActF = 0;
+ 310   1              spiCtrl = 0;
+ 311   1              spiPktDir = 0;
+ 312   1              spiPktLen = 0;
+ 313   1              spiLenCnt = 0;
+ 314   1              spiTransLoop = 0;
+ 315   1              spiTransLoopCnt = 0;
+ 316   1              for (i=0 ; i<4 ; i++)
+ 317   1                      spiRxBuf[i] = 0;
+ 318   1              for (i=0 ; i<16 ; i++)
+ 319   1              {
+ 320   2                      spiSlvTxBuf[i] = 0;
+ 321   2                      spiSlvRxBuf[i] = 0;
+ 322   2              }
+ 323   1      
+ 324   1              /* Record the SPI control mode */
+ 325   1              spiCtrl = intrEnb;
+ 326   1              /* Setup SPI mode */
+ 327   1              SPI_Cmd(SI_WR, SPICTRLR, &ctrlCmd);
+ 328   1              /* Enable intertupe flag type of SPI */
+ 329   1              SPI_Cmd(SI_WR, SPIIER, &intrEnb);
+ 330   1              /* SPI baud rate selection */
+ 331   1              SPI_Cmd(SI_WR, SPIBRR, &baudrate);
+ 332   1              /* SPI slave select */
+ 333   1              SPI_Cmd(SI_WR, SPISSR, &slvSel);
+ 334   1              /* SPI slave is ready to receive */
+ 335   1              spiSlvCmd = SPI_SLV_RDY;
+ 336   1              SPI_Cmd(SI_WR, SPISCR, &spiSlvCmd);
+ 337   1      }
+ 338          
+ 339          /*
+ 340           *--------------------------------------------------------------------------------
+ 341           * void SPI_Func(void)
+ 342           * Purpose : Handling serial interface SPI interrupt function.
+ 343           * Params  :
+ 344           * Returns :
+ 345           * Note    :
+ 346           *--------------------------------------------------------------------------------
+ 347           */
+ 348          void SPI_Func(void)
+ 349          {
+ 350   1              U8_T    spiStatus = 0;
+ 351   1      
+ 352   1              /* Take down the interrupt type */
+ 353   1              EA = 0;
+ 354   1              SPI_Cmd(SI_RD, SPIISR, &spiStatus);
+ 355   1              EA = 1;
+ 356   1      
+ 357   1              if ((spiCtrl & SPI_STCFIE) || (spiCtrl & SPI_SRCFIE))
+ 358   1              {
+ 359   2                      /* Read SPI interrupt status register */
+ 360   2                      //printf("send\r\n");
+C51 COMPILER V9.00   SPI                                                                   02/28/2013 15:46:43 PAGE 7   
+
+ 361   2                      if (spiStatus & SPI_MCF) // when master complete a transfer
+ 362   2                      {
+ 363   3                              //P0_5 = 1;
+ 364   3                              spi_MstRcvr();
+ 365   3                              SPI_FlagClr(SPI_BUSY);
+ 366   3                      }
+ 367   2      
+ 368   2                      #if SPI_SLAVE_ENABLE
+                              else if (spiStatus & SPI_SCF) // when slave complete a transfer
+                              {
+                                      spi_SlvRcvr();
+                                      spi_SlvProcess();
+                              }
+                              #endif
+ 375   2              }
+ 376   1              else
+ 377   1              {
+ 378   2                      //printf("receive\r\n");
+ 379   2                      if (spiStatus & SPI_MCF) // when master complete a transfer
+ 380   2                      {
+ 381   3                              spi_MstRcvr();
+ 382   3                              SPI_FlagClr(SPI_BUSY);
+ 383   3                      }
+ 384   2                      #if SPI_SLAVE_ENABLE
+                              else if (spiStatus & SPI_SCF) // when slave complete a transfer
+                              {
+                                      spi_SlvRcvr();
+                                      spi_SlvProcess();
+                              }
+                              #endif
+ 391   2              }
+ 392   1      }
+ 393          
+ 394          /*
+ 395           *--------------------------------------------------------------------------------
+ 396           * void SPI_MstXmit(U8_T *ptSpiTxPkt, U8_T xmitBit, U8_T cmd)
+ 397           * Purpose : SPI transmit function for one transfer smaller than 32 bits.
+ 398           * Params  :
+ 399           * Returns :
+ 400           * Note    :
+ 401           *--------------------------------------------------------------------------------
+ 402           */
+ 403          void SPI_MstXmit(U8_T *ptSpiTxPkt, U8_T xmitBit, U8_T cmd)
+ 404          {
+ 405   1              U16_T   i;
+ 406   1              U8_T    xmitCmd = 0;
+ 407   1              
+ 408   1              for (i = 0 ; i <= (xmitBit-1)/8 ; i++ )
+ 409   1              {
+ 410   2                      SPIDR = *(ptSpiTxPkt + i);
+ 411   2              }
+ 412   1              SPICIR = SPITBR;
+ 413   1              /* order command */
+ 414   1              xmitCmd = ((xmitBit - 1)|cmd);
+ 415   1              SPI_Cmd(SI_WR, SPICMDR, &xmitCmd);
+ 416   1      }
+ 417          
+ 418          /*
+ 419           *--------------------------------------------------------------------------------
+ 420           * void SPI_SlvXmit(U8_T spiSlvCmd)
+ 421           * Purpose : SPI transmit function for one transfer smaller than 32 bits.
+ 422           * Params  :
+C51 COMPILER V9.00   SPI                                                                   02/28/2013 15:46:43 PAGE 8   
+
+ 423           * Returns :
+ 424           * Note    :
+ 425           *--------------------------------------------------------------------------------
+ 426           */
+ 427          void SPI_SlvXmit(U8_T spiSlvCmd)
+ 428          {
+ 429   1              U16_T   i;
+ 430   1      
+ 431   1              for (i = 0 ; i <16 ; i++ )
+ 432   1              {
+ 433   2                      SPIDR = spiSlvTxBuf[i];
+ 434   2              }
+ 435   1              SPICIR = SPISB;
+ 436   1              /* order command */
+ 437   1              SPI_Cmd(SI_WR, SPISCR, &spiSlvCmd);
+ 438   1      }
+ 439          
+ 440          /*
+ 441           *--------------------------------------------------------------------------------
+ 442           * BOOL SPI_FlagChk(U8_T chkBit)
+ 443           * Purpose :
+ 444           * Params  :
+ 445           * Returns :
+ 446           * Note    :
+ 447           *--------------------------------------------------------------------------------
+ 448           */
+ 449          BOOL SPI_FlagChk(U8_T chkBit)
+ 450          {
+ 451   1              if (spiActF & chkBit)
+ 452   1                      return TRUE;
+ 453   1              else
+ 454   1                      return FALSE;
+ 455   1      }
+ 456          
+ 457          /*
+ 458           *--------------------------------------------------------------------------------
+ 459           * void SPI_FlagEnb(U8_T enbBit)
+ 460           * Purpose :
+ 461           * Params  :
+ 462           * Returns :
+ 463           * Note    :
+ 464           *--------------------------------------------------------------------------------
+ 465           */
+ 466          void SPI_FlagEnb(U8_T enbBit)
+ 467          {
+ 468   1              spiActF = spiActF | enbBit;
+ 469   1      }
+ 470          
+ 471          /*
+ 472           *--------------------------------------------------------------------------------
+ 473           * void SPI_FlagClr(U8_T clrBit)
+ 474           * Purpose :
+ 475           * Params  :
+ 476           * Returns :
+ 477           * Note    :
+ 478           *--------------------------------------------------------------------------------
+ 479           */
+ 480          void SPI_FlagClr(U8_T clrBit)
+ 481          {
+ 482   1              spiActF = spiActF & ~clrBit;
+ 483   1      }
+ 484          
+C51 COMPILER V9.00   SPI                                                                   02/28/2013 15:46:43 PAGE 9   
+
+ 485          /*
+ 486           *--------------------------------------------------------------------------------
+ 487           * void SPI_GetData(U8_T *ptBuf)
+ 488           * Purpose :
+ 489           * Params  :
+ 490           * Returns :
+ 491           * Note    :
+ 492           *--------------------------------------------------------------------------------
+ 493           */
+ 494          void SPI_GetData(U8_T *ptBuf)
+ 495          {
+ 496   1              U8_T    i;
+ 497   1      
+ 498   1              for (i=0 ; i<4 ; i++)
+ 499   1              {
+ 500   2                      *(ptBuf + i) = spiRxBuf[i];
+ 501   2              }
+ 502   1      //      printf("int %d %d %d %d\r\n",(int)spiRxBuf[0],(int)spiRxBuf[1],(int)spiRxBuf[2],(int)spiRxBuf[3]);
+ 503   1      
+ 504   1      }
+ 505          
+ 506          /*
+ 507           *--------------------------------------------------------------------------------
+ 508           * void SPI_Cmd(U8_T cmdType, U8_T spiCmdIndex, U8_T *spiData)
+ 509           * Purpose : Accessing the SPI interface indirectly through SPI's SFR.
+ 510           * Params  :
+ 511           * Returns :
+ 512           * Note    :
+ 513           *--------------------------------------------------------------------------------
+ 514           */
+ 515          void SPI_Cmd(U8_T cmdType, U8_T spiCmdIndex, U8_T *spiData)
+ 516          {
+ 517   1              if (cmdType == SI_WR)
+ 518   1              {
+ 519   2                      SPIDR = *spiData;
+ 520   2                      SPICIR = spiCmdIndex;
+ 521   2              }
+ 522   1              else if (cmdType == SI_RD)
+ 523   1              {
+ 524   2                      SPICIR = spiCmdIndex;
+ 525   2                      *spiData = SPIDR;
+ 526   2              }
+ 527   1      }
+ 528          
+ 529          /*
+ 530           *--------------------------------------------------------------------------------
+ 531           * void SPI_Post(void)
+ 532           * Purpose :
+ 533           * Params  :
+ 534           * Returns :
+ 535           * Note    :
+ 536           *--------------------------------------------------------------------------------
+ 537           */
+ 538          void SPI_Post(void)
+ 539          {
+ 540   1      }
+ 541          
+ 542          
+ 543          /* End of spi.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+C51 COMPILER V9.00   SPI                                                                   02/28/2013 15:46:43 PAGE 10  
+
+   CODE SIZE        =    580    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     46      16
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
