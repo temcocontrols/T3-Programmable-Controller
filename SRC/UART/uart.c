@@ -87,6 +87,7 @@ static void uart1_Init(void)
 	U8_T sysClk = 0;
 	// Initialize TIMER1 for standard 8051 UART clock
 	PCON |= 0x40;			// Disable BaudRate doubler.
+//	PCON = 0;
 	SM10 = 0;
 	SM11 = 1;			// Use serial port 1 in mode 1 with 8-bits data.
 	REN1 = 1;			// Enable UART1 receiver.
@@ -126,3 +127,5 @@ void UART_Init(U8_T port)
 		uart1_Init();
 	}
 }
+
+

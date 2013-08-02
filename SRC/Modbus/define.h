@@ -9,6 +9,10 @@
 #define ISP_REV 11
 
 
+#define CM5 0
+#define TSTAT	1
+
+
 #define CRC_YES 1
 #define CRC_NO 0
 
@@ -30,9 +34,11 @@
 #define DHCP   1
 #define STATIC 0
 
-#define MODBUS 0
-#define TCP_IP 3 
+#define MODBUS 0 
+#define TCP_IP 1 
 
+#define BAC_MSTP 2
+#define BAC_IP 3
 
 
 #define WR_DESCRIPTION_SIZE			31
@@ -51,25 +57,28 @@
 
 //typedef struct
 //{
-extern  unsigned char demo_enable;
+extern U16_T far wait;
+extern U8_T far protocal;
+extern  unsigned char far demo_enable;
 extern	unsigned char far serialNum[4];
 //	unsigned char firmwareVer[2];
-extern	unsigned char Modbus_address;
-extern	unsigned char product_model;
-extern	unsigned char hardRev;
-extern	unsigned char baudrate;
+extern	unsigned char far Modbus_address;
+extern	unsigned char far product_model;
+extern	unsigned char far hardRev;
+extern	unsigned char far baudrate;
 //	unsigned char PICversion;
 //	unsigned char update;
-extern	unsigned char unit;
+extern	unsigned char far unit;
 extern	unsigned char far sub_addr[8];
-
-extern	U8_T IspVer;
+extern  U8_T far switch_tstat_val;
+extern	U8_T far IspVer;
 //	U8_T UPDATE_STATUS;
-extern	U8_T BASE_ADRESS;
-extern	U8_T TCP_TYPE;   /* 0 -- DHCP, 1-- STATIC */
+extern	U8_T far BASE_ADRESS;
+extern	U8_T far TCP_TYPE;   /* 0 -- DHCP, 1-- STATIC */
 extern	U8_T far IP_Addr[4];
 extern	U8_T far SUBNET[4];
 extern	U8_T far GETWAY[4];
+extern  U8_T far Mac_Addr[6];
 
 extern	unsigned int  far AI_Value[10];	
 extern	unsigned char far Input_Range[10];
@@ -77,28 +86,30 @@ extern	unsigned char far Input_Filter[10];
 extern	unsigned int far Input_CAL[10];
 
 extern	S8_T far menu_name[36][14];
-extern	unsigned char dis_temp_num;
-extern	unsigned char dis_temp_interval;
-extern	unsigned char dis_temp_seq[10];
+extern	unsigned char far dis_temp_num;
+extern	unsigned char far dis_temp_interval;
+extern	unsigned char far dis_temp_seq[10];
 
-extern	unsigned char DI1_Value;
-extern	unsigned char DI2_Value;
-extern	unsigned char DI_Type[8]; 		// Input is tstat or switch
-extern	unsigned int  DO_Value;  		// control relay
-extern	unsigned char DO_SoftSwitch;  	// software switch logic
-extern	unsigned char Priority;			// Zone1 has priority,
-extern	unsigned int count_priority;   // count priority timer 
+extern	unsigned char far DI1_Value;
+extern	unsigned char far DI2_Value;
+extern	unsigned char far DI_Type[8]; 		// Input is tstat or switch
+extern	unsigned int  far DO_Value;  		// control relay
+extern	unsigned char far DO_SoftSwitch;  	// software switch logic
+extern	unsigned char far Priority;			// Zone1 has priority,
+extern	unsigned int far count_priority;   // count priority timer 
 //	unsigned char Master;
-extern	unsigned int DI_Enable;  // 
-extern	unsigned int AI_Enable;  //
-extern	unsigned int DInputAM;  // digital input 
-extern	unsigned int OuputAM;
-extern	unsigned int AInputAM;  // input 1 - 10 sensor
-extern    U8_T sn_write_flag;
-extern	U8_T update_status;
-extern	U8_T sub_no;
-extern	U8_T heat_no;
-extern	U8_T cool_no;
+extern	unsigned int far DI_Enable;  // 
+extern	unsigned int far AI_Enable;  //
+extern	unsigned int far DInputAM;  // digital input 
+extern	unsigned int far OuputAM;
+extern	unsigned int far AInputAM;  // input 1 - 10 sensor
+extern    U8_T far sn_write_flag;
+extern	U8_T far update_status;
+extern	U8_T far sub_no;
+extern 	U8_T far switch_sub_no;
+extern  U8_T far switch_sub_bit;
+extern	U8_T far heat_no;
+extern	U8_T far cool_no;
 
 typedef	union
 	{
@@ -125,8 +136,8 @@ extern UN_Time RTC;
 
 #define BASE_ADDR   0x30 
 
-#define HW_REV	4
-#define SW_REV	14
+#define HW_REV	7
+#define SW_REV	15
 #define PIC_REV 0x01  // pic688
 
 
@@ -151,6 +162,8 @@ enum{
 	EEP_PIC,
     EEP_ADDRESS_PLUG_N_PLAY ,
 	EEP_UNIT,
+	EEP_PROTOCAL,
+
 	EEP_DAYLIGHT_ENABLE,   
 	EEP_DAYLIGHT_STATUS,
 	// registers needed for updating status
@@ -224,7 +237,7 @@ enum{
 	EEP_OUTPUT_LOW,   /* OUTPUT GROUP1 RELAY 1- 8 */
 	EEP_OUTPUT_HIGH,   /* K9 and K10 */
 
-	EEP_SWITCH = 146 + + USER_BASE_ADDR, 
+	EEP_SWITCH = 146 + USER_BASE_ADDR, 
 	EEP_PRIORTITY,
 
 	EEP_DI_ENABLE_LOW,   // Only ON/OFF  170
@@ -245,7 +258,8 @@ enum{
 	EEP_DIS_TEMP_NUM,
 	EEP_DIS_TEMP_INTERVAL,
 	EEP_DIS_TEMP_SEQ_FIRST,
-	EEP_DIS_TEMP_SEQ_LAST = EEP_DIS_TEMP_SEQ_FIRST + 7,
+	EEP_DIS_TEMP_SEQ_LAST = EEP_DIS_TEMP_SEQ_FIRST + 9,
+
 
 };
 
@@ -271,9 +285,10 @@ enum {
 	MODBUS_TIME_ZONE = 11,	
 
 	MODBUS_BAUDRATE,	 
-	MODBUS_DAYLIGHT_ENABLE,
-	MODBUS_DAYLIGHT_STATUS,
-	MODBUS_RESET_FLASH,	
+//	MODBUS_DAYLIGHT_ENABLE,
+//	MODBUS_DAYLIGHT_STATUS,
+//	MODBUS_RESET_FLASH,	
+	MODBUS_ISP_VER = 14,
 
 // registers needed for updating status
 	MODBUS_UPDATE_STATUS = 16,	
@@ -296,11 +311,12 @@ enum {
 
 
 //  add ethernet register
-	MODBUS_ISP_VER,
 	MODBUS_DEMO_ENABLE = 31,
+	MODBUS_PROTOCAL = 32,
+	MODBUS_RESET_PARAMETER = 33,
 
 
-
+	MODBUS_ENABLE_WRITE_MAC = 93,
 
 	/* 100 ~ 133 */
    	MODBUS_MAC_1 = 100,
@@ -403,6 +419,7 @@ enum {
 
 
 
+
 /*
 	MODBUS_TIMER_ADDRESS		= SCHEDUAL_MODBUS_ADDRESS , // 200
 	
@@ -497,13 +514,12 @@ enum {
 	MODBUS_TEST_50 = 7049,
 
 	MODBUS_NAME_FIRST,  // 7050
-	MODBUS_NAME_LAST = MODBUS_NAME_FIRST + NAME_SIZE / 2 * MAX_NAME - 1,
+	MODBUS_NAME_LAST = MODBUS_NAME_FIRST + 14/*NAME_SIZE*/ / 2 * 36/*MAX_NAME*/ - 1,
 
 	MODBUS_DISPLAY_TEMP_NUM,  // 7302
 	MODBUS_DISPLAY_TMEP_INTERVAL,
 	MODBUS_DISPLAY_TEMP_SEQ_FIRST,
 	MODBUS_DISPLAY_TEMP_SEQ_LAST = MODBUS_DISPLAY_TEMP_SEQ_FIRST + 9,
-
 
 }; 
 

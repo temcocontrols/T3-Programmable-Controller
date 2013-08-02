@@ -1,9 +1,11 @@
 #include "main.h"
 #include "clock.h"
 
-STR_WR far	WR_Roution[MAX_WR];
-STR_AR far AR_Roution[MAX_AR];
+STR_WR far	WR_Roution[MAX_WR1];
+STR_AR far AR_Roution[MAX_AR1];
 UN_ID  far ID_Config[MAX_ID];
+
+U8_T far scheduel_id;
 
 bit BIT_FLAG;  // 0 -- run schedule 
 unsigned char idata current_hour;
@@ -12,17 +14,17 @@ unsigned char idata dayofweek;
 unsigned char idata previous_dayofweek=10;
 unsigned int  idata dayofyear;
 
-unsigned char xdata ar_state_index[2] = 0;
-unsigned char xdata wr_state_index[3] = 0;
-unsigned char xdata holiday1_state_index[3] = 0;
-unsigned char xdata holiday2_state_index[3] = 0;
+unsigned char far ar_state_index[2] = 0;
+unsigned char far wr_state_index[3] = 0;
+unsigned char far holiday1_state_index[3] = 0;
+unsigned char far holiday2_state_index[3] = 0;
 
-unsigned char xdata output_state_index[32];
-unsigned char xdata schedual1_state_index[32];
-unsigned char xdata schedual2_state_index[32];
-unsigned char xdata first_time_schedual[32];
+unsigned char far output_state_index[32];
+unsigned char far schedual1_state_index[32];
+unsigned char far schedual2_state_index[32];
+unsigned char far first_time_schedual[32];
 
-unsigned char xdata send_schedual[8];
+unsigned char far send_schedual[8];
 bit received_schedual_data;
 bit success_write_schedual;
 bit receiving_schedual_byte;
@@ -37,8 +39,8 @@ sbit ANNUAL_CHANGED				= REFRESH_STATUS ^ 1;
 sbit ID_CHANGED			    	= REFRESH_STATUS ^ 2;
 
 extern unsigned char T;
-unsigned char xdata daylight_enable;
-unsigned char xdata daylight_flag;
+unsigned char far daylight_enable;
+unsigned char far daylight_flag;
 bit calibrated_time = 0;
 bit cycle_minutes_timeout;
 
@@ -125,12 +127,8 @@ void SendSchedualData(unsigned char number,bit flag)
 		crc.word = CRC16(send_schedual,0x06);
 		send_schedual[6] = crc.byte[0];
 		send_schedual[7] = crc.byte[1];
-
+		Test[47]++;
 		flag_send_schedual = 1;
-		Test[49] = output_value;
-
-
-	//	flag_send_schedual = 0;
 	}	
   	
  
@@ -321,7 +319,7 @@ void CheckAnnualRoutines( void )
 //    unsigned char  mask_r;
 	unsigned char  octet_index;
  //   unsigned char code *base_address;
-	for( i=0; i<MAX_AR; i++ )
+	for( i=0; i<MAX_AR1; i++ )
 	{
   		AR_FLAG = AR_Roution[i].UN.Desc.flag;
 	   	if( !AR_A_M )  // auto 
@@ -395,7 +393,7 @@ void CheckWeeklyRoutines(void)
 	signed char j,timeout = 0;
 	unsigned char mask;
 	//unsigned char mask_r;
-	for( i=0; i<MAX_WR; i++ )
+	for( i=0; i<MAX_WR1; i++ )
 	{
 		w =  dayofweek;
 
@@ -404,11 +402,11 @@ void CheckWeeklyRoutines(void)
 		
 		WR_FLAG = WR_Roution[i].UN.Desc.flag;
 
-		//Para[11] = w;
+		Test[23] = WR_FLAG;
 
 		j = WR_Roution[i].UN.Desc.holiday2;	
 	
-		if(j > 0 && j <= MAX_AR)
+		if(j > 0 && j <= MAX_AR1)
 		{
 			WR_FLAG |= 0x10;
 			j -= 1;
@@ -438,7 +436,7 @@ void CheckWeeklyRoutines(void)
 			ClearBit( i & 0x07 , &holiday2_state_index[ i >> 3 ] );
 
 		j = WR_Roution[i].UN.Desc.holiday1;
-	 	if(j > 0 && j<=MAX_AR)
+	 	if(j > 0 && j<=MAX_AR1)
 	 	{
 			j -= 1;
 			mask = 0x01;
@@ -467,11 +465,11 @@ void CheckWeeklyRoutines(void)
 		else
 			ClearBit( i & 0x07 , &holiday1_state_index[ i >> 3 ] );
 
-	
+		Test[22]++;
 
 		if( !WR_A_M ) // auto 
 		{
-
+			Test[20]++;
 			for(j = 7;j >= 0 ;j--)
 			{
 				if(j % 2 == 0)  // check ontime j = 0,2,4,6
@@ -509,8 +507,10 @@ void CheckWeeklyRoutines(void)
 			{
 				if( j % 2) /* current time is  off time*/
 				{
+					Test[26]++;
 					if(GetBit(i,wr_state_index) == 1)
-					{		 
+					{	
+						Test[28] = 100;	 
 						ClearBit( i & 0x07 , &wr_state_index[ i >> 3 ] );
 						WEEKLY_CHANGED = 0;
 					} 
@@ -518,8 +518,10 @@ void CheckWeeklyRoutines(void)
 					 
 				else   /* current time is on time*/
 				{
+					Test[27]++;
 					if(GetBit(i,wr_state_index) == 0)
-					{		 
+					{	
+						Test[29] = 100;	 	 
 						SetBit( i & 0x07,&wr_state_index[ i >> 3 ]);
 						WEEKLY_CHANGED = 0;
 					}
@@ -530,6 +532,7 @@ void CheckWeeklyRoutines(void)
 		}
 		else   // manual
 		{
+			Test[21]++;
 			if(WR_FLAG != 0xff)
 			{
 				if(WR_VALUE)
@@ -565,15 +568,28 @@ void CheckIdRoutines(void)
 	bit temp_bit;
 	bit wr1_valid;
 	bit wr2_valid;
-	for(i = 0;i < MAX_ID;i++)
+//	for(i = 0;i < MAX_ID;i++)
+	static char j = 0;
+	
+	//for(j = 0;j < sub_no + switch_sub_no;j++)
 	{
-		if(ID_Config[i].all != NO_DEFINE_ADDRESS)
+		if(sub_addr[j] > 1)	
+		{
+			i = sub_addr[j] - 1;
+			scheduel_id = j;
+		}
+		else
+		{
+			j++;	
+			i = 0;		
+		}
+		if(ID_Config[i].all != NO_DEFINE_ADDRESS && i != 0)
 		{
 			ID_FLAG = ID_Config[i].Str.flag;
 			wr1_valid = 0;
 			wr2_valid = 0;
 		//	test0 = ID_Config[i].Str.schedule1;
-			if(ID_Config[i].Str.schedule1 > 0 && ID_Config[i].Str.schedule1 <= MAX_WR)
+			if(ID_Config[i].Str.schedule1 > 0 && ID_Config[i].Str.schedule1 <= MAX_WR1)
 			{
 				if(GetBit(ID_Config[i].Str.schedule1 - 1,wr_state_index))
 				{ 
@@ -598,7 +614,7 @@ void CheckIdRoutines(void)
 			else
 				ClearBit(i & 0x07 ,&schedual1_state_index[ i >> 3 ]);
 
-			if(ID_Config[i].Str.schedule2 > 0 && ID_Config[i].Str.schedule2 <= MAX_WR)
+			if(ID_Config[i].Str.schedule2 > 0 && ID_Config[i].Str.schedule2 <= MAX_WR1)
 			{
 				if(GetBit(ID_Config[i].Str.schedule2 - 1,wr_state_index))
 				{ 
@@ -629,6 +645,7 @@ void CheckIdRoutines(void)
  				if(wr1_valid || wr2_valid )
 				{
 				//	test0 = 5;
+					Test[40] = 5;
 				//	SendSchedualData(i,wr1_value | wr2_value);  
 			#if 1
 					output_value = GetBit(i,output_state_index); 
@@ -676,6 +693,13 @@ void CheckIdRoutines(void)
 			}
 		}//check if the correspond ID has been used
 	}//for 
+
+	if(j < sub_no + switch_sub_no)
+	{
+		j++;
+	}
+	else
+		j = 0;
 }//main function
 
 
@@ -689,8 +713,15 @@ void Schedule_task(void) reentrant
 //    U8_T i;   	
 	for (;;)
 	{ 	
-		Test[1]++;			
-		if(b_Master_Slave != TSTAT)	 
+		vTaskDelay(xDelayPeriod);
+
+		if(sub_no == 0) continue;
+		
+		Test[1]++;
+
+
+			
+		if(!flag_transimit_from_serial)	 
 		{
 /* implement CaculateTime rution  per 500ms */
 		CaculateTime();
@@ -712,6 +743,5 @@ void Schedule_task(void) reentrant
 		if(count < 6) count++;
 		else count = 0;
 	   	}
-		vTaskDelay(xDelayPeriod);
 	}
 }

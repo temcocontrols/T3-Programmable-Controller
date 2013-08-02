@@ -639,10 +639,6 @@ void Lcd_Write_Byte(unsigned char num) //from high to low
 void Lcd_Write_Command(unsigned char command) //from high to low
 {
 	char data i;
-/*	if(flag_protect_lcd) Test[40]++;//return;
-	else
-		Test[41]++;	
-	I2C_SCL = 1; */
 	LCD_CS = 0;
 	_nop_();
 	LCD_A0 = 0;
@@ -761,18 +757,22 @@ void Lcd_Show_String(U8_T pos_x, U8_T pos_y, S8_T* str,U8_T mode,U8_T format)
  	U8_T loop;	
 	U8_T len = format & 0x7f; /* the higest bit is for selecting capital or uncial, the real lenght is "format & 0x7f" */
 	U8_T str_len;
+	U8_T real_len;
 	S8_T far tempstr[21];
 	if(len > 21)	len = 21;
 	if(strlen(str) > 21) str_len = 21;
 	else	str_len = strlen(str);
-	for(loop = 0;loop < strlen(str);loop++)
+	if(strlen(str) > 21)   real_len = 14;
+	else
+		real_len = strlen(str);
+	for(loop = 0;loop < real_len;loop++)
 	{ /* check the higheset bit, it is for capital or uncial */
 		if(format & 0x80)	tempstr[loop] = (S8_T)toupper(str[loop]); /* capital */
 		else tempstr[loop] = str[loop]; /* uncial */
 	}
 
 	/* if the real len is bigger than the strings, using space to fill the residual area*/
-	if(len > strlen(str))
+	if(len > real_len)
 	{	
 			/* fill space */
 		for(loop = strlen(str);loop < len;loop++)
@@ -789,7 +789,7 @@ void Lcd_Show_String(U8_T pos_x, U8_T pos_y, S8_T* str,U8_T mode,U8_T format)
 	/* if len is 0, using string len */
 	else
 	{	
-		if(len == 0)	len = strlen(str);	
+		if(len == 0)	len = real_len;	
 		for(loop = 0;loop < len;loop++)
 		{
 			Lcd_Write_Char(pos_x,pos_y + loop,tempstr[loop],mode);
@@ -801,10 +801,10 @@ void Lcd_Show_String(U8_T pos_x, U8_T pos_y, S8_T* str,U8_T mode,U8_T format)
 
 void Lcd_Show_Data(char pos_x,char pos_y,unsigned int number,char dot,char mode) //,char div, bool signed)
 {
-	char  loop = 0;
-	char  num[5];
-	char  length;
-	char  by_x,by_y;
+	char  far loop = 0;
+	char far num[5];
+	char  far length;
+	char far  by_x,by_y;
 
 	by_x = pos_x;
 	by_y = pos_y;	
@@ -872,8 +872,8 @@ void Lcd_Show_Data(char pos_x,char pos_y,unsigned int number,char dot,char mode)
 		
 }
 
-char message[200];
-char scroll_message_length;
+char far message[200];
+char far scroll_message_length;
 
 bit scrolling_flag = TRUE;
 

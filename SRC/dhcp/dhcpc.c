@@ -62,6 +62,7 @@ void dhcp_OptionsAppend(U8_T optCode, U8_T optLen, U8_T *optContent);
 U8_T dhcp_ReceiveMessage(void);
 void dhcp_OptionCheck(void);
 
+extern U16_T far Test[50];
 /*
  *--------------------------------------------------------------------------------
  * void Function(void)

@@ -178,11 +178,11 @@ void Key_Process(void) reentrant
 	/*	if(!(by_Key_Buffer & 0x04)) 		{by_Dat = K_PROGRAM; Test[35]++;}
 		if(!(by_Key_Buffer & 0x08))		    {by_Dat = K_SELECT; Test[36]++;}
 		if(!(by_Key_Buffer & 0x40)) 		{by_Dat = K_UP;	 Test[37]++;}
-		if(!(by_Key_Buffer & 0x80)) 		{by_Dat = K_DOWN;Test[38]++;} */
-		if(by_Key_Buffer == 200) 		{by_Dat = K_PROGRAM; }
-		if(by_Key_Buffer == 196)		{by_Dat = K_SELECT;}
-		if(by_Key_Buffer == 140) 		{by_Dat = K_UP;	}
-		if(by_Key_Buffer == 76) 		{by_Dat = K_DOWN;}
+		if(!(by_Key_Buffer & 0x80)) 		{by_Dat = K_DOWN;Test[38]++;}  */
+		if(by_Key_Buffer == 200) 		{by_Dat = K_PROGRAM; Test[35]++;}
+		if(by_Key_Buffer == 196)		{by_Dat = K_SELECT;Test[36]++;}
+		if(by_Key_Buffer == 140) 		{by_Dat = K_UP;Test[37]++;	}
+		if(by_Key_Buffer == 76) 		{by_Dat = K_DOWN;Test[38]++;}
 
 		/* the following are combine keys*/ 
 		//if(!(by_Key_Buffer & 0x80) && !(by_Key_Buffer & 0x40))  by_Dat = K_UP_DOWN;
