@@ -40,8 +40,7 @@
 #include	"commsub.h"	 
 #include 	"scan.h"
 #include 	"flash_schedule.h"
-#include 	"decode.h"
-
+//#include 	"decode.h"
 
 
 
@@ -49,6 +48,39 @@
 #include <stdio.h>
 #include <string.h>
 #include <absacc.h>
+
+
+// BACNET
+#include "bacdef.h"
+#include "gudpmc.h"
+#include "apdu.h"
+/* hardware layer includes */
+#include "timer.h"
+#include "rs485.h"
+/* BACnet Stack includes */
+#include "datalink.h"
+#include "npdu.h"
+#include "handlers.h"
+#include "client.h"
+#include "txbuf.h"
+#include "dcc.h"
+#include "iam.h"
+/* BACnet objects */
+#include "device.h"
+#include "bo.h"	
+#include "..\bacnet\av.h"
+#include "bv.h"
+#include "wp.h"
+#include "bip.h"
+#include "dlenv.h"
+#include "device.h"
+#include "config.h"
+
+#include "ud_str.h"
+#include "user_data.h"
+
+
+
 
 
 #define  RELAY_LATCH  P3_3
@@ -95,16 +127,16 @@
 #define CHS_DI1	0		
 #define CHS_DI2 1
 
-enum
+/*enum
 {
 	OFF = 0, TIMER, ON	
-};
+};*/
 
 
 
 extern U16_T far Test[50];
-extern U8_T ChangeFlash;
-extern U8_T WriteFlash;
+extern U8_T far ChangeFlash;
+extern U8_T far WriteFlash;
 
 
 
@@ -136,6 +168,7 @@ void refresh_led(void);
 bit read_pic_version( void);
 void pic_relay(unsigned int set_relay);
 
+signed int RangeConverter(U8_T function, signed int para,U8_T i,U16_T cal);
 
 
 #endif

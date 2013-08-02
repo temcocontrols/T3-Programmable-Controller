@@ -10,8 +10,8 @@
 #include "commsub.h"
 
 
-#define DisProcess_STACK_SIZE	((unsigned portSHORT)1024)
-#define UpdateSta_STACK_SIZE	((unsigned portSHORT)1024)
+#define DisProcess_STACK_SIZE	((unsigned portSHORT)200)
+#define UpdateSta_STACK_SIZE	((unsigned portSHORT)200)
 
 
 #define 	MENU_NUM		8
@@ -25,7 +25,7 @@
 #define 	MAX_SUB_NUM		8    
 //xTaskHandle xKeyTask;
 extern xQueueHandle xKeyQueue;
-extern unsigned int temperature[10];
+extern unsigned int far temperature[10];
 extern bit flag_control_by_button;
 
 xTaskHandle xDisplayTask;		/* handle for display task */
@@ -36,7 +36,7 @@ xQueueHandle xBtnQueue;				  /* trasmit button value when displaying ITEM */
 xSemaphoreHandle xSemaphore_LCD;	  /* protect "LCD" roution */
 
 static U16_T count_status = 0; /* count for going back to idle mode, 1 min */
-U8_T far LcdStr[5][21];	/* buffer for display */
+//U8_T far LcdStr[5][21];	/* buffer for display */
 U8_T data by_Status = 0;
 unsigned char data by_tstat_index = 0;
 unsigned char far by_Idle_index = 0;
@@ -126,7 +126,6 @@ void vStartDisplayTasks(U8_T uxPriority)
 	vSemaphoreCreateBinary(xSemaphore_Display);
 	xBtnQueue = xQueueCreate(3,sizeof(U8_T));
 	vSemaphoreCreateBinary(xSemaphore_LCD);
-	menu = *menu_name;
 }
 
 
@@ -139,6 +138,12 @@ void Display_Initial_Data(void)
 	Lcd_Show_String(1,1,"CM5",NORMAL,3);
   	Lcd_Show_String(2,1,"TEMCO LTD.,",NORMAL,10);
 	by_submenu_index = 0;
+	if(protocal <= TCP_IP)
+	{
+		memset(menu_name,'\0',MAX_NAME * NAME_SIZE); 
+		menu = *menu_name;
+	}
+
 //	DELAY_Us(5000);		DELAY_Us(5000);	DELAY_Us(5000);	DELAY_Us(5000);	
 }
 
@@ -260,10 +265,14 @@ void Display_Check_Status(void)
 		if(by_Key == K_PROGRAM)		{by_Status = D_MENU; by_Idle_index = 0;stop_scrolling();}
 		if(by_Key == K_SELECT)		
 		{	
-			
 			if(by_Idle_index < IDLE_LEN - 1)  /* idle menu have 2 pages now , press this button to enter next page */
 				by_Idle_index++;
-			else by_Idle_index = 0;				 
+			else by_Idle_index = 0;	
+			
+			if(by_Idle_index == IDLE_LEN - 1)	 stop_scrolling();
+			else
+				start_scrolling();
+				 
 		}
 	}
 	else if(by_Status == D_MENU) 
@@ -348,7 +357,7 @@ U8_T count_task = 0;
 extern U8_T flag_protect_lcd;
 void Display_Process(void) reentrant
 {
-	portTickType xDelayPeriod = ( portTickType ) 100 / portTICK_RATE_MS; //  100 
+	portTickType xDelayPeriod = ( portTickType ) 50 / portTICK_RATE_MS; //  100 
 //    portTickType xLastWakeTime = xTaskGetTickCount();
 	U8_T first_Status,second_Status;
 
@@ -358,7 +367,6 @@ void Display_Process(void) reentrant
 		static char pre_Status = 0;
 		vTaskDelay(xDelayPeriod);
 
-		#if 1
 		if(count_task == 0)
 		{
 		#if 1
@@ -375,13 +383,15 @@ void Display_Process(void) reentrant
 			{/* keep status for 1 min, go to idle mode */
 			
 				count_status++;
-				if(count_status >= 1200) //1200 * 50 1min
+				if(count_status >= 200) // 1min
 				{	
+					BACKLIT = BACK_OFF;	
 				/* if current display is IDLE, initial lcd to avoid messed display */
 					if(by_Status == D_IDLE)	{/*Lcd_Initial();Lcd_All_Off();*/}
 					else if(by_Status == D_SUBMENU || by_Status == D_MENU)
 					{
-						by_Status = D_IDLE; 					
+						by_Status = D_IDLE;
+						by_Idle_index = 0; 					
 					} 
 					start_scrolling();
 					count_status = 0;
@@ -390,7 +400,7 @@ void Display_Process(void) reentrant
 		update_message_context();
 		scrolling_message();  
 		
-		Test[8]++;
+		
 
 		if(by_Status == D_IDLE)		Display_Idle(by_Idle_index);
 		else if(by_Status == D_MENU)		Display_Menu(by_menu_index);
@@ -400,7 +410,7 @@ void Display_Process(void) reentrant
 		#endif
 		
 	
-		
+		Test[8]++;
 		count_task = 1;
 
 
@@ -410,10 +420,9 @@ void Display_Process(void) reentrant
 			Test[4]++;
 			//flag_protect_lcd = 1;		
 			Update_AI();  //flag_protect_lcd = 0;
-			count_task = 0;
-			
+			count_task = 0;			
 		}
-		#endif
+	
 
 	}
 
@@ -440,9 +449,9 @@ void Display_Save_Value(unsigned char sub,unsigned char index)
 			{
 				tstat_setpoint[by_Cur_sub] = Set_Value;
 				
-				flag_control_by_button = 1;	
 				WRT_Tst_Reg = WRITE_ROOM_SETPOINT;
-				WRT_Tst_ID = sub_addr[by_Cur_sub];
+				WRT_Tst_ID = sub_addr[by_Cur_sub];					
+				flag_control_by_button = 1;	
 			//	Com_Tstat(WRITE_ROOM_SETPOINT,sub_addr[by_Cur_sub]);
 			//	flag_control_by_button = 0;
 			}
@@ -463,7 +472,7 @@ void Display_Save_Value(unsigned char sub,unsigned char index)
 				flag_control_by_button = 1;
 			//	Com_Tstat(WRITE_HEATTING_SETPOINT,sub_addr[by_Cur_sub]);
 			//	flag_control_by_button = 0;
-			} 
+			} 		
 			else if(index == E_NIGHT_HEAT_DB)
 			{
 				tstat_night_heat_db[by_Cur_sub] = Set_Value;
@@ -512,6 +521,7 @@ void Display_Save_Value(unsigned char sub,unsigned char index)
 			break;
 		default: break;
 	}
+//	#endif
 
 }
 
@@ -520,6 +530,7 @@ void Display_Idle(U8_T index)
 	static char pre_status = 0;
 	static char count = 0;
 	static char i = 0;
+	char text[20];
 
 	if(pre_status != index)
 	{	
@@ -553,7 +564,8 @@ void Display_Idle(U8_T index)
 		}
 
 	}
-	else if(index == 1)
+
+/*	else if(index == 1)
 	{
 		Lcd_Show_String(0,5,"CM5 DEMO  ",NORMAL,21);
 		Lcd_Show_String(1,1,"MOD  ",NORMAL,5);	
@@ -571,8 +583,8 @@ void Display_Idle(U8_T index)
 		Lcd_Show_String(3,1,"TIME      :",NORMAL,12); 
 		Lcd_Show_Data (3,6,(Priority * 60 - count_priority) / 60,0,1);
 		Lcd_Show_Data (3,12,(Priority * 60 - count_priority) % 60,0,1);
-	}
-	else if(index == 2) // relay value  
+	}*/
+	else if(index == 1) // relay value  
 	{	 
 		
 		Lcd_Show_String(0,1,"RELAY Value  ",NORMAL,20);		
@@ -587,7 +599,7 @@ void Display_Idle(U8_T index)
 		Lcd_Show_String(3,0," OUT9",(DO_Value & (0x01 << 8)) >> 8,5);
 		Lcd_Show_String(3,6,"OUT10",(DO_Value & (0x01 << 9)) >> 9,5);
 	}
-	else if(index == 3)	 // di input value
+	else if(index == 2)	 // di input value
 	{
 		Lcd_Show_String(0,1,"DI Input  ",NORMAL,20);
 		Lcd_Show_String(1,0," DI1", (DI2_Value & (0x01 << 0)) >> 0,5);
@@ -600,12 +612,31 @@ void Display_Idle(U8_T index)
 		Lcd_Show_String(2,16,"DI8",(DI2_Value & (0x01 << 0)) >> 0,4);
 		Lcd_Show_String(3,0," ", NORMAL,21);
 	}
+	else if(index == 3)	 // ip info
+	{
+		// ip address
+		sprintf(text, "IP:   %u.%u.%u.%u", (uint16)IP_Addr[0], (uint16)IP_Addr[1], (uint16)IP_Addr[2], (uint16)IP_Addr[3]);
+		Lcd_Show_String(0, 0, text, NORMAL, 21);
+		// subnet mask address
+		sprintf(text, "MASK: %u.%u.%u.%u", (uint16)SUBNET[0], (uint16)SUBNET[1], (uint16)SUBNET[2], (uint16)SUBNET[3]);
+		Lcd_Show_String(1, 0, text, NORMAL, 21);
+		// tcp port
+		sprintf(text, "GATE: %u.%u.%u.%u", (uint16)GETWAY[0], (uint16)GETWAY[1], (uint16)GETWAY[2], (uint16)GETWAY[3]);
+		Lcd_Show_String(2, 0, text, NORMAL, 21);
+		// tcp port
+		sprintf(text, "PORT: %u", (uint16)HTTP_SERVER_PORT);
+		Lcd_Show_String(3, 0, text, NORMAL, 21);
+		// MAC address
+		sprintf(text, "MAC:%02X:%02X:%02X:%02X:%02X:%02X", (uint16)Mac_Addr[0], (uint16)Mac_Addr[1], (uint16)Mac_Addr[2], (uint16)Mac_Addr[3], (uint16)Mac_Addr[4], (uint16)Mac_Addr[5]);
+		Lcd_Show_String(4, 0, text, NORMAL, 21);
+		
+	}
 }
 
 
 void Display_SubMenu(unsigned char sub,unsigned char index)
 {
-	unsigned int PTRtemp[26];
+	unsigned int far PTRtemp[26];
 
 	unsigned char  flag_high_light;	
 	unsigned char  start_line;
@@ -696,7 +727,7 @@ void Display_SubMenu(unsigned char sub,unsigned char index)
 		PTRtemp[3] = tstat_setpoint[by_Cur_sub];	   Value_Range[3] = 1;
 		PTRtemp[4] = tstat_cool_setpoint[by_Cur_sub];  Value_Range[4] = 1;
 		PTRtemp[5] = tstat_heat_setpoint[by_Cur_sub];  Value_Range[5] = 1;
-		PTRtemp[6] = (tstat_occupied & (0x01 << by_Cur_sub)) >> by_Cur_sub;   Value_Range[6] = 0;
+		PTRtemp[6] = (tstat_occupied & (0x01 << by_Cur_sub)) >> by_Cur_sub;   Value_Range[6] = 1;
 		PTRtemp[7] = tstat_output_state[by_Cur_sub];   Value_Range[7] = 0;
 		PTRtemp[8] = tstat_night_heat_db[by_Cur_sub];  Value_Range[8] = 1;
 		PTRtemp[9] = tstat_night_cool_db[by_Cur_sub];  Value_Range[9] = 1;
@@ -743,21 +774,8 @@ void Display_SubMenu(unsigned char sub,unsigned char index)
 		for(loop1 = 0;loop1 < max_row;loop1++)
 		{
 			//if(sub_menu_len > loop1)	
-			{
-				Test[40] = menu[str_len *(start_line + loop1)];
-				Test[40 + 1] = menu[str_len *(start_line + loop1) + 1];
-				Test[40 + 2] = menu[str_len *(start_line + loop1) + 2];
-				Test[40 + 3] = menu[str_len *(start_line + loop1) + 3];
-				Test[40 + 4] = menu[str_len *(start_line + loop1) + 4];
-				Test[40 + 5] = menu[str_len *(start_line + loop1) + 5];
-				Test[40 + 6] = menu[str_len *(start_line + loop1) + 6];
-				Test[40 + 7] = menu[str_len *(start_line + loop1) + 7];
-				Test[48] = menu[str_len *(start_line + loop1) + 8];
-				Test[40 + 9] = menu[str_len *(start_line + loop1) + 9];
-					Test[35] = menu[str_len *(start_line + loop1) + 10];
-				Test[36] = menu[str_len *(start_line + loop1) + 11];
-					Test[37] = menu[str_len *(start_line + loop1) + 12];
-				Test[38] = menu[str_len *(start_line + loop1) + 13];
+			//{
+		
 
 				Lcd_Show_String(loop1 + 1,0,&(menu + str_len *(start_line + loop1)),NORMAL,10);
 				
@@ -809,7 +827,7 @@ void Display_SubMenu(unsigned char sub,unsigned char index)
 					else  if(sub == 2)	
 						Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,NORMAL);
 				}	
-			} 
+			//} 
 		} 
 	}
 } 

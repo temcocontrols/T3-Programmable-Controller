@@ -3,7 +3,6 @@
 
 typedef enum
 {
-	//T_TIME = 0, 
 	T_WEEK_DES = 0,
 	T_WEEK_ONTIME,
 	T_WEEK_OFFTIME,
@@ -12,7 +11,7 @@ typedef enum
 	T_ID,
 
 	T_NAME, // ONLY FOR CM5
-	T_END
+	T_END_OLD
 };
 
 /* MACRO DECLARATIONS */
@@ -34,9 +33,11 @@ typedef struct
 
 
 void Flash_Inital(void);
-void Flash_Write_Schedule(void);
-void Flash_Read_Schedule(void);
+void Flash_Write_Mass(void);
+void Flash_Read_Mass(void);
 
+
+extern STR_flag_flash 	far bac_flash;
 
 #endif
 

@@ -1,9 +1,12 @@
 #ifndef	_SCHEDULE_H
 #define	_SCHEDULE_H
 
+//#include "main.h"
+
 #define MAX_ID					254
-#define MAX_WR      			20
-#define MAX_AR					16
+#define MAX_WR1      			20
+#define MAX_AR1					16
+
 
 #define WR_DESCRIPTION_SIZE			31
 #define AR_DESCRIPTION_SIZE			29
@@ -16,7 +19,8 @@
 
 
 /* ONLY FOR CM5 */
-extern	S8_T far menu_name[36][14];	  
+extern	S8_T far menu_name[36][14];	
+  
 #define NAME_SIZE 	14  // 14 * 36 = 504
 #define MAX_NAME	36  // 10 OUTPUT 26 INPUT
 
@@ -30,22 +34,22 @@ typedef enum
 	MODBUS_TIMER_ADDRESS		= SCHEDUAL_MODBUS_ADDRESS, // 200
 	
 	MODBUS_WR_DESCRIP_FIRST		= MODBUS_TIMER_ADDRESS + 8,
-	MODBUS_WR_DESCRIP_LAST		= MODBUS_WR_DESCRIP_FIRST + WR_DESCRIPTION_SIZE * MAX_WR ,
+	MODBUS_WR_DESCRIP_LAST		= MODBUS_WR_DESCRIP_FIRST + WR_DESCRIPTION_SIZE * MAX_WR1 ,
 	
 	MODBUS_AR_DESCRIP_FIRST		= MODBUS_WR_DESCRIP_LAST ,
-	MODBUS_AR_DESCRIP_LAST		= MODBUS_AR_DESCRIP_FIRST +  AR_DESCRIPTION_SIZE * MAX_AR ,
+	MODBUS_AR_DESCRIP_LAST		= MODBUS_AR_DESCRIP_FIRST +  AR_DESCRIPTION_SIZE * MAX_AR1 ,
 	
 	MODBUS_ID_FIRST				= MODBUS_AR_DESCRIP_LAST ,
 	MODBUS_ID_LAST				= MODBUS_ID_FIRST + ID_SIZE * MAX_ID ,
 	
 	MODBUS_AR_TIME_FIRST		= MODBUS_ID_LAST ,
-	MODBUS_AR_TIME_LAST			= MODBUS_AR_TIME_FIRST + AR_TIME_SIZE * MAX_AR ,
+	MODBUS_AR_TIME_LAST			= MODBUS_AR_TIME_FIRST + AR_TIME_SIZE * MAX_AR1 ,
 	
 	MODBUS_WR_ONTIME_FIRST		= MODBUS_AR_TIME_LAST ,
-	MODBUS_WR_ONTIME_LAST		= MODBUS_WR_ONTIME_FIRST + WR_TIME_SIZE * MAX_WR ,
+	MODBUS_WR_ONTIME_LAST		= MODBUS_WR_ONTIME_FIRST + WR_TIME_SIZE * MAX_WR1 ,
 	
 	MODBUS_WR_OFFTIME_FIRST		= MODBUS_WR_ONTIME_LAST ,
-	MODBUS_WR_OFFTIME_LAST		= MODBUS_WR_OFFTIME_FIRST + WR_TIME_SIZE * MAX_WR,
+	MODBUS_WR_OFFTIME_LAST		= MODBUS_WR_OFFTIME_FIRST + WR_TIME_SIZE * MAX_WR1,
 
 	MODBUS_TOTAL_PARAMETERS
 
@@ -147,28 +151,28 @@ typedef struct
 #define NO_DEFINE_ADDRESS			0xB4DC
 
 
-extern unsigned char xdata ar_state_index[2];
-extern unsigned char xdata wr_state_index[3];
-extern unsigned char xdata holiday1_state_index[3];
-extern unsigned char xdata holiday2_state_index[3];
+extern unsigned char far ar_state_index[2];
+extern unsigned char far wr_state_index[3];
+extern unsigned char far holiday1_state_index[3];
+extern unsigned char far holiday2_state_index[3];
 
-extern unsigned char xdata output_state_index[32];
-extern unsigned char xdata schedual1_state_index[32];
-extern unsigned char xdata schedual2_state_index[32];
+extern unsigned char far output_state_index[32];
+extern unsigned char far schedual1_state_index[32];
+extern unsigned char far schedual2_state_index[32];
 extern bit calibrated_time;
 
 extern STR_FLASH flash;
 extern unsigned char bdata  REFRESH_STATUS;
-extern unsigned char xdata daylight_enable;
-extern unsigned char xdata daylight_flag;
+extern unsigned char far daylight_enable;
+extern unsigned char far daylight_flag;
 extern bit BIT_FLAG;  // 0 -- run schedule 
 
 
-extern STR_WR  far WR_Roution[MAX_WR];
-extern STR_AR  far AR_Roution[MAX_AR];
+extern STR_WR  far WR_Roution[MAX_WR1];
+extern STR_AR  far AR_Roution[MAX_AR1];
 extern UN_ID   far ID_Config[MAX_ID];
 
-extern unsigned char xdata send_schedual[8];
+extern unsigned char far send_schedual[8];
 extern bit flag_send_schedual;
 
 
@@ -184,3 +188,6 @@ void CaculateTime(void);
 void Schedule_task(void) reentrant;
 
 #endif
+
+
+

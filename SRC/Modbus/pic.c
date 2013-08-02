@@ -25,16 +25,12 @@ extern U8_T flag_protect_lcd;
 
 bit read_pic( char channel)
 {
-//	Test[40]++;
-//	flag_protect_lcd = 1;
 	i2c_pic_start();
 	i2c_pic_write(READ_CHAN0 + channel);
 	
-
 	DELAY_Us(10);
 	if (GET_ACK())
-	{	
-//		Test[42]++;
+	{	 
 		sI2C_stop();
 		return 0;
 	}
@@ -45,16 +41,17 @@ bit read_pic( char channel)
 	data_buf[1] = i2c_pic_read();
 //	GIVE_PIC_ACK();
 	DELAY_Us(10);
-	sI2C_stop();	
-//	flag_protect_lcd = 0;
-//	LCD_CS = 0;
+	sI2C_stop();
 	//checksum = (data_buf[0] + data_buf[1] + data_buf[2] + data_buf[3])& 0xFFFF;
 	if (data_buf[1] == /*checksum*/250)
 	{
-//		Test[41]++;
-	//	if( AInputAM & (0x01 << channel) == 0)
+		if(protocal <= TCP_IP)
 			AI_Value[channel] = Filter(channel,data_buf[0]);//Filter(channel,data_buf[0] / 3);
+		else 
+			
+			inputs[channel].value = Filter(channel,data_buf[0]);//Filter(channel,data_buf[0] / 3);
 		
+			
 		return 1;
 	}
 	else

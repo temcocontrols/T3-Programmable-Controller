@@ -74,8 +74,7 @@ void gudpbc_HandleEepromWriteReq(U8_T XDATA* pData, U16_T length, U8_T id);
 
 
 /* add for private application */
-U8_T    FlagIsp=0;
-U16_T 	UdpPort=1234;
+U16_T 	UdpPort = 1234;
 /* NC information structure */
 U8_T 	InformationStr[40];
 
@@ -485,7 +484,7 @@ void GUDPBC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 
 
     		
-			  
+/*			  
 	if((pData[0]==0xee)&&(pData[1]==0x10))
 	{   
 		gudpbc_HandleSearchReq(pData, id); 
@@ -505,7 +504,7 @@ void GUDPBC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 		fwAutoUpdated[3] = 'x';
 		AX11000_SoftReboot(); 	
 	}
-
+*/
 		
    /*    if(pData[0]==100)
 		 {  while( (pData[i]!=Para[13])&& (i<length) )
@@ -529,7 +528,7 @@ void gudpbc_HandleSearchReq(U8_T XDATA* pData, U8_T id)
 {
 	pData = pData;
 	UdpData();
-	TCPIP_UdpSend(gudpbc_Conns[id].UdpSocket, 0, 0, InformationStr, 26);
+	TCPIP_UdpSend(gudpbc_Conns[id].UdpSocket, 0, 0, InformationStr, 40);
 
 }/* End of gudpbc_HandleSearchReq() */
 

@@ -1,4 +1,5 @@
 #include "main.h"
+//#include "gudpmc.h"
 
 #define INCLUDE_DNS_CLIENT  0
 #define INCLUDE_DHCP_CLIENT 1
@@ -19,10 +20,11 @@
 #endif
 
 
+extern U8_T firmware_update;
 
 
-
-typedef struct app_buf {
+typedef struct app_buf 
+{
 	U32_T	ipaddr;
 	U8_T	buf[100];
 	U16_T	uip_len;
@@ -34,6 +36,9 @@ APP_BUF	XDATA app_arp_buf;
 
 #define TIME_OUT_COUNTER	(250/SWTIMER_INTERVAL)  //250
 static U16_T ServerBroadcastListenPort;
+static U16_T bacnetListenPort;
+
+
 /*
  * ----------------------------------------------------------------------------
  * Function Name: UpdateIpSettings
@@ -80,7 +85,14 @@ void UpdateIpSettings(U32_T ip)
 		GETWAY[0] = (U8_T)(gateWay>>24);
 		GETWAY[1] = (U8_T)(gateWay>>16);
 		GETWAY[2] = (U8_T)(gateWay>>8);
-		GETWAY[3] = (U8_T)(gateWay);	
+		GETWAY[3] = (U8_T)(gateWay);
+		
+				
+		E2prom_Write_Byte(EEP_IP, IP_Addr[3]);
+		E2prom_Write_Byte(EEP_IP + 1, IP_Addr[2]);
+		E2prom_Write_Byte(EEP_IP + 2, IP_Addr[1]);
+		E2prom_Write_Byte(EEP_IP + 3, IP_Addr[0]);
+
 	}
 	else
 	{	
@@ -133,6 +145,7 @@ void CheckArpTable(void)
 } /* End of CheckArpTable */
 
 
+void bip_Init(U16_T localPort);
 
 void TCPIP_Task(void)reentrant
 {
@@ -206,6 +219,17 @@ void TCPIP_Task(void)reentrant
    	ServerBroadcastListenPort = 1234; 
 	GUDPBC_Init(ServerBroadcastListenPort);
 
+//	#if (defined(BACDL_BIP))
+
+//	bacnetListenPort = 47808;
+//	GUDPMC_Init(bacnetListenPort);	   		// bacnet port
+	if(protocal == BAC_IP)
+	{
+		bip_set_port(47808);
+		bip_Init(bip_get_port());
+	}
+//	#endif
+
 	HTTP_Init();
 //	FSYS_Init();
 
@@ -220,12 +244,25 @@ void TCPIP_Task(void)reentrant
 	while (1)
 	{
 //		HSUR_ErrorRecovery(); 
-  
+		if(firmware_update == TRUE)
+		{
+			Lcd_All_Off();
+			Lcd_Show_String(1,1,"update firmware",NORMAL,15);
+			IntFlashErase(ERA_RUN,0x4000);
+			RELAY1_8 = 0;
+		  	RELAY_LATCH = 0; 
+			RELAY_LATCH = 1;  		
+			DI2_LATCH = 1;
+			KEY_LATCH = 1;
+			DI1_LATCH = 1;
+			P1 = 0xFF;	
+			AX11000_SoftReboot(); 
+		}
 
 #if (!STOE_TRANSPARENT)
 		ETH_SendArpToGateway(ETH_CONTINUE_ARP_REQUEST_TO_GATEWAY_AFTER_REPLY);
 #endif
-		Test[0]++;
+		
 		CheckArpTable();
 
 #if (INCLUDE_DHCP_CLIENT)
@@ -258,6 +295,7 @@ void TCPIP_Task(void)reentrant
 #if (!MAC_GET_INTSTATUS_MODE)
 		if (MAC_GetInterruptFlag())
 		{
+			Test[0]++;
 			MAC_ProcessInterrupt();
 		}
 #else
@@ -270,7 +308,8 @@ void TCPIP_Task(void)reentrant
 		if ((timeCount- preTimeCount)>= TIME_OUT_COUNTER)
 		{
 			preTimeCount = timeCount;
-			TCPIP_PeriodicCheck();
+			TCPIP_PeriodicCheck();	
+
 		}
 	//	vTaskDelay(xDelayPeriod);
 		
@@ -291,6 +330,7 @@ void TCPIP_Task(void)reentrant
 			if (state == DNSC_STATE_FREE)
 			{
 				cmdDnsFlag = 0;
+			//	Test[15]++;
 				//printf ("Can not find DNS server.\n\r");
 			}
 			else if (state == DNSC_STATE_RESPONSED)
@@ -301,6 +341,7 @@ void TCPIP_Task(void)reentrant
 
 				if ((ip = DNSCTAB_GetIP()) == 0)
 				{
+				//	Test[16]++;
 				//	printf ("Can not find remote station via DNS server.\n\r");
 				}
 				else

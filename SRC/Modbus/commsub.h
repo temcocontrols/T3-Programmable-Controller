@@ -12,8 +12,8 @@ typedef struct
 
 typedef struct
 {
-	U16_T max;
-	U16_T min;
+//	U16_T max;
+//	U16_T min;
 	U8_T valid;
 }BinSearch;
 
@@ -23,42 +23,46 @@ typedef struct
 #define	UNIQUE_ID_FROM_MULTIPLE		3
 #define	ASSIGN_ID					4
 
-extern U8_T far scan_response_state;
+//extern U8_T far scan_response_state;
+extern U8_T source;
 
-extern xQueueHandle	xScanIndex;
-extern xQueueHandle	xScanResult;
+extern uint8 const code scan_id_table[511][2];
 
-extern SCAN_DB scan_db[8];
-extern SCAN_DB temp_scan_db;
-extern U8_T current_scan_index;
-extern BinSearch far binsearch_Table[129];
+//extern xQueueHandle	xScanIndex;
+//extern xQueueHandle	xScanResult;
 
-extern U8_T tst_addr_index;
-extern U8_T tst_reg_index;
+extern SCAN_DB far scan_db[8];
+extern SCAN_DB far temp_scan_db;
+extern U8_T far current_scan_index;
+extern BinSearch xdata binsearch_Table[511];
+
+extern U8_T far tst_addr_index;
+extern U8_T far tst_reg_index;
 extern U8_T data by_tstat_index;
 
-extern U16_T tstat_temperature[8];
-extern U16_T tstat_mode[8];
-extern U16_T tstat_setpoint[8];
-extern U16_T tstat_cool_setpoint[8];
-extern U16_T tstat_heat_setpoint[8];
-extern U8_T tstat_occupied; // occupied is 1 bit, 8 BIT is CHAR
-extern U8_T tstat_output_state[8];
-extern U8_T tstat_night_heat_db[8];
-extern U8_T tstat_night_cool_db[8];
-extern U8_T tstat_night_heat_sp[8];
-extern U8_T tstat_night_cool_sp[8];
-extern U8_T tstat_product_model[8];
-extern U8_T tstat_over_ride[8];
-extern U8_T tstat_serial_number[8][4];
+extern U16_T far tstat_temperature[8];
+extern U16_T far tstat_mode[8];
+extern U16_T far tstat_setpoint[8];
+extern U16_T far tstat_cool_setpoint[8];
+extern U16_T far tstat_heat_setpoint[8];
+extern U8_T far tstat_occupied; // occupied is 1 bit, 8 BIT is CHAR
+extern U8_T far tstat_output_state[8];
+extern U8_T far tstat_night_heat_db[8];
+extern U8_T far tstat_night_cool_db[8];
+extern U8_T far tstat_night_heat_sp[8];
+extern U8_T far tstat_night_cool_sp[8];
+extern U8_T far tstat_product_model[8];
+extern U8_T far tstat_over_ride[8];
+extern U8_T far tstat_serial_number[8][4];
 
-extern U16_T  time_tstat_off[254];
-extern U16_T  time_tstat_on[254];
+extern U16_T  far time_tstat_off[254];
+extern U16_T  far time_tstat_on[254];
 
-extern U8_T WRT_Tst_Reg;
-extern U8_T WRT_Tst_ID;
+extern U8_T far WRT_Tst_Reg;
+extern U8_T far  WRT_Tst_ID;
 
-
+extern U8_T scan_status;
+extern U16_T scan_index;
 
 #define Tst_reg_num 18	 // tstat important register
 enum{ 
@@ -87,6 +91,14 @@ TST_SERIAL_NUM_3,
 #define TSTAT_6 	1
 #define TSTAT_5E	2
 
+
+#define NO_SOURCE 	0
+#define SCAN_CMD	1
+#define GET_INFO_CMD 2
+#define PC_SERIAL	 3
+#define BUTTON		 4
+#define SCHEDUEL	5
+#define PC_TCPIP	6
 
 #if 0  // TSTAT5
 #define TSTAT_PRODUCT_MODEL    7
@@ -133,8 +145,10 @@ TST_SERIAL_NUM_3,
 #endif
 
 enum
-{		
-	READ_ROOM_SETPOINT = 0,
+{	
+	READ_PRODUCT_MODLE = 0,	
+	READ_ROOM_SETPOINT,
+
 	READ_COOLING_SETPOINT,
 	READ_HEATTING_SETPOINT,	
 	READ_TEMPERAUTE,
@@ -145,7 +159,7 @@ enum
 	READ_NIGHT_HEAT_DB,
 	READ_NIGHT_HEAT_SP,
 	READ_NIGHT_COOL_SP,
-	READ_PRODUCT_MODLE,
+//	READ_PRODUCT_MODLE,
 	READ_OVER_RIDE,
 	READ_SERIAL_NUMBER_0,
 	READ_SERIAL_NUMBER_1,
