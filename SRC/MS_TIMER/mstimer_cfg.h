@@ -26,7 +26,7 @@
 
 
 /*-------------------------------------------------------------*/
-#define SWTIMER_INTERVAL				2	/* sw-timer timeout per 10 ms */
+#define SWTIMER_INTERVAL				1	/* sw-timer timeout per 10 ms */
 
 /*-------------------------------------------------------------*/
 /* NAMING CONSTANT DECLARATIONS */

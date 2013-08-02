@@ -4,8 +4,6 @@
 
 #include "types.h"
 
-#define CM5 0
-#define TSTAT	1
 
 
 #define SEND				1
@@ -55,11 +53,11 @@ Button_Control_Tst
 };
 
 extern U8_T forword_source;
-extern U8_T b_Master_Slave;
+extern bit flag_transimit_from_serial;
 
 extern U8_T EthernetCRChi;
 extern U8_T EthernetCRClo;
-extern U8_T sub_data_buffer[SUB_BUF_LEN];
+extern U8_T far sub_data_buffer[SUB_BUF_LEN];
 extern U8_T sub_dealwithTag;
 
 //extern U8_T far sub_net_buf[SUB_BUF_LEN];
@@ -71,6 +69,11 @@ extern U8_T SubCRClo;
 
 extern U8_T comm_tstat;
 extern bit flag_control_by_button;
+extern U16_T main_rece_count, sub_rece_count;
+extern U8_T far main_serial_receive_timeout_count;
+extern U8_T far sub_serial_receive_timeout_count;
+
+
 
 void set_sub_net_state(U8_T state);
 void reset_sub_net_state(void);
@@ -96,6 +99,9 @@ U8_T wait_SubSerial(U16_T delay);
 
 void initSerial(void);
 void main_responseData(U16_T address);
+
+void main_init_send_com(void);
+void main_send_byte(U8_T buffer, U8_T crc);
 
 
 

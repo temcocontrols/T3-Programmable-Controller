@@ -15,6 +15,9 @@
 #define U16_T		unsigned int
 #define U32_T		unsigned long
 
+#define uint16		unsigned int
+#define uint8		unsigned char
+
 #define BOOL		unsigned short int
 
 #define TRUE    			1

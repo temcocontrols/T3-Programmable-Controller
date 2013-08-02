@@ -14,10 +14,10 @@ enum
 	START = 0,STABLE,PWM
 };
 
-U16_T old_output,new_output;
-U8_T flag_PWM = STABLE;
-U16_T Wakeup_Count = 0;
-U8_T PWM_inverse = 0;
+U16_T far old_output,new_output;
+U8_T far flag_PWM = START;
+U16_T far Wakeup_Count = 0;
+U8_T far PWM_inverse = 0;
 
 bit flag_first_time = 0;
 
@@ -43,14 +43,13 @@ OFF - all zones operate independently
 TIMER - zone1 has priority for PRIORITY time(adjustable)
 ON - manual, zone1 has priority always.
 */
-
 void Update_Output_Task(void)
 {
-	portTickType xDelayPeriod = ( portTickType ) 500 / portTICK_RATE_MS;
-	U8_T  	loop;
-	U8_T	temp;					   
-	U16_T  	tempvalue;
-	U16_T 	tempout1;
+	portTickType far xDelayPeriod = ( portTickType ) 500 / portTICK_RATE_MS;
+	U8_T  far	loop;
+	U8_T far	temp;					   
+	U16_T far 	tempvalue;
+	U16_T far	tempout1;
 	for(;;)
 	{
 		U8_T  	loop;
@@ -59,8 +58,10 @@ void Update_Output_Task(void)
 		U8_T 	tempout1;
 
 		vTaskDelay(xDelayPeriod);
-		
-		if(demo_enable == 0)
+		if(protocal <= TCP_IP)
+		{
+		#if 0 // 
+		if(demo_enable == 1)
 		{
 			if( OuputAM == 0)
 			{	
@@ -163,20 +164,30 @@ void Update_Output_Task(void)
 					}
 				}
 				
-				 DO_Value = tempout1;		
+				//DO_Value = tempout1;		
 			}
 	
-			if(( DO_Value & 0x037f) != 0) /* if any relay is on, ture on pump, we define it RELAY8 now*/
+		/*	if(( DO_Value & 0x037f) != 0) // if any relay is on, ture on pump, we define it RELAY8 now
 			{
 				 DO_Value |= 0x80;
-			}	
+			}*/	
+			new_output = tempout1; 
 		}
-
-		new_output = DO_Value;
+		else
+		#endif
+			new_output = DO_Value;
+		}
+		else
+		//#elif (defined(BACDL_MSTP) || defined(BACDL_IP))
+			for(loop = 0;loop < 10;loop++)
+			{
+				new_output = outputs[loop].value;
+			}
+	//	#endif
+	//	flag_PWM = STABLE;
 		/* compare new output and old one, check whether new relay is on,
 		if there are new relays are on, must be keep relay on until it is completely truned on,
 		then use PWM contronl it */
-		
 		if(old_output != new_output) // need keep some relay on , must disalbe PWM contrl now
 		{
 			old_output = new_output;
@@ -194,7 +205,7 @@ void Output_Count_Priority_Task(void)
 {
 	static U8_T t1 = 0;
 	static U8_T t2 = 0;
-
+	#if 0
 	if( DO_SoftSwitch == TIMER)
 	{	
 		// count_priority =  Priority * 60;	
@@ -215,16 +226,18 @@ void Output_Count_Priority_Task(void)
 		 count_priority = 0;
 		flag_priority = 0;
 	}
+	#endif
 }
 
 
-extern U8_T ChangeFlash;
 
+extern U8_T far WriteFlash;
 // 2ms 
 void PWMoutput(void)
 {
-	U16_T temp_relay = 0;
-	if(ChangeFlash == 1)   {flag_PWM = STABLE;	  Wakeup_Count = 0;}
+	U16_T far temp_relay = 0;
+	if(WriteFlash == 1)   return;
+
 	if(flag_PWM == STABLE)  // 
 	{
 		Wakeup_Count++;
@@ -233,7 +246,7 @@ void PWMoutput(void)
 			flag_PWM = PWM;
 			PWM_inverse = 0;
 		}
-		RELAY1_8 = (U8_T)DO_Value;
+		RELAY1_8 = (U8_T)new_output;
 		DELAY_Us(5);
 	  	RELAY_LATCH = 0; 
 		RELAY_LATCH = 1;  		
@@ -241,13 +254,13 @@ void PWMoutput(void)
 		KEY_LATCH = 1;
 		DI1_LATCH = 1;
 
-		if( DO_Value & 0x100)
+		if( new_output & 0x100)
 			RELAY_9 = 0;
 		else 
 			RELAY_9 = 1;
 	
 		/* OUTPUT10  */
-		if( DO_Value & 0x0200)
+		if( new_output & 0x0200)
 			RELAY_10 = 0;
 		else 
 			RELAY_10 = 1;
@@ -255,17 +268,18 @@ void PWMoutput(void)
 	}
 	else  if(flag_PWM == PWM)
 	{
-		/*if(PWM_inverse == 1 )  
+	//	Test[41] = new_output;
+		if(PWM_inverse == 1 )  
 		{ 
 			PWM_inverse = 0;  
-			temp_relay =  DO_Value;
+			temp_relay =  new_output;
 		}
 		else if(PWM_inverse == 0) 
 		{
 			PWM_inverse = 1;
 			temp_relay = 0;
-		}*/
-		if(PWM_inverse < 1 ) 
+		}
+	/*	if(PWM_inverse < 1 ) 
 		{
 			PWM_inverse++;  
 			temp_relay = DO_Value;
@@ -275,7 +289,7 @@ void PWMoutput(void)
 		{
 		 	PWM_inverse = 0;
 			temp_relay =  0;
-		} 
+		} */
 //		Test[46] = temp_relay;
 		RELAY1_8 = (U8_T)temp_relay;		
 		DELAY_Us(5);
@@ -297,4 +311,5 @@ void PWMoutput(void)
 			RELAY_10 = 1;
 
 	} 
+
 }

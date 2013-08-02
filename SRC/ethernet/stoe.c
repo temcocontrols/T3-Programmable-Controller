@@ -28,6 +28,7 @@
 #include "delay.h"
 #include "interrupt.h"
 #include <intrins.h>
+extern U16_T far Test[50];
 
 /* GLOBAL VARIABLES DECLARATIONS */
 LOCAL_STATION XDATA* PNetStation = {0};
@@ -470,13 +471,16 @@ void STOE_ProcessInterrupt(void)
 		stoe_ReadReg(STOE_INT_STATUS_REG, &int_status, 1);
 		int_status &= STOE_DEFAULT_INT_MASK;
 
-		if (!int_status)
-			break;
+		if (!int_status) 
+			break; 
 
 		if (int_status & RCV_PACKET)
-		{
+		{	
+			Test[15]++;
 			while (PBDP->RFP < PAGES_OF_RCV)
-				stoe_RcvHandle();
+			{
+				Test[16]++;
+				stoe_RcvHandle();}
 		}
 		if (int_status & RCV_BUF_RING_FULL)
 		{

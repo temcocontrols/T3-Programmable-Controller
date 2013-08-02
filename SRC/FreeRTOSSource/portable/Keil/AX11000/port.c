@@ -264,6 +264,7 @@ void vIntPortContextSwitch(void) reentrant
 }
 
 extern U8_T ChangeFlash;
+extern volatile U16_T SilenceTime;
 /*-----------------------------------------------------------*/
 
 #if portUSE_PREEMPTION == 1
@@ -283,8 +284,8 @@ void vTimer2ISR( void ) interrupt 10
 		SaveSP = SP;
         prvGetCurrentTCB_XBP();
 			
-		
-			PWMoutput();
+		SilenceTime++;
+		PWMoutput();
 
 		EA = isr;
 		OSIntCtxSw();  	

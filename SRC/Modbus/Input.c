@@ -8,8 +8,8 @@
 
 //#define CALIBRATION_OFFSET    128 //allows us to store FLASH_CALIBRATION as an U8_T
 
-U16_T temperature[10];
-signed int xdata old_reading[10];
+U16_T far temperature[10];
+signed int far old_reading[10];
 //S16_T xdata mul_analog_in_buffer[10];
 //S16_T xdata mul_analog_filter[10];
 
@@ -17,14 +17,14 @@ U16_T  look_up_table(U16_T count);
 signed int RangeConverter(unsigned char function, signed int para,unsigned char i,unsigned int cal);
 
 
-U8_T data input1[8] = 0;
-U8_T data input2[8] = 0;
-U8_T xdata count1[8] = 0;
-U8_T xdata count2[8] = 0;
-U8_T xdata counthigh1[8] = 0;
-U8_T xdata counthigh2[8] = 0;	
-U8_T data temp1 = 0;
-U8_T data temp2 = 0;
+U8_T far input1[8] = 0;
+U8_T far input2[8] = 0;
+U8_T far count1[8] = 0;
+U8_T far count2[8] = 0;
+U8_T far counthigh1[8] = 0;
+U8_T far counthigh2[8] = 0;	
+U8_T far temp1 = 0;
+U8_T far temp2 = 0;
 
 #if 1
 
@@ -41,7 +41,7 @@ void initial_input_value(void)
 	memset(old_reading,0,20);  
 	memset(temperature,0,20);
 	// get stable input value power-up
-	while(count < 5)
+/*	while(count < 5)
 	{
 		if(loop < AI_CHANNEL)
 		{
@@ -60,22 +60,22 @@ void initial_input_value(void)
 			loop = 0; 
 			count++; 
 		}
-	} 
+	}*/ 
 }
 
 
 
 /* per 25ms read 1 channel, 250ms refresh 10 inputs*/
+#if 0
 void Update_AI_Task(void)
 {
 	portTickType xDelayPeriod = ( portTickType ) 100 / portTICK_RATE_MS;	 
 	static U8_T loop = 0;	
-
 	for( ; ;)
 	{ 	
 		Test[4]++;
 		vTaskDelay(xDelayPeriod);
-		if( AInputAM & (0x01 << loop) == 0)	    // auto 
+	//	if( AInputAM & (0x01 << loop) == 0)	    // auto 
 		{
 			if(loop < AI_CHANNEL)
 			{
@@ -90,19 +90,22 @@ void Update_AI_Task(void)
 		}
 	}
 }
-
+#endif
 
 void Update_AI(void)
 {
 	static U8_T loop = 0;	
-
 	if(loop < AI_CHANNEL)
 	{
-		//if( AInputAM & (0x01 << loop) == 0)
+	//	if( AInputAM & (0x01 << loop) == 0)	  
 		{
 			if(read_pic(loop))
 			{ 
-				temperature[loop] =	(RangeConverter(1,AI_Value[loop], loop , Input_CAL[loop]));	 // range is 1				
+				if(protocal <= TCP_IP)					
+					temperature[loop] =	(RangeConverter(1,AI_Value[loop], loop , Input_CAL[loop]));	 // range is 1				
+
+				else		
+					temperature[loop] =	(RangeConverter(1/*inputs[loop].range*/,inputs[loop].value, loop , inputs[loop].calibration));	
 				loop++;
 			}
 		}	
@@ -116,12 +119,18 @@ input voltage is 24AC, if input is 0 and last at least 50ms, it means the input 
 else it is high.
 sampel frequence is 10ms.
 */
+
 void Sampel_DI_Task(void)
 {
 	portTickType xDelayPeriod = ( portTickType ) 10 / portTICK_RATE_MS;
+
 	for( ; ;)
 	{ 	
 		char loop = 0;
+		char far temp_no = 0;
+		char far temp = 0;
+		U8_T far temp_val = 0;	  		
+
 		vTaskDelay(xDelayPeriod);
 		Test[5]++;
 
@@ -129,43 +138,97 @@ void Sampel_DI_Task(void)
 		{ 			
 			continue;
 		}
-	
+
 		DI2_LATCH = 1; KEY_LATCH = 1;RELAY_LATCH = 0;
 		DI1_LATCH = 0;
 		temp1 = DI1; 
 		DI1_LATCH = 1;
-
-		for(loop = 0;loop < 8;loop++)		
-		{
-			if(DI_Type[loop] == DI_SWITCH)
+		if(protocal <= TCP_IP) 
+		{ 
+			for(loop = 0;loop < 8;loop++)		
 			{
-				if(temp1 & (0x01 << loop))
-				{
-					counthigh1[loop]++;
-					if(counthigh1[loop] > 10) // keep high at least 100ms	
+				if(DI_Type[loop] == DI_SWITCH)
+				{				
+					if(temp1 & (0x01 << loop))
 					{
-						input1[loop] = 1;
-						count1[loop] = 0;
-						counthigh1[loop] = 0;
+						counthigh1[loop]++;
+						if(counthigh1[loop] > 10) // keep high at least 100ms	
+						{
+							input1[loop] = 1;
+							count1[loop] = 0;
+							counthigh1[loop] = 0;
+						}
 					}
+					else   // if input is 0, keep low for larger than 50s, it is low.
+					{
+						if(count1[loop] < 50)  
+						{
+							count1[loop]++;
+						}
+						else		// 30ms
+						{				
+							input1[loop] = 0;
+							count1[loop] = 0;
+							counthigh1[loop] = 0;
+						}
+					}
+					temp_val |= (input1[loop] << loop);
+					temp++;						
+					switch_sub_no = temp;
+					
+					temp_no |= (0x01 << loop);	
+					sub_addr[loop] = input1[loop];
 				}
-				else   // if input is 0, keep low for larger than 50s, it is low.
-				{
-					if(count1[loop] < 50)  
-					{
-						count1[loop]++;
-					}
-					else		// 30ms
-					{				
-						input1[loop] = 0;
-						count1[loop] = 0;
-						counthigh1[loop] = 0;
-					}
-				}		
+				else
+					input1[loop] = 0;
 			}
-			else
-				input1[loop] = 0;
 		}
+		else
+		{
+			for(loop = 0;loop < 8;loop++)		
+			{
+				if(inputs[loop].unused == DI_SWITCH)
+				{				
+					if(temp1 & (0x01 << loop))
+					{
+						counthigh1[loop]++;
+						if(counthigh1[loop] > 10) // keep high at least 100ms	
+						{
+							input1[loop] = 1;
+							count1[loop] = 0;
+							counthigh1[loop] = 0;
+						}
+					}
+					else   // if input is 0, keep low for larger than 50s, it is low.
+					{
+						if(count1[loop] < 50)  
+						{
+							count1[loop]++;
+						}
+						else		// 30ms
+						{				
+							input1[loop] = 0;
+							count1[loop] = 0;
+							counthigh1[loop] = 0;
+						}
+					}
+
+					temp_val |= (input1[loop] << loop);
+					temp++;						
+					switch_sub_no = temp;
+
+					temp_no = 0;
+					temp_no |= (0x01 << loop);	
+					sub_addr[loop] = input1[loop];
+				}
+				else
+					input1[loop] = 0;
+			}
+		}
+		
+		switch_tstat_val = temp_val;
+		switch_sub_bit = temp_no;
+		
 		//EA = 0;
 		DI1_LATCH = 1;  KEY_LATCH = 1;RELAY_LATCH = 0;
 		DI2_LATCH = 0;
@@ -213,9 +276,11 @@ void Update_DI_Task(void)
 		Test[6]++;
 		vTaskDelay(xDelayPeriod);
 
+		if(protocal <= TCP_IP)					
 		for(loop = 0;loop < 8;loop++)
 		{
 	/* check the input type is AUTO Or Manual */
+		
 			if(!( DInputAM & (0x01 << loop)))
 			{
 				 DI1_Value &= ~(0x01 << loop);
@@ -228,6 +293,23 @@ void Update_DI_Task(void)
 				 DI2_Value |= (input2[loop] << loop);
 			}
 		}
+		else 
+
+		for(loop = 0;loop < 16;loop++)
+		{
+	/* check the input type is AUTO Or Manual */
+		/*	if(loop < 8)
+				if(inputs[loop].auto_manual)
+				{
+					 inputs[loop].value = input1[loop];
+				}
+			else
+				if(inputs[loop].auto_manual)
+				{
+					 inputs[loop].value = input2[loop - 8];
+				} */
+		}		
+	
 	} 
 } 
 
@@ -246,10 +328,10 @@ unsigned char const code def_tab_pic[15] =
 
 
 unsigned int   look_up_table(unsigned int count)
-{
-	int   xdata val;
-    char  index=14;
-	int   xdata work_var;
+{			
+	int   far val;
+    char  far index=14;
+	int   far work_var;
  
 	if (1/*pic_exists*/)
 		work_var= def_tab_pic[index];
@@ -316,12 +398,12 @@ Return:		Changed input to the expected engineer units.
 /*********************************RangeConverter funtion start**************************************/
 signed int RangeConverter(unsigned char function, signed int para,unsigned char i,unsigned int cal)
 {
-	signed int xdata siAdcResult;
-	unsigned char xdata ucFunction;
-	unsigned char xdata ucI;
-	signed   int  xdata siInput;
-	unsigned int  xdata uiCal;
-	signed   int  xdata siResult;
+	signed int far siAdcResult;
+	unsigned char far ucFunction;
+	unsigned char far ucI;
+	signed   int  far siInput;
+	unsigned int  far uiCal;
+	signed   int  far siResult;
 	bit bAnalogInputStatus;
 	ucFunction = function;
 	siInput = para;
@@ -406,13 +488,12 @@ unsigned int Filter(unsigned char channel,signed int input)
 {
 	// -------------FILTERING------------------
  	// -------------FILTERING------------------
-	signed int xdata siDelta;
-	signed int xdata siResult;
-    signed int xdata siTemp;
-	signed long xdata slTemp;
-    unsigned char xdata I;
-	
-   
+	signed int far siDelta;
+	signed int far siResult;
+    signed int far siTemp;
+	signed long far slTemp;
+    unsigned char far I;
+
     I = channel;
 	siTemp = input;
  
@@ -425,10 +506,22 @@ unsigned int Filter(unsigned char channel,signed int input)
 	}			
 	// Otherwise, implement fine filtering.
 	else
-	{		      	    
+	{	
+		if(protocal <= TCP_IP)
+		{
 		slTemp = (signed long)Input_Filter[I]*old_reading[I];
 		slTemp += (signed long)siTemp;
-	 	old_reading[I] = (signed int)(slTemp/(Input_Filter[I] +1));			 
+	 	old_reading[I] = (signed int)(slTemp/(Input_Filter[I] +1));	
+		}
+		else
+		{
+
+		slTemp = (signed long)inputs[I].filter * old_reading[I];
+		slTemp += (signed long)siTemp;
+	 	old_reading[I] = (signed int)(slTemp/(inputs[I].filter + 1));	 
+
+		}	      	    
+				 
     }
 	siResult = old_reading[I];
 	return siResult;	
