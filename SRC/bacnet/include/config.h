@@ -33,7 +33,7 @@ extern unsigned int far Test[50];	  // for test added by chelsea
 /* declare a single physical layer using your compiler define.
    see datalink.h for possible defines. */
 #if !(defined(BACDL_ETHERNET) || defined(BACDL_ARCNET) || defined(BACDL_MSTP) || defined(BACDL_BIP) || defined(BACDL_TEST) || defined(BACDL_ALL))
-#define BACDL_MSTP 	 // choose protocal   added by chelsea
+#define BACDL_BIP 	 // choose protocal   added by chelsea
 #endif
 
 /* optional configuration for BACnet/IP datalink layers */
@@ -43,7 +43,7 @@ extern unsigned int far Test[50];	  // for test added by chelsea
     USE_CLASSADDR = uses IN_CLASSx_HOST where x=A,B,C or D for broadcast
 */
 #if !defined(BBMD_ENABLED)
-#define BBMD_ENABLED 1   
+#define BBMD_ENABLED 0  
 #endif
 #endif
 
@@ -61,7 +61,7 @@ extern unsigned int far Test[50];	  // for test added by chelsea
    Big Endian (PowerPC,68K,Sparc) or Little Endian (Intel,AVR)
    ARM and MIPS can be either - what is your setup? */
 #if !defined(BIG_ENDIAN)
-#define BIG_ENDIAN 0
+#define BIG_ENDIAN 1
 #endif
 
 /* Define your Vendor Identifier assigned by ASHRAE */
@@ -81,7 +81,7 @@ extern unsigned int far Test[50];	  // for test added by chelsea
     /* #define MAX_APDU 50 */
     /* #define MAX_APDU 1476 */
 #if defined(BACDL_BIP)
-#define MAX_APDU 200//1476
+#define MAX_APDU 1476
 /* #define MAX_APDU 128 enable this IP for testing readrange so you get the More Follows flag set */
 #elif defined (BACDL_ETHERNET)
 #define MAX_APDU 1476
@@ -90,7 +90,7 @@ extern unsigned int far Test[50];	  // for test added by chelsea
 #endif
 #endif
 
-extern unsigned char xdata Temp_Buf[MAX_APDU];	    // add it by chelsea
+extern unsigned char far Temp_Buf[MAX_APDU];	    // add it by chelsea
 
 /* for confirmed messages, this is the number of transactions */
 /* that we hold in a queue waiting for timeout. */

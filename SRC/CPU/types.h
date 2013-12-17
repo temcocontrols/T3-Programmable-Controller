@@ -23,6 +23,9 @@
 #define TRUE    			1
 #define FALSE   			0
 
+#define LOW_BYTE(word)	(U8_T)(word & 0x00FF)
+#define HIGH_BYTE(word)	(U8_T)((word & 0xFF00) >> 8)
+
 /* Bit Definitions for Bitwise Operation */
 #define BIT0		0x01
 #define BIT1		0x02

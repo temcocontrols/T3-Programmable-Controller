@@ -970,8 +970,6 @@ analog_value:
 								{
 							    modbus_addr = 0x00ff;					//Modbus 255 BINARY OUTPUT 
 							    modbus_length = 0x0001;
-							//	Test[30] = 4;
-							//	Test[33] ++;
 								goto enumerated_data ;
 								}
 							  if( BACnetObjectIdentifier == ObjectIdentifier_bo2)

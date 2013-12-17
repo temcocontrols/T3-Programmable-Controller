@@ -1,13 +1,13 @@
 #include "main.h"
 #include "serial.h"
 
-xTaskHandle far Handle_UpdateOutput;
-xTaskHandle far Handle_PWMoutput;
+xTaskHandle xdata Handle_UpdateOutput;
+xTaskHandle xdata Handle_PWMoutput;
 
 #define UpdateOutputSTACK_SIZE	((unsigned portSHORT)1024)
 #define PWMoutputSTACK_SIZE		((unsigned portSHORT)1024)
 
-extern xTaskHandle xKeyTask;
+extern xTaskHandle xdata xKeyTask;
 
 enum
 {
@@ -23,6 +23,9 @@ bit flag_first_time = 0;
 
 bit flag_priority = 0;
 
+void control_output(void);
+
+BACNET_BINARY_PV Binary_Value_Present_Value( uint32_t object_instance);
 
 void vStartUpdateOutputTasks( U8_T uxPriority)
 {	
@@ -178,11 +181,21 @@ void Update_Output_Task(void)
 			new_output = DO_Value;
 		}
 		else
-		//#elif (defined(BACDL_MSTP) || defined(BACDL_IP))
+		{
+		//	if(outputs[loop].auto_manual == 1)
+		//		control_output();   // manual
+			new_output = 0;
 			for(loop = 0;loop < 10;loop++)
 			{
-				new_output = outputs[loop].value;
+				if(outputs[loop].value >= 512)
+				{
+					new_output |= (0x01 << loop);
+				}
 			}
+
+
+		}
+		//#elif (defined(BACDL_MSTP) || defined(BACDL_IP))
 	//	#endif
 	//	flag_PWM = STABLE;
 		/* compare new output and old one, check whether new relay is on,
@@ -194,6 +207,8 @@ void Update_Output_Task(void)
 			Wakeup_Count = 0; // wake up PWM
 			flag_PWM = STABLE;	
 		}
+
+		taskYIELD();
 	}
 
 }
@@ -232,7 +247,7 @@ void Output_Count_Priority_Task(void)
 
 
 extern U8_T far WriteFlash;
-// 2ms 
+// 1ms 
 void PWMoutput(void)
 {
 	U16_T far temp_relay = 0;

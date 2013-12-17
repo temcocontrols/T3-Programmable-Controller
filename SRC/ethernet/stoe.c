@@ -476,10 +476,8 @@ void STOE_ProcessInterrupt(void)
 
 		if (int_status & RCV_PACKET)
 		{	
-			Test[15]++;
 			while (PBDP->RFP < PAGES_OF_RCV)
 			{
-				Test[16]++;
 				stoe_RcvHandle();}
 		}
 		if (int_status & RCV_BUF_RING_FULL)

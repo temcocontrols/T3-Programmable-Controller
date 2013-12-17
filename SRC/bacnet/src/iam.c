@@ -42,6 +42,7 @@
 #include "iam.h"
 
 /** @file iam.c  Encode/Decode I-Am service */
+extern unsigned char  	Station_NUM;
 
 /* encode I-Am service */
 int iam_encode_apdu(
@@ -68,6 +69,7 @@ int iam_encode_apdu(
             encode_application_enumerated(&apdu[apdu_len],
             (uint32_t) segmentation);
         apdu_len += len;
+
         len = encode_application_unsigned(&apdu[apdu_len], vendor_id);
         apdu_len += len;
     }

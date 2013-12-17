@@ -94,7 +94,8 @@ void sub_init_crc16(void);
 void sub_serial_restart(void);
 void sub_send_byte(U8_T buffer, U8_T crc);
 void sub_init_send_com(void);
-void sub_send_string(unsigned char *bufs,char len);
+//void sub_send_string(unsigned char *bufs,char len);
+void sub_send_string(U8_T *p, U16_T length,U8_T port);
 U8_T wait_SubSerial(U16_T delay);
 
 void initSerial(void);
@@ -103,6 +104,7 @@ void main_responseData(U16_T address);
 void main_init_send_com(void);
 void main_send_byte(U8_T buffer, U8_T crc);
 
+void uart_init_send_com(U8_T port);
 
 
 #endif

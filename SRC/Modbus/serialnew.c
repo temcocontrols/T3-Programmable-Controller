@@ -3,14 +3,16 @@
 #include "schedule.h" 
 #include "stdlib.h" 
 
+void Bacnet_Initial_Data(void);
 
 extern xQueueHandle	xSubRevQueue;
 extern U8_T flag_send_scan_table;
 extern bit b_Master_Slave_TCP;
+U8_T subnet_rec_package_size;
 
 void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn); 
 
-	U8_T far protocal = TCP_IP;
+	U8_T xdata protocal = TCP_IP;
 	U8_T far demo_enable = 0;
 	U8_T far IspVer;
 	U8_T far serialNum[4];
@@ -27,18 +29,18 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn);
 //	U8_T UPDATE_STATUS;
 	U8_T far BASE_ADRESS;
 	U8_T far TCP_TYPE;   /* 0 -- DHCP, 1-- STATIC */
-	U8_T far Mac_Addr[6];
-	U8_T far IP_Addr[4];
-	U8_T far SUBNET[4];
-	U8_T far GETWAY[4];
-
+	U8_T xdata Mac_Addr[6];
+	U8_T xdata IP_Addr[4];
+	U8_T xdata SUBNET[4];
+	U8_T xdata GETWAY[4];
+	U16_T far TCP_PORT;
 
 	U16_T  far AI_Value[10] = {0};	
 	U8_T far Input_Range[10];
 	U8_T far Input_Filter[10];	
 	U16_T far Input_CAL[10];
 
-	S8_T far menu_name[36][14];
+	S8_T xdata menu_name[36][14];
 	U8_T far dis_temp_num;
 	U8_T far dis_temp_interval;
 	U8_T far dis_temp_seq[10];
@@ -72,16 +74,21 @@ extern U16_T far Test[50];
 
 //Added by andy sun
 #define DATA_TO_FIRMWARE  1000
-U8_T temp_state = NONE_ID;
+//U8_T temp_state = NONE_ID;
 
-bit mac_address_write_enable = FALSE;
+bit Mac_Address_write_enable = FALSE;
 U8_T flag_update;  
 
 //extern U8_T pic_type; // chelsea
 signed int RangeConverter(U8_T function, signed int para,U8_T i,U16_T cal);
 
-xTaskHandle far Handle_MainSerial;
-xTaskHandle far Handle_SubSerial;
+xTaskHandle xdata Handle_MainSerial;
+xTaskHandle xdata Handle_SubSerial;
+
+//xQueueHandle qSubSerial_uart0;
+//xQueueHandle qSubSerial_uart2;
+//xSemaphoreHandle sem_recout_subaddr;
+U8_T subnet_response_buf[255];
 
 
 U16_T main_rece_count, sub_rece_count;
@@ -125,9 +132,7 @@ void subdealwithData( void );
 
 void vStartMainSerialTasks( U8_T uxPriority)
 {
-	sub_no = 0;
-	memset(sub_addr,0,8);
-//	sub_addr[0] = 199;
+//	sub_addr[0] = 36;
 //	sub_addr[1] = 93;
 //	memset(menu_name,0,MAX_NAME * NAME_SIZE);
 	initSerial();
@@ -285,95 +290,220 @@ U16_T crc16(U8_T *p, U8_T length)
 *	CRC CODE END
 \****************************************************/
 
-
-
-
-
-
-
-#if 1
-U8_T wait_SubSerial(U16_T delay)
-{
-//	wait = 0;
-	/* delay is to avoid dead cycle */
-	while((sub_dealwithTag == 0) && (wait < delay)) 
-	{
-		wait++;
-		vTaskDelay(1);					
-	}
-//	cQueueSend(xSubRevQueue, &sub_data_buffer, 0); 
-	if(sub_dealwithTag == VALID_PACKET) return 1;   
-	else return 0;
-}
-
-#endif
-
-void sub_serial_restart(void)
-{
-	UART0_TXEN = RECEIVE;
-//	DELAY_Us(10);
-	sub_rece_count = 0;
-	sub_dealwithTag = 0;
-//	sub_rece_size = 8;	
-}
-
-void sub_net_init(void)
-{
-	UART_Init(0);
-	sub_serial_restart();
-//	sub_respond_state = SPARE;
-}
-
-void sub_init_send_com(void)
+void uart0_init_send_com(void)
 {
 	UART_Init(0);
 	sub_transmit_finished = 0;
 	UART0_TXEN = SEND;
-	DELAY_Us(10);
+
 }
 
-void sub_send_byte(U8_T buffer, U8_T crc)
+void uart0_send_byte(U8_T buffer)
 {
-	U8_T count = 0;
+	U16_T count = 0;
 	SBUF0 = buffer;
 	sub_transmit_finished = 0;
-	while(!sub_transmit_finished && count < 20)
+	while(!sub_transmit_finished && count < 5000) 
 	{
-		DELAY_Us(1);
 		count++;
 	}
-	if(crc == CRC_NO)
+	if(count >= 5000)	
 	{
-		sub_crc16_byte(buffer);
+		Test[18]++;
 	}
 }
 
-void sub_send_string(U8_T *bufs,char len)
+void set_subnet_parameters(U8_T io, U8_T length,U8_T port)
 {
-	char data i;
-	U16_T crc_val;
-	U8_T far buf[20];
-	U16_T count;
+	U16_T temp = 0;
+	subnet_rec_package_size = length;  
+	if(port == UART0)
+	{	
+		sub_rece_count = 0;
+		memset(sub_data_buffer,0,subnet_rec_package_size);
+		UART0_TXEN = io;		
+	//	while(cQueueReceive(qSubSerial_uart0, &temp, 0) == pdTRUE);
 
-	crc_val = crc16(bufs,len);
-	memcpy(buf,bufs,len);
-	buf[len] =  crc_val >> 8;
-	buf[len + 1] = 	crc_val;
-
-	for(i = 0;i < len + 2;i++)
-	{
-		SBUF0 = buf[i];
-		sub_transmit_finished = 0;
-		count = 0;
-		while (!sub_transmit_finished && count < 20)
-		{
-			DELAY_Us(1);
-			count++;
-		}
-		if(sub_transmit_finished == 0)	  Test[43]++;
-	
 	}
-	
+}
+
+
+
+
+
+void uart1_init_send_com(void)
+{
+	UART_Init(1);
+	main_transmit_finished = 0;
+	main_rece_count = 0;
+//	UART1_TXEN = SEND;
+}
+
+void uart1_send_byte(U8_T buffer)
+{
+	U8_T count = 0;
+	SBUF1 = buffer;
+	main_transmit_finished = 0;
+	while(!main_transmit_finished && count < 20)
+	{
+		vTaskDelay(1);
+		count++;
+	}
+}
+
+
+void uart_init_send_com(U8_T port)
+{
+	if(port == UART0)
+		sub_init_send_com();
+	else if(port == UART1)
+		uart1_init_send_com();
+}
+
+
+void sub_send_string(U8_T *p, U16_T length,U8_T port)
+{
+	U16_T i;
+
+	for(i = 0; i < length; i++)
+	{
+		uart0_send_byte(p[i]);
+	}
+}
+
+//void forward_to_slave(U8_T *buf, U8_T length,U8_T port)
+//{
+//	U8_T i;
+//	U16_T crc_val;
+//	uart_init_send_com(port);
+//	
+//	for(i = 0; i < length; i++)
+//		uart0_send_byte(buf[i]);
+//
+//	crc_val = crc16(buf,length);
+//
+//	uart0_send_byte((U8_T)(crc_val >> 8));					//crchi
+//	uart0_send_byte((U8_T)crc_val);					//crclo
+//}
+
+U8_T wait_subnet_response(U16_T nDoubleTick,U8_T port)
+{
+	U16_T i, length;
+	U8_T cTaskWokenByPost = FALSE;
+
+	if(port == UART0)
+	{
+		for(i = 0; i < nDoubleTick; i++)
+		{
+			if((length = sub_rece_count) >= subnet_rec_package_size)
+			{	
+				return length;
+			}
+			
+			vTaskDelay(2);
+		}
+	}
+	return 0;
+}
+
+
+//void sub_serial_restart(void)
+//{
+//	UART0_TXEN = RECEIVE;
+////	DELAY_Us(10);
+//	sub_rece_count = 0;
+//	sub_dealwithTag = 0;
+////	sub_rece_size = 8;	
+//}
+
+//void sub_net_init(void)
+//{
+//	UART_Init(0);
+//	sub_serial_restart();
+////	sub_respond_state = SPARE;
+//}
+
+void sub_init_send_com(void)
+{
+	UART_Init(0);
+	UART0_TXEN = SEND;		
+	sub_transmit_finished = 0;
+
+}
+
+//void sub_send_byte(U8_T buffer, U8_T crc)
+//{
+//	U8_T count = 0;
+//	SBUF0 = buffer;
+//	sub_transmit_finished = 0;
+//	while(!sub_transmit_finished && count < 20)
+//	{
+//		vTaskDelay(1);
+//		count++;
+//	}
+//	if(crc == CRC_NO)
+//	{
+//		sub_crc16_byte(buffer);
+//	}
+//}
+
+//void sub_send_string(U8_T *bufs,char len)
+//{
+//	char data i;
+//	U16_T crc_val;
+//	U8_T far buf[20];
+//	U16_T count;
+//
+//	crc_val = crc16(bufs,len);
+//	memcpy(buf,bufs,len);
+//	buf[len] =  crc_val >> 8;
+//	buf[len + 1] = 	crc_val;
+//
+//	for(i = 0;i < len + 2;i++)
+//	{
+//		SBUF0 = buf[i];
+//		sub_transmit_finished = 0;
+//		count = 0;
+//		while (!sub_transmit_finished && count < 50)
+//		{
+//			DELAY_Us(1);
+//			count++;
+//		}
+//	
+//	}
+//	
+//}
+
+void mstp_int_handler(void);
+
+void modbus_uart0_int_handler(void)
+{
+//	U16_T crc_val;
+
+	if(RI0 == 1)
+	{
+		RI0 = 0;
+
+		//if(sub_rece_count < SUB_BUF_LEN)
+		sub_data_buffer[sub_rece_count++] = SBUF0;
+//		Test[6]= sub_rece_count;
+
+//		sub_serial_receive_timeout_count = 5;
+//
+//	//	if(sub_data_buffer[0] == 0)  {	sub_rece_count--; }
+//		
+//		if(sub_rece_count >= sub_rece_size)
+//		{
+//			sub_serial_receive_timeout_count = 0;
+//		//	sub_rece_count = 0;
+//		}
+  	}
+	else if(TI0 == 1)
+	{
+		TI0 = 0;
+		sub_transmit_finished = 1;
+	}
+	return;
 }
 //------------------------serialport ----------------------------------
 //	serial port interrupt , deal with all action about serial port. include receive data and 
@@ -382,31 +512,15 @@ void sub_send_string(U8_T *bufs,char len)
 
 void handle_Modbus_RX0(void) interrupt 4
 {
-	U16_T crc_val;
-
-	if(RI0 == 1)
+	if(protocal == BAC_MSTP && BACnet_Port == UART0)
 	{
-		RI0 = 0;
-
-		if(sub_rece_count < SUB_BUF_LEN)
-			sub_data_buffer[sub_rece_count++] = SBUF0;
-
-		sub_serial_receive_timeout_count = 5;
-
-		if(sub_data_buffer[0] == 0)  {	sub_rece_count--; }
-	//	Test[41]= sub_rece_count;
-		if(sub_rece_count >= sub_rece_size)
-		{
-			sub_serial_receive_timeout_count = 0;
-		//	sub_rece_count = 0;
-		}
-  	}
-	else if(TI0 == 1)
-	{
-		TI0 = 0;
-		sub_transmit_finished = 1;
+		mstp_int_handler();
 	}
-	return;
+	else
+	{			
+		modbus_uart0_int_handler();
+	}
+
 
 }
 
@@ -439,17 +553,22 @@ void main_init_send_com(void)
 }
 
 void main_send_byte(U8_T buffer, U8_T crc)
-{
+{  
+	U8_T count = 0;
 	SBUF1 = buffer;
 	main_transmit_finished = 0;
-	while(!main_transmit_finished);
+	while(!main_transmit_finished && count < 20)
+	{
+		vTaskDelay(1);
+		count++;
+	}
 	if(crc == CRC_NO)
 	{
 		main_crc16_byte(buffer);
 	}
 }
 
-void mstp_int_handler(void);
+
 
 void modbus_int_handler(void)
 {
@@ -503,7 +622,7 @@ void modbus_int_handler(void)
 #if 1
 void handle_Modbus_RX1(void) interrupt 6
 {
-	if(protocal == BAC_MSTP)
+	if(protocal == BAC_MSTP && BACnet_Port == UART1)
 	{
 		mstp_int_handler();
 	}
@@ -524,163 +643,37 @@ void handle_Modbus_RX1(void) interrupt 6
 void main_dealwithData(void)
 {
 	U16_T far address;
-	U8_T frametype;
+//	U8_T frametype;
 	portTickType xDelayPeriod = ( portTickType ) 50 / portTICK_RATE_MS;
 	main_net_init();
 	for( ; ;)
 	{ 	
 		vTaskDelay(xDelayPeriod);
 
-
 		if(main_dealwithTag == VALID_PACKET)
 		{					
 			address = ((U16_T)main_data_buffer[2] << 8) + main_data_buffer[3];
 			if (checkData(address))
-			{	
-				U16_T i;
-			   	flag_transimit_from_serial = 0; 
-								
-				for(i = 0;i <  sub_no && !flag_transimit_from_serial;i++)
-				{
-					if(main_data_buffer[0] == sub_addr[i])	
-						flag_transimit_from_serial = 1;  // Tstat is sub device
-					else
-						flag_transimit_from_serial = 0;  // the current device is CM5
-				} 
+			{			
 				
-				if(!flag_transimit_from_serial)	
+				if(main_data_buffer[0] ==  Modbus_address || main_data_buffer[0] == 255)
 				{
-					if(main_data_buffer[0] ==  Modbus_address || main_data_buffer[0] == 255)
-					{
-						main_init_send_com();
-			
-						main_init_crc16();
-			
-						main_responseData(address);
-					}
-				}
-				else
-				{  
-					sub_init_send_com();
-					if(main_data_buffer[1] == READ_VARIABLES) 
-					{
-						sub_rece_size = main_data_buffer[5] * 2 + 5;
-
-						for(i = 0;i < 8;i++)
-						{
-							sub_send_byte(main_data_buffer[i],CRC_YES);
-						}			
-						
-					}
-					else if(main_data_buffer[1] == WRITE_VARIABLES) 
-					{
-						sub_rece_size = 8;
-						for(i = 0;i < 8;i++)
-						{
-							sub_send_byte(main_data_buffer[i],CRC_YES);
-						}
-					}
-					else if(main_data_buffer[1] == MULTIPLE_WRITE)  // MULTIPLE_WRITE
-					{				
-						sub_rece_size = 8;
-						for(i = 0;i < 137;i++)
-						{
-							sub_send_byte(main_data_buffer[i],CRC_YES);
-						}	
-					}
-					
-					sub_serial_restart();  
-
-					wait_SubSerial(50);
-					//if(cQueueReceive( xSubRevQueue, &sub_data_buffer, 0))
-					{
-						main_init_send_com();	 // enable COM1 send 
-						// send data to MBPOLL or T3000 
-						for(i = 0;i < sub_rece_size;i++)					
-							main_send_byte(sub_data_buffer[i],CRC_YES);
-					} 
-				} 
-			}  
-							
-		// Restart the serial receive.
-			main_serial_restart(); 		
-		}
-		#if 0
-		if(main_dealwithTag == VALID_PACKET)
-		{					
-			address = ((U16_T)main_data_buffer[2] << 8) + main_data_buffer[3];
-			if(checkData(address))
-			{	
-				U16_T i; 			
-				
-				if(main_data_buffer[0] == Modbus_address || main_data_buffer[0] == 255)
-				{
-					flag_transimit_from_serial = 0;
 					main_init_send_com();
 		
 					main_init_crc16();
 		
 					main_responseData(address);
+				}				
+				else
+				{  			   
+					Response_MAIN_To_SUB(main_data_buffer,main_rece_size - 2);
 
-					continue;
-				}
-				else 
-				{  
-					for(i = 0;i < sub_no;i++)
-					{
-						if(main_data_buffer[0] == sub_addr[i])
-						{
-							flag_transimit_from_serial = 1;
-							sub_init_send_com();
-
-							if(main_data_buffer[1] == READ_VARIABLES) 
-							{
-								sub_rece_size = main_data_buffer[5] * 2 + 5;
-		
-								for(i = 0;i < 8;i++)
-								{
-									sub_send_byte(main_data_buffer[i],CRC_YES);
-								}			
-								
-							}
-							else if(main_data_buffer[1] == WRITE_VARIABLES) 
-							{
-								sub_rece_size = 8;
-								for(i = 0;i < 8;i++)
-								{
-									sub_send_byte(main_data_buffer[i],CRC_YES);
-								}
-							}
-							else if(main_data_buffer[1] == MULTIPLE_WRITE)  // MULTIPLE_WRITE
-							{				
-								sub_rece_size = 8;
-								for(i = 0;i < 137;i++)
-								{
-									sub_send_byte(main_data_buffer[i],CRC_YES);
-								}	
-							}							
-							sub_serial_restart();  
-						//	source = PC_SERIAL;
-						//	flag_transimit_from_serial = 1;
-						//	Test[47]++;
-						    wait_SubSerial(100);
-							main_init_send_com();	 // enable COM1 send 
-							// send data to MBPOLL or T3000 
-							for(i = 0;i < sub_rece_size;i++)					
-								main_send_byte(sub_data_buffer[i],CRC_YES);	
-						
-							flag_transimit_from_serial = 0;	
-
-							continue;
-						}
-					}
 				} 
 			}  
 							
 		// Restart the serial receive.
 			main_serial_restart(); 		
 		}
-		#endif 
 		else
 		{
 			main_serial_restart(); 		
@@ -808,12 +801,12 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 	U16_T far loop;
 	U8_T far sendbuf[200];
 	U8_T far cmd;
-	U8_T far temp;
-	U8_T far tempbit;
+//	U8_T far temp;
+//	U8_T far tempbit;
 	U8_T far temp_number;
 	U8_T far temp_address;
 	U8_T far send_buffer;
-	U8_T far tempbuf[100];  /* convert schedule structure */
+//	U8_T far tempbuf[100];  /* convert schedule structure */
 	U8_T far update_flash;
 
 	if(type == MODBUS)  // modbus packet
@@ -909,7 +902,22 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
 				sendbuf[HeadLen + 3 + loop * 2 + 1] =  protocal;
-			}*/			
+			}*/	
+			else if(StartAdd + loop == MODBUS_BACNET_PORT)
+			{
+				sendbuf[HeadLen + 3 + loop * 2] = 0;
+				sendbuf[HeadLen + 3 + loop * 2 + 1] =  BACnet_Port;
+			}
+			else if(StartAdd + loop == MODBUS_INSTANCE)
+			{
+				sendbuf[HeadLen + 3 + loop * 2] = Instance >> 8;
+				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Instance;
+			}
+			else if(StartAdd + loop == MODBUS_STATION_NUM)
+			{
+				sendbuf[HeadLen + 3 + loop * 2] = 0;
+				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Station_NUM;
+			}		
 			else if(StartAdd + loop >= MODBUS_MAC_1 && StartAdd + loop <= MODBUS_MAC_6)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
@@ -937,8 +945,8 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			} 
 			else if(StartAdd + loop == MODBUS_TCP_LISTEN_PORT)
 			{
-				sendbuf[HeadLen + 3 + loop * 2] = HTTP_SERVER_PORT >> 8;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  (U8_T)HTTP_SERVER_PORT;
+				sendbuf[HeadLen + 3 + loop * 2] = TCP_PORT >> 8;	
+				sendbuf[HeadLen + 3 + loop * 2 + 1] =  (U8_T)TCP_PORT;
 			}
 		
 #if 1		
@@ -958,14 +966,14 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			else if(StartAdd + loop == MODBUS_OCCUPIED)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_occupied;
+				sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop - MODBUS_OCCUPIED].occupied;
 			}
 			else if(StartAdd + loop >= MODBUS_ROOM_SETPOINT_FIRST && StartAdd + loop <= MODBUS_ROOM_SETPOINT_LAST)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
 				
 				if(StartAdd + loop  - MODBUS_ROOM_SETPOINT_FIRST <  sub_no)	
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_setpoint[StartAdd + loop  - MODBUS_ROOM_SETPOINT_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop  - MODBUS_ROOM_SETPOINT_FIRST].setpoint;
 				else 
 					sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
 			}
@@ -974,8 +982,8 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 				
 				if(StartAdd + loop  - MODBUS_COOL_SETPOINT_FIRST <  sub_no)	
 				{
-					sendbuf[HeadLen + 3 + loop * 2] = tstat_cool_setpoint[StartAdd + loop  - MODBUS_COOL_SETPOINT_FIRST] >> 8;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)tstat_cool_setpoint[StartAdd + loop  - MODBUS_COOL_SETPOINT_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2] = tst_info[StartAdd + loop  - MODBUS_COOL_SETPOINT_FIRST].cool_setpoint >> 8;
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)tst_info[StartAdd + loop  - MODBUS_COOL_SETPOINT_FIRST].cool_setpoint;
 				}
 				else 
 				{
@@ -987,7 +995,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
 				if(StartAdd + loop  - MODBUS_HEAT_SETPOINT_FIRST <  sub_no)	
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_heat_setpoint[StartAdd + loop  - MODBUS_HEAT_SETPOINT_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop  - MODBUS_HEAT_SETPOINT_FIRST].heat_setpoint;
 				else 
 					sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
 			}
@@ -996,8 +1004,8 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 				
 				if(StartAdd + loop  - MODBUS_ROOM_TEM_FIRST <  sub_no)
 				{	
-					sendbuf[HeadLen + 3 + loop * 2] = tstat_temperature[StartAdd + loop  - MODBUS_ROOM_TEM_FIRST] >> 8;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)tstat_temperature[StartAdd + loop  - MODBUS_ROOM_TEM_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2] = tst_info[StartAdd + loop  - MODBUS_ROOM_TEM_FIRST].temperature >> 8;
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)tst_info[StartAdd + loop  - MODBUS_ROOM_TEM_FIRST].temperature;
 				}
 				else 
 				{
@@ -1009,7 +1017,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0; 				
 				if(StartAdd + loop  - MODBUS_MODE_FIRST <  sub_no)	
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_mode[StartAdd + loop  - MODBUS_MODE_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop  - MODBUS_MODE_FIRST].mode;
 				else 
 					sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
 			}
@@ -1017,7 +1025,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;				
 				if(StartAdd + loop  - MODBUS_OUTPUT_STATE_FIRST <  sub_no)	
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_output_state[StartAdd + loop  - MODBUS_OUTPUT_STATE_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop  - MODBUS_OUTPUT_STATE_FIRST].output_state;
 				else 
 					sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
 			}
@@ -1025,7 +1033,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
 				if(StartAdd + loop  - MODBUS_NIGHT_HEAT_DB_FIRST <  sub_no)	
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_night_heat_db[StartAdd + loop  - MODBUS_NIGHT_HEAT_DB_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop  - MODBUS_NIGHT_HEAT_DB_FIRST].night_heat_db;
 				else 
 					sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
 			}
@@ -1033,7 +1041,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
 				if(StartAdd + loop  - MODBUS_NIGHT_COOL_DB_FIRST <  sub_no)	
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_night_cool_db[StartAdd + loop  - MODBUS_NIGHT_COOL_DB_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop  - MODBUS_NIGHT_COOL_DB_FIRST].night_cool_db;
 				else 
 					sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
 			}
@@ -1041,7 +1049,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
 				if(StartAdd + loop  - MODBUS_NIGHT_HEAT_SP_FIRST <  sub_no)	
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_night_heat_sp[StartAdd + loop  - MODBUS_NIGHT_HEAT_SP_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop  - MODBUS_NIGHT_HEAT_SP_FIRST].night_heat_sp;
 				else 
 					sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
 			}
@@ -1049,7 +1057,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
 				if(StartAdd + loop  - MODBUS_NIGHT_COOL_SP_FIRST <  sub_no)	
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_night_cool_sp[StartAdd + loop  - MODBUS_NIGHT_COOL_SP_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop  - MODBUS_NIGHT_COOL_SP_FIRST].night_cool_sp;
 				else 
 					sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
 			}
@@ -1057,7 +1065,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			{
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
 				if(StartAdd + loop  - MODBUS_PRODUCT_MODEL_FIRST <  sub_no)	
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_product_model[StartAdd + loop  - MODBUS_PRODUCT_MODEL_FIRST];
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop  - MODBUS_PRODUCT_MODEL_FIRST].product_model;
 				else 
 					sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
 			}
@@ -1065,8 +1073,8 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			{	
 				if(StartAdd + loop  - MODBUS_OVER_RIDE_FIRST <  sub_no)	
 				{			
-					sendbuf[HeadLen + 3 + loop * 2] = tstat_over_ride[StartAdd + loop  - MODBUS_OVER_RIDE_FIRST] >> 8;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)tstat_over_ride[StartAdd + loop  - MODBUS_OVER_RIDE_FIRST];		
+					sendbuf[HeadLen + 3 + loop * 2] = tst_info[StartAdd + loop  - MODBUS_OVER_RIDE_FIRST].over_ride >> 8;
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)tst_info[StartAdd + loop  - MODBUS_OVER_RIDE_FIRST].over_ride;		
 				}
 				else 
 				{
@@ -1080,7 +1088,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 				if((StartAdd + loop  - MODBUS_SERIAL_NUM_FIRST) / 4 <  sub_no)	
 				{	
 					sendbuf[HeadLen + 3 + loop * 2] = 0;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = tstat_serial_number[(StartAdd + loop  - MODBUS_SERIAL_NUM_FIRST)/4][(StartAdd + loop  - MODBUS_SERIAL_NUM_FIRST)%4];
+					sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[(StartAdd + loop  - MODBUS_SERIAL_NUM_FIRST)/4].serial_number[(StartAdd + loop  - MODBUS_SERIAL_NUM_FIRST)%4];
 				}
 				else
 				{	
@@ -1537,8 +1545,51 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 		{
 			 protocal = pData[HeadLen + 5];
 		  	 E2prom_Write_Byte(EEP_PROTOCAL, protocal);
-		}	
-			
+			 RELAY1_8 = 0;
+		  	RELAY_LATCH = 0; 
+			RELAY_LATCH = 1;  		
+			DI2_LATCH = 1;
+			KEY_LATCH = 1;
+			DI1_LATCH = 1;
+			P1 = 0xFF;	
+			AX11000_SoftReboot(); 
+		}
+		else if(StartAdd == MODBUS_PRIORTITY )
+		{
+			 Priority = pData[HeadLen + 5] + (U16_T)(pData[HeadLen + 4]<<8);
+			 E2prom_Write_Byte(EEP_PRIORTITY, Priority);
+			 count_priority = 0;
+		}
+		else if(StartAdd == MODBUS_RESET_PARAMETER )
+		{
+			if(pData[HeadLen + 5] + (U16_T)(pData[HeadLen + 4]) == 55)
+		    set_default_parameters();
+//			IntFlashErase(ERA_RUN,0x70000);	
+//			Test[35] = 100;
+		//	Bacnet_Initial_Data();
+		//	Flash_Write_Mass();
+		//	 ChangeFlash = 1;
+		} 
+		else if(StartAdd == MODBUS_INSTANCE)
+		{
+			Instance = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+			E2prom_Write_Byte(EEP_INSTANCE_HIGH,  pData[HeadLen + 4] );
+			E2prom_Write_Byte(EEP_INSTANCE_LOW,  pData[HeadLen + 5] );
+		}
+		else if(StartAdd == MODBUS_STATION_NUM)
+		{
+			Station_NUM = pData[HeadLen + 5];
+			E2prom_Write_Byte(EEP_STATION_NUM,  Station_NUM );
+		}  
+		else if(StartAdd == MODBUS_BACNET_PORT )
+		{
+			BACnet_Port = pData[HeadLen + 5];
+		}
+		else if(StartAdd == MODBUS_STATION_NUM + 1 )
+		{
+			init_panel();
+			Flash_Write_Mass();
+		}			
 		else if(StartAdd == MODBUS_TCP_TYPE)
 		{
 			TCP_TYPE = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
@@ -1559,6 +1610,12 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 		{
 			 GETWAY[StartAdd - MODBUS_GETWAY_1] = pData[HeadLen + 5];
 		//	E2prom_Write_Byte(EEP_GETWAY + StartAdd - MODBUS_GETWAY_1, GETWAY[StartAdd - MODBUS_GETWAY_1]);
+		}
+		else if(StartAdd == MODBUS_TCP_LISTEN_PORT)
+		{
+			TCP_PORT =  pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+			E2prom_Write_Byte(EEP_PORT_LOW,pData[HeadLen + 5]);
+			E2prom_Write_Byte(EEP_PORT_HIGH,pData[HeadLen + 4]);
 		}
 		else if(StartAdd >= MODBUS_AINPUT1 && StartAdd <= MODBUS_AINPUT10 )
 		{  // if auto/manual feature is Manual (0=auto, 1=manual)
@@ -1649,19 +1706,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			 DO_SoftSwitch = pData[HeadLen + 5] + (U16_T)(pData[HeadLen + 4]<<8);
 			if( DO_SoftSwitch >2) 	 DO_SoftSwitch = 0;
 			E2prom_Write_Byte(EEP_SWITCH, DO_SoftSwitch);
-		}
-		else if(StartAdd == MODBUS_PRIORTITY )
-		{
-			 Priority = pData[HeadLen + 5] + (U16_T)(pData[HeadLen + 4]<<8);
-			 E2prom_Write_Byte(EEP_PRIORTITY, Priority);
-			 count_priority = 0;
-		}
-		else if(StartAdd == MODBUS_RESET_PARAMETER )
-		{
-		//	if(pData[HeadLen + 5] + (U16_T)(pData[HeadLen + 4]) == 55)
-			 set_default_parameters();
-		//	 ChangeFlash = 1;
-		} 
+		}		
 		else if(StartAdd == MODBUS_DI_ENABLE)
 		{
 			 DI_Enable = pData[HeadLen + 5] + (U16_T)(pData[HeadLen + 4]<<8);
@@ -1694,7 +1739,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 		}	
 		else if(StartAdd == MODBUS_ENABLE_WRITE_MAC)
 		{
-			mac_address_write_enable = 1;
+			Mac_Address_write_enable = 1;
 		}
 	/*	else if(StartAdd == MODBUS_MASTER )
 		{
@@ -1722,7 +1767,97 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			dis_temp_seq[StartAdd - MODBUS_DISPLAY_TEMP_SEQ_FIRST] = pData[HeadLen + 5];
 			E2prom_Write_Byte(EEP_DIS_TEMP_SEQ_FIRST + StartAdd - MODBUS_DISPLAY_TEMP_SEQ_FIRST,pData[HeadLen + 5]);
 		}
-
+	 // write tstat reg
+		else if(StartAdd  == MODBUS_OCCUPIED)
+		{
+//			
+//
+//			sendbuf[HeadLen + 3 + loop * 2] = 0;
+//			sendbuf[HeadLen + 3 + loop * 2 + 1] = tst_info[StartAdd + loop - MODBUS_OCCUPIED].occupied;
+		}
+		else if(StartAdd >= MODBUS_ROOM_SETPOINT_FIRST && StartAdd  <= MODBUS_ROOM_SETPOINT_LAST)
+		{
+			if(StartAdd - MODBUS_ROOM_SETPOINT_FIRST <  sub_no && tst_info[StartAdd - MODBUS_ROOM_SETPOINT_FIRST].type != 0xff)	
+			{					
+				U8_T reg;
+				reg = Tst_Register[TST_ROOM_SETPOINT][tst_info[StartAdd - MODBUS_ROOM_SETPOINT_FIRST].type];
+				write_parameters_to_nodes(sub_addr[StartAdd - MODBUS_ROOM_SETPOINT_FIRST],reg,pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8));
+				tst_info[StartAdd - MODBUS_ROOM_SETPOINT_FIRST].setpoint = pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8);
+			}
+		}
+		else if(StartAdd >= MODBUS_COOL_SETPOINT_FIRST && StartAdd <= MODBUS_COOL_SETPOINT_LAST)
+		{
+			if(StartAdd - MODBUS_COOL_SETPOINT_FIRST <  sub_no && tst_info[StartAdd - MODBUS_COOL_SETPOINT_FIRST].type != 0xff)	
+			{					
+				U8_T reg;
+				reg = Tst_Register[TST_COOL_SETPOINT][tst_info[StartAdd - MODBUS_COOL_SETPOINT_FIRST].type];
+				write_parameters_to_nodes(sub_addr[StartAdd - MODBUS_COOL_SETPOINT_FIRST],reg,pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8));
+				tst_info[StartAdd - MODBUS_COOL_SETPOINT_FIRST].cool_setpoint = pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8);
+			}
+		}
+		else if(StartAdd >= MODBUS_HEAT_SETPOINT_FIRST && StartAdd <= MODBUS_HEAT_SETPOINT_LAST)
+		{
+			if(StartAdd - MODBUS_HEAT_SETPOINT_FIRST <  sub_no && tst_info[StartAdd - MODBUS_HEAT_SETPOINT_FIRST].type != 0xff)	
+			{					
+				U8_T reg;
+				reg = Tst_Register[TST_HEAT_SETPOINT][tst_info[StartAdd - MODBUS_HEAT_SETPOINT_FIRST].type];
+				write_parameters_to_nodes(sub_addr[StartAdd - MODBUS_HEAT_SETPOINT_FIRST],reg,pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8));
+				tst_info[StartAdd - MODBUS_HEAT_SETPOINT_FIRST].heat_setpoint = pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8);
+			}
+	
+		}			
+		else if(StartAdd  >= MODBUS_OUTPUT_STATE_FIRST && StartAdd <= MODBUS_OUTPUT_STATE_LAST)
+		{
+			if(StartAdd - MODBUS_OUTPUT_STATE_FIRST <  sub_no && tst_info[StartAdd - MODBUS_OUTPUT_STATE_FIRST].type != 0xff)	
+			{					
+				U8_T reg;
+				reg = Tst_Register[TST_OUTPUT_STATE][tst_info[StartAdd - MODBUS_OUTPUT_STATE_FIRST].type];
+				write_parameters_to_nodes(sub_addr[StartAdd - MODBUS_OUTPUT_STATE_FIRST],reg,pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8));
+				tst_info[StartAdd - MODBUS_OUTPUT_STATE_FIRST].output_state = pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8);
+			}
+		}
+		else if(StartAdd >= MODBUS_NIGHT_HEAT_DB_FIRST && StartAdd <= MODBUS_NIGHT_HEAT_DB_LAST)
+		{ 
+			if(StartAdd - MODBUS_NIGHT_HEAT_DB_FIRST <  sub_no && tst_info[StartAdd - MODBUS_NIGHT_HEAT_DB_FIRST].type != 0xff)	
+			{					
+				U8_T reg;
+				reg = Tst_Register[TST_NIGHT_HEAT_DB][tst_info[StartAdd - MODBUS_NIGHT_HEAT_DB_FIRST].type];
+				write_parameters_to_nodes(sub_addr[StartAdd - MODBUS_NIGHT_HEAT_DB_FIRST],reg,pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8));
+				tst_info[StartAdd - MODBUS_NIGHT_HEAT_DB_FIRST].night_heat_db = pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8);
+			}
+		}
+		else if(StartAdd >= MODBUS_NIGHT_COOL_DB_FIRST && StartAdd <= MODBUS_NIGHT_COOL_DB_LAST)
+		{	 
+			if(StartAdd - MODBUS_NIGHT_COOL_DB_FIRST <  sub_no && tst_info[StartAdd - MODBUS_NIGHT_COOL_DB_FIRST].type != 0xff)	
+			{					
+				U8_T reg;
+				reg = Tst_Register[TST_NIGHT_COOL_DB][tst_info[StartAdd - MODBUS_NIGHT_COOL_DB_FIRST].type];
+				write_parameters_to_nodes(sub_addr[StartAdd - MODBUS_NIGHT_COOL_DB_FIRST],reg,pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8));
+				tst_info[StartAdd - MODBUS_NIGHT_COOL_DB_FIRST].night_cool_db = pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8);
+			}
+		}
+		else if(StartAdd >= MODBUS_NIGHT_HEAT_SP_FIRST && StartAdd <= MODBUS_NIGHT_HEAT_SP_LAST)
+		{
+			if(StartAdd - MODBUS_NIGHT_HEAT_SP_FIRST <  sub_no && tst_info[StartAdd - MODBUS_NIGHT_HEAT_SP_FIRST].type != 0xff)	
+			{					
+				U8_T reg;
+				reg = Tst_Register[TST_NIGHT_HEAT_SP][tst_info[StartAdd - MODBUS_NIGHT_HEAT_SP_FIRST].type];
+				write_parameters_to_nodes(sub_addr[StartAdd - MODBUS_NIGHT_HEAT_SP_FIRST],reg,pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8));
+				tst_info[StartAdd - MODBUS_NIGHT_HEAT_SP_FIRST].night_heat_sp = pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8);
+			}
+		}
+		else if(StartAdd >= MODBUS_NIGHT_COOL_SP_FIRST && StartAdd <= MODBUS_NIGHT_COOL_SP_LAST)
+		{	
+			if(StartAdd - MODBUS_NIGHT_COOL_SP_FIRST <  sub_no && tst_info[StartAdd - MODBUS_NIGHT_COOL_SP_FIRST].type != 0xff)	
+			{					
+				U8_T reg;
+				reg = Tst_Register[TST_NIGHT_COOL_SP][tst_info[StartAdd - MODBUS_NIGHT_COOL_SP_FIRST].type];
+				write_parameters_to_nodes(sub_addr[StartAdd - MODBUS_NIGHT_COOL_SP_FIRST],reg,pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8));
+				tst_info[StartAdd - MODBUS_NIGHT_COOL_SP_FIRST].night_cool_sp = pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8);
+			}
+			
+		}
+		
 	}
 	else if(cmd == MULTIPLE_WRITE)
 	{
@@ -1758,19 +1893,26 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 		//ChangeFlash = 1;
 
 		if(StartAdd == MODBUS_MAC_1)
-		{ 			
-			if(mac_address_write_enable)
+		{ 	
+			if(Mac_Address_write_enable)
 			{
-				if(pData[HeadLen + 5] == 12)
-				{
-					Mac_Addr[0] = pData[HeadLen + 7];
-					Mac_Addr[1] = pData[HeadLen + 9];
-					Mac_Addr[2] = pData[HeadLen + 11];
-					Mac_Addr[3] = pData[HeadLen + 13];
-					Mac_Addr[4] = pData[HeadLen + 15];
-					Mac_Addr[5] = pData[HeadLen + 17];
+				if(pData[HeadLen + 6] == 12)
+				{	 
+					Mac_Addr[0] = pData[HeadLen + 8];
+					Mac_Addr[1] = pData[HeadLen + 10];
+					Mac_Addr[2] = pData[HeadLen + 12];
+					Mac_Addr[3] = pData[HeadLen + 14];
+					Mac_Addr[4] = pData[HeadLen + 16];
+					Mac_Addr[5] = pData[HeadLen + 18];
 				}
-				mac_address_write_enable = 0;
+				E2prom_Write_Byte(EEP_MAC, Mac_Addr[5]);
+				E2prom_Write_Byte(EEP_MAC + 1, Mac_Addr[4]);
+				E2prom_Write_Byte(EEP_MAC + 2, Mac_Addr[3]);
+				E2prom_Write_Byte(EEP_MAC + 3, Mac_Addr[2]);
+				E2prom_Write_Byte(EEP_MAC + 4, Mac_Addr[1]);
+				E2prom_Write_Byte(EEP_MAC + 5, Mac_Addr[0]);
+
+				Mac_Address_write_enable = 0;
 			}
 		}
 		else if(StartAdd == MODBUS_TIMER_ADDRESS)

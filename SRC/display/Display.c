@@ -50,12 +50,7 @@ unsigned char far Set_Value = 0;
 unsigned char far by_Cur_sub = 0;
 char* menu = NULL;
 
-U8_T temp_value = 0;
-bit flag_set = 0;
-bit flag_enter_set = 0;
-bit flag_send = 0;
 
-char Comm_Register = 0;
 //extern unsigned int data temperature[10];
 		// control Tstat using T3000 or CM5's button
 
@@ -68,7 +63,7 @@ const char* Main_Menu[MAIN_MENU_LEN] =
 {
 	" Output",
 	" Input",
-	" Tstat info"
+	" Tstat info",
 };
 
 char far In_Menu[MAX_IN_LEN][14];
@@ -196,65 +191,6 @@ void Display_Clear_Space(void)
 	}
 }
 
-#if 0
-/*
- *--------------------------------------------------------------------------------
- * char* Display_Format(U16_T number)
- * Purpose : tranfer num to string
- * Params  : number - the source data  (range:0 - 9999)
- * Returns : return string
- * Note    : none
- *--------------------------------------------------------------------------------
- */	 
-char* Display_Format(U16_T number)
-{
-	char loop = 0;
-	char num[5];
-	char length;
-	//number = number / div;
-	for(loop = 0;loop < 5;loop++)	num[loop] = 0;
-
-	if(number >= 1000)	length = 4;
-	else if(number >= 100)	length = 3;
-	else if(number >= 10)	length = 2;
-	else length = 1;
-
-	/* using num[] buffer to store the every num */
-	
-	num[0] = number / 1000; 		number = number % 1000;
-	num[1] = number / 100; 		number = number % 100;
-	num[2] = number / 10; 		number = number % 10;
-	num[3] = number;
-
-	/* check num[], put correct character to every posion */
-
-	if(num[0] > 0)  /* if number is bigger than 999 */
-	{
-		for(loop = 1;loop < 4;loop++)	num[loop] = num[loop] + 0x30;
-	}
-	else if(num[1] > 0)  /* if number is bigger than 99 */
-	{
-		num[0] = ' ';
-		for(loop = 1;loop < 4;loop++)	num[loop] = num[loop] + 0x30;		
-	}
-	else if(num[2] > 0) 	 /* if number is bigger than 9 */
-	{
-		num[0] = ' ';
-		num[1] = ' ';
-		for(loop = 2;loop < 4;loop++)	num[loop] = num[loop] + 0x30;
-	}
-	else if(num[3] > 0)   /* if number is less than 10 */
-	{
-		num[0] = ' ';
-		num[1] = ' ';
-		num[2] = ' ';
-		for(loop = 3;loop < 4;loop++)	num[loop] = num[loop] + 0x30;
-	}
-	num[4] = '\0';
-	return num;
-}
-
-#endif
 
 void Display_Check_Status(void)
 {
@@ -274,6 +210,33 @@ void Display_Check_Status(void)
 				start_scrolling();
 				 
 		}
+		if(by_Idle_index == IDLE_LEN - 1)  // ip info
+		{
+		//	Test[30]++;
+			if(by_Key == K_RESET)
+			{
+				U8_T loop = 0;
+			//	Test[31]++;
+				E2prom_Write_Byte(EEP_TCP_TYPE,0);
+
+				E2prom_Write_Byte(EEP_IP, 3);
+				E2prom_Write_Byte(EEP_IP + 1, 0);
+				E2prom_Write_Byte(EEP_IP + 2, 168);
+				E2prom_Write_Byte(EEP_IP + 3, 192);
+			
+				E2prom_Write_Byte(EEP_SUBNET, 0);
+				E2prom_Write_Byte(EEP_SUBNET + 1, 255);
+				E2prom_Write_Byte(EEP_SUBNET + 2, 255);
+				E2prom_Write_Byte(EEP_SUBNET + 3, 255);
+
+				for(loop = 0;loop < 4;loop++)
+				{
+					E2prom_Read_Byte(EEP_IP + loop,&IP_Addr[3 - loop]);	 	
+					E2prom_Read_Byte(EEP_SUBNET + loop,&SUBNET[3 - loop]);	
+				}
+
+			}
+		}
 	}
 	else if(by_Status == D_MENU) 
 	{
@@ -281,7 +244,6 @@ void Display_Check_Status(void)
 		if(by_Key == K_SELECT)	   	/* enter sub-menu */
 		{	
 			by_Status = D_SUBMENU; 
-			flag_enter_set = 0;
 			by_Cur_sub = 0;
 			by_submenu_index = 0;
 		}
@@ -387,7 +349,7 @@ void Display_Process(void) reentrant
 				{	
 					BACKLIT = BACK_OFF;	
 				/* if current display is IDLE, initial lcd to avoid messed display */
-					if(by_Status == D_IDLE)	{/*Lcd_Initial();Lcd_All_Off();*/}
+					if(by_Status == D_IDLE)	{/*Lcd_Initial();Lcd_All_Off();*/by_Idle_index = 0; 	}
 					else if(by_Status == D_SUBMENU || by_Status == D_MENU)
 					{
 						by_Status = D_IDLE;
@@ -410,14 +372,12 @@ void Display_Process(void) reentrant
 		#endif
 		
 	
-		Test[8]++;
 		count_task = 1;
 
 
 		}
 		else if(count_task == 1)
 		{ 	
-			Test[4]++;
 			//flag_protect_lcd = 1;		
 			Update_AI();  //flag_protect_lcd = 0;
 			count_task = 0;			
@@ -430,100 +390,76 @@ void Display_Process(void) reentrant
 
 void Display_Save_Value(unsigned char sub,unsigned char index)
 {
+	U8_T WRT_Tst_Reg;
 	switch(sub) 
 	{
 		case 0:  
-			if(Set_Value)	
+		/*	if(Set_Value)	
 				DO_Value |= (0x01 << index);
 			else	 
-				DO_Value &= ~(0x01 << index);
+				DO_Value &= ~(0x01 << index); */
 			break;
 		case 1:	 
 		/* input menu - sub DI DI*/
-			DI2_Value |= Set_Value << (index - sub_no);
+		//	DI2_Value |= Set_Value << (index - sub_no);
 			break;
 		case 2:	 
 			if(index == E_MODBUS_ID)	  
 				by_Cur_sub = Set_Value;
 			else if(index == E_SET_POINT)
 			{
-				tstat_setpoint[by_Cur_sub] = Set_Value;
-				
-				WRT_Tst_Reg = WRITE_ROOM_SETPOINT;
-				WRT_Tst_ID = sub_addr[by_Cur_sub];					
-				flag_control_by_button = 1;	
-			//	Com_Tstat(WRITE_ROOM_SETPOINT,sub_addr[by_Cur_sub]);
-			//	flag_control_by_button = 0;
+				tst_info[by_Cur_sub].setpoint = Set_Value;				
+				WRT_Tst_Reg = Tst_Register[TST_ROOM_SETPOINT][tst_info[by_Cur_sub].type];
+				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
 			}
 			else if(index == E_COOL_SP)
 			{
-				tstat_cool_setpoint[by_Cur_sub] = Set_Value;
-				WRT_Tst_Reg = WRITE_COOLING_SETPOINT;
-				WRT_Tst_ID = sub_addr[by_Cur_sub];
-				flag_control_by_button = 1;
-			//	Com_Tstat(WRITE_COOLING_SETPOINT,sub_addr[by_Cur_sub]);
-			//	flag_control_by_button = 0;
+				tst_info[by_Cur_sub].cool_setpoint = Set_Value;
+				WRT_Tst_Reg = Tst_Register[TST_COOL_SETPOINT][tst_info[by_Cur_sub].type];
+				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
 			}
 			else if(index == E_HEAT_SP)
 			{
-				tstat_heat_setpoint[by_Cur_sub] = Set_Value;
-				WRT_Tst_Reg = WRITE_HEATTING_SETPOINT;
-				WRT_Tst_ID = sub_addr[by_Cur_sub];
-				flag_control_by_button = 1;
-			//	Com_Tstat(WRITE_HEATTING_SETPOINT,sub_addr[by_Cur_sub]);
-			//	flag_control_by_button = 0;
+				tst_info[by_Cur_sub].heat_setpoint = Set_Value;
+				WRT_Tst_Reg = Tst_Register[TST_HEAT_SETPOINT][tst_info[by_Cur_sub].type];
+				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
 			} 		
 			else if(index == E_NIGHT_HEAT_DB)
 			{
-				tstat_night_heat_db[by_Cur_sub] = Set_Value;
-				WRT_Tst_Reg = WRITE_NIGHT_HEAT_DB;
-				WRT_Tst_ID = sub_addr[by_Cur_sub];
-				flag_control_by_button = 1;
-			//	Com_Tstat(WRITE_NIGHT_HEAT_DB,sub_addr[by_Cur_sub]);
-			//	flag_control_by_button = 0;
+				tst_info[by_Cur_sub].night_heat_db = Set_Value;
+				WRT_Tst_Reg = Tst_Register[TST_NIGHT_HEAT_DB][tst_info[by_Cur_sub].type];
+				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
 			}
 			else if(index == E_NIGHT_COOL_DB)
 			{
-				tstat_night_cool_db[by_Cur_sub] = Set_Value;
-				flag_control_by_button = 1;
-				WRT_Tst_Reg = WRITE_NIGHT_COOL_DB;
-				WRT_Tst_ID = sub_addr[by_Cur_sub];
-			//	Com_Tstat(WRITE_NIGHT_COOL_DB,sub_addr[by_Cur_sub]);
-			//	flag_control_by_button = 0;
+				tst_info[by_Cur_sub].night_cool_db = Set_Value;
+				WRT_Tst_Reg = Tst_Register[TST_NIGHT_COOL_DB][tst_info[by_Cur_sub].type];
+				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
 			}
 			else if(index == E_NIGHT_HEAT_SP) 
 			{
-				tstat_night_heat_sp[by_Cur_sub] = Set_Value;
-				flag_control_by_button = 1;
-				WRT_Tst_Reg = WRITE_NIGHT_HEAT_SP;
-				WRT_Tst_ID = sub_addr[by_Cur_sub];
-			//	Com_Tstat(WRITE_NIGHT_HEAT_SP,sub_addr[by_Cur_sub]);
-			//	flag_control_by_button = 0;
+				tst_info[by_Cur_sub].night_heat_sp = Set_Value;				
+				WRT_Tst_Reg = Tst_Register[TST_NIGHT_HEAT_SP][tst_info[by_Cur_sub].type];
+				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
 			}
 			else if(index == E_NIGHT_COOL_SP)
 			{
-				tstat_night_cool_sp[by_Cur_sub] = Set_Value;
-				flag_control_by_button = 1;
-				WRT_Tst_Reg = WRITE_NIGHT_COOL_SP;
-				WRT_Tst_ID = sub_addr[by_Cur_sub];
-			//	Com_Tstat(WRITE_NIGHT_COOL_SP,sub_addr[by_Cur_sub]);
-			//	flag_control_by_button = 0;
+				tst_info[by_Cur_sub].night_cool_sp = Set_Value;
+				WRT_Tst_Reg = Tst_Register[TST_NIGHT_COOL_DB][tst_info[by_Cur_sub].type];
+				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
 			}
-			else if(index == E_OVER_RIDE_TIME)
-			{
-				tstat_over_ride[by_Cur_sub] = Set_Value;
-				flag_control_by_button = 1;
-				WRT_Tst_Reg = WRITE_HEATTING_SETPOINT;
-				WRT_Tst_ID = sub_addr[by_Cur_sub];
-			//	Com_Tstat(WRITE_HEATTING_SETPOINT,sub_addr[by_Cur_sub]);
-			//	flag_control_by_button = 0;
-			}
+//			else if(index == E_OVER_RIDE_TIME)
+//			{
+//				tst_info[by_Cur_sub].over_ride = Set_Value;
+//				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);			
+//			}
 			break;
 		default: break;
 	}
 //	#endif
 
 }
+
 
 void Display_Idle(U8_T index)
 {
@@ -624,7 +560,7 @@ void Display_Idle(U8_T index)
 		sprintf(text, "GATE: %u.%u.%u.%u", (uint16)GETWAY[0], (uint16)GETWAY[1], (uint16)GETWAY[2], (uint16)GETWAY[3]);
 		Lcd_Show_String(2, 0, text, NORMAL, 21);
 		// tcp port
-		sprintf(text, "PORT: %u", (uint16)HTTP_SERVER_PORT);
+		sprintf(text, "PORT: %u", (uint16)TCP_PORT);
 		Lcd_Show_String(3, 0, text, NORMAL, 21);
 		// MAC address
 		sprintf(text, "MAC:%02X:%02X:%02X:%02X:%02X:%02X", (uint16)Mac_Addr[0], (uint16)Mac_Addr[1], (uint16)Mac_Addr[2], (uint16)Mac_Addr[3], (uint16)Mac_Addr[4], (uint16)Mac_Addr[5]);
@@ -713,7 +649,6 @@ void Display_SubMenu(unsigned char sub,unsigned char index)
 		//Value_Range = 1;
 		if(sub_menu_len > 0)
 			menu = *In_Menu;
-//		Test[30] = sub_menu_len;	
 	
 	}
 	else if(sub == 2)
@@ -722,18 +657,18 @@ void Display_SubMenu(unsigned char sub,unsigned char index)
 		sub_menu_len = 13;  
 		str_len = 15;
 		PTRtemp[0] = sub_addr[by_Cur_sub];	  Value_Range[0] = sub_no - 1;
-		PTRtemp[1] = tstat_temperature[by_Cur_sub];	   Value_Range[1] = 0;
-		PTRtemp[2] = tstat_mode[by_Cur_sub];		   Value_Range[2] = 1;
-		PTRtemp[3] = tstat_setpoint[by_Cur_sub];	   Value_Range[3] = 1;
-		PTRtemp[4] = tstat_cool_setpoint[by_Cur_sub];  Value_Range[4] = 1;
-		PTRtemp[5] = tstat_heat_setpoint[by_Cur_sub];  Value_Range[5] = 1;
-		PTRtemp[6] = (tstat_occupied & (0x01 << by_Cur_sub)) >> by_Cur_sub;   Value_Range[6] = 1;
-		PTRtemp[7] = tstat_output_state[by_Cur_sub];   Value_Range[7] = 0;
-		PTRtemp[8] = tstat_night_heat_db[by_Cur_sub];  Value_Range[8] = 1;
-		PTRtemp[9] = tstat_night_cool_db[by_Cur_sub];  Value_Range[9] = 1;
-		PTRtemp[10] = tstat_night_heat_sp[by_Cur_sub]; Value_Range[10] = 1;
-		PTRtemp[11] = tstat_night_cool_sp[by_Cur_sub]; Value_Range[11] = 1;
-		PTRtemp[12] = tstat_over_ride[by_Cur_sub];	   Value_Range[12] = 1;
+		PTRtemp[1] = tst_info[by_Cur_sub].temperature;	   Value_Range[1] = 0;
+		PTRtemp[2] = tst_info[by_Cur_sub].mode;		   Value_Range[2] = 1;
+		PTRtemp[3] = tst_info[by_Cur_sub].setpoint;	   Value_Range[3] = 1;
+		PTRtemp[4] = tst_info[by_Cur_sub].cool_setpoint;  Value_Range[4] = 1;
+		PTRtemp[5] = tst_info[by_Cur_sub].heat_setpoint;  Value_Range[5] = 1;
+		PTRtemp[6] = tst_info[by_Cur_sub].occupied;//(tstat_occupied & (0x01 << by_Cur_sub)) >> by_Cur_sub;   Value_Range[6] = 1;
+		PTRtemp[7] = tst_info[by_Cur_sub].output_state;   Value_Range[7] = 0;
+		PTRtemp[8] = tst_info[by_Cur_sub].night_heat_db;  Value_Range[8] = 1;
+		PTRtemp[9] = tst_info[by_Cur_sub].night_cool_db;  Value_Range[9] = 1;
+		PTRtemp[10] = tst_info[by_Cur_sub].night_heat_sp; Value_Range[10] = 1;
+		PTRtemp[11] = tst_info[by_Cur_sub].night_cool_sp; Value_Range[11] = 1;
+		PTRtemp[12] = tst_info[by_Cur_sub].over_ride;     Value_Range[12] = 1;
 	}
 
 	if(Value_Range[index] > 0)

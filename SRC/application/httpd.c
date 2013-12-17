@@ -64,12 +64,13 @@
 static HTTP_SERVER_CONN far HTTP_Connects[MAX_HTTP_CONNECT];
 static U8_T far http_InterfaceId = 0;
 
-
+extern U16_T far Test[50];
 unsigned int CRC16(unsigned char *puchMsg, unsigned char usDataLen);
 
 
 void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn); 
 
+void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header);
 
 
 /*
@@ -90,9 +91,10 @@ void HTTP_Init(void)
 		HTTP_Connects[i].State = HTTP_STATE_FREE;
 		HTTP_Connects[i].FileId = 0xff;
 	}
-	
+
+//	port = TCP_PORT;
 	http_InterfaceId = TCPIP_Bind(HTTP_NewConn, HTTP_Event, HTTP_Receive);
-	TCPIP_TcpListen(HTTP_SERVER_PORT ,http_InterfaceId);
+	TCPIP_TcpListen(TCP_PORT ,http_InterfaceId);
 //	FSYS_Init();   // for test
 }
 
@@ -121,7 +123,10 @@ U8_T HTTP_NewConn(U32_T XDATA* pip, U16_T remotePort, U8_T socket)
 
 			return i;
 		}
+
 	}
+
+
 	return TCPIP_NO_NEW_CONN;
 }
 
@@ -136,7 +141,32 @@ U8_T HTTP_NewConn(U32_T XDATA* pip, U16_T remotePort, U8_T socket)
  */
 void HTTP_Event(U8_T id, U8_T event)
 {
+	U8_T	fileId = HTTP_Connects[id].FileId;
 
+	if (event < TCPIP_CONNECT_XMIT_COMPLETE)
+	{	
+		HTTP_Connects[id].State = event;
+	}
+	else if (event == TCPIP_CONNECT_XMIT_COMPLETE)
+	{
+		U8_T*	pSour;
+		U16_T	dataLen;
+		if (HTTP_Connects[id].State == HTTP_STATE_SEND_HEADER)
+		{
+			
+
+
+		}
+		else if (HTTP_Connects[id].State == HTTP_STATE_SEND_DATA)
+		{
+
+
+		}
+		else if	(HTTP_Connects[id].State == HTTP_STATE_SEND_FINAL)
+		{
+			HTTP_Connects[id].State = HTTP_STATE_FREE;
+		}
+	}
 
 } /* End of HTTP_Event() */
 
@@ -165,6 +195,20 @@ void UdpData(void);
 bit flag_transimit_from_tcpip = 0;
 U8_T	TcpSocket_ME;
 extern unsigned int far Test[50];
+
+void Set_transaction_ID(U8_T *str, U16_T id, U16_T num)
+{
+	str[0] = (U8_T)(id >> 8);		//transaction id
+	str[1] = (U8_T)id;
+
+	str[2] = 0;						//protocol id, modbus protocol = 0
+	str[3] = 0;
+
+	str[4] = (U8_T)(num >> 8);
+	str[5] = (U8_T)num;
+}
+
+
 void HTTP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
 {
 	HTTP_SERVER_CONN XDATA*	pHttpConn = &HTTP_Connects[conn_id];
@@ -202,109 +246,63 @@ void HTTP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
 	}
 	else 
 	{
-	#if 1
-	//	b_Master_Slave_TCP = CM5;	
-		//if(b_Master_Slave_TCP == CM5)
-		//{
-		   	if((pData[UIP_HEAD] ==  Modbus_address)||(pData[UIP_HEAD] == 0xff))//Address of NetControl 
-			{	
-				flag_transimit_from_tcpip = 0;		
-				responseCmd(TCP_IP,pData,pHttpConn);
-		   	} 
-		//}			
+	
+	   	if((pData[UIP_HEAD] ==  Modbus_address)||(pData[UIP_HEAD] == 0xff))//Address of NetControl 
+		{	
+			responseCmd(TCP_IP,pData,pHttpConn);
+	   	}			
 		else 
 		{
-			for(i = 0;i < sub_no;i++)
-			{
-				if(pData[UIP_HEAD] == sub_addr[i])
-				{	
-					union {
-						unsigned int  word;
-						unsigned char byte[2];
-					  }crc;
-					
-					//Test[30] = 101; 					
-					i = sub_no;
-					sub_init_send_com();
-					TcpSocket_ME = pHttpConn->TcpSocket;
-					if(pData[UIP_HEAD + 1] == READ_VARIABLES) 
-					{
-						sub_rece_size = pData[UIP_HEAD + 5] * 2 + UIP_HEAD + 3;
-		
-						tmp_sendbuf[0] = pData[0];			//	TransID
-						tmp_sendbuf[1] = pData[1];	
-						tmp_sendbuf[2] = 0;			//	ProtoID
-						tmp_sendbuf[3] = 0;
-						tmp_sendbuf[4] = (6 + pData[UIP_HEAD + 5] * 2) >> 8;	//	Len
-						tmp_sendbuf[5] = (U8_T)(6 + pData[UIP_HEAD + 5] * 2) ;
+			U8_T header[6];
+			U8_T port = UART0;
 
+//			for(i = 0;i <  sub_no ;i++)
+//			{
+//				if(pData[UIP_HEAD] == uart0_sub_addr[i])
+//				{	
+//					port = UART0;
+//				}
+//				else if(pData[UIP_HEAD] == uart2_sub_addr[i])
+//				{
+//					 port = UART2;
+//				}
+//			}
+			
+			if((pData[UIP_HEAD] == 0x00) || ((pData[UIP_HEAD + 1] != READ_VARIABLES) && (pData[UIP_HEAD + 1] != WRITE_VARIABLES) && (pData[UIP_HEAD + 1] != MULTIPLE_WRITE)))
+				return;
+			if(((pData[UIP_HEAD + 4] << 8) | pData[UIP_HEAD + 5]) > 0x80)
+				return;
+//			if(((pData[UIP_HEAD + 1] == READ_VARIABLES) || (pData[UIP_HEAD + 1] == WRITE_VARIABLES)) && ((length - UIP_HEAD) != 6))
+//				return;
+			if((pData[UIP_HEAD + 1] == MULTIPLE_WRITE) && ((length - UIP_HEAD) != (pData[UIP_HEAD + 6] + 7)))
+				return;
 
-						crc.word = CRC16(&pData[UIP_HEAD],0x06);
-						for(i = 0;i < 6;i++)
-						{
-							sub_send_byte(pData[UIP_HEAD + i],CRC_YES);
-						//	Test[15 + i] = pData[UIP_HEAD + i];
-						}
-						sub_send_byte(crc.byte[0],CRC_YES);
-						sub_send_byte(crc.byte[1],CRC_YES);			
-						
-					}
-					else if(pData[UIP_HEAD + 1] == WRITE_VARIABLES) 
-					{
-						sub_rece_size = 12;
-						tmp_sendbuf[0] = pData[0];//0;			//	TransID
-						tmp_sendbuf[1] = pData[1];//TransID++;	
-						tmp_sendbuf[2] = 0;			//	ProtoID
-						tmp_sendbuf[3] = 0;
-						tmp_sendbuf[4] = (3 + UIP_HEAD) >> 8;	//	Len
-						tmp_sendbuf[5] = (U8_T)(3 + UIP_HEAD) ;
-
-						crc.word = CRC16(&pData[UIP_HEAD],0x06);
-						for(i = 0;i < 6;i++)
-						{
-							sub_send_byte(pData[UIP_HEAD + i],CRC_YES);
-						}
-						sub_send_byte(crc.byte[0],CRC_YES);
-						sub_send_byte(crc.byte[1],CRC_YES);	
-						
-					}
-					else if(pData[UIP_HEAD + 1] == MULTIPLE_WRITE)  // MULTIPLE_WRITE
-					{				
-						sub_rece_size = 12;
-						tmp_sendbuf[0] = pData[0];			//	TransID
-						tmp_sendbuf[1] = pData[1];	
-						tmp_sendbuf[2] = 0;			//	ProtoID
-						tmp_sendbuf[3] = 0;
-						tmp_sendbuf[4] = (3 + UIP_HEAD) >> 8;	//	Len
-						tmp_sendbuf[5] = (U8_T)(3 + UIP_HEAD) ;
-		
-						crc.word = CRC16(&pData[UIP_HEAD],135);
-						for(i = 0;i < 135;i++)
-						{
-							sub_send_byte(pData[UIP_HEAD + i],CRC_YES);
-						}
-						sub_send_byte(crc.byte[0],CRC_YES);
-						sub_send_byte(crc.byte[1],CRC_YES);			
-					}
-					
-					sub_serial_restart();  
-					source = PC_TCPIP;
-					flag_transimit_from_tcpip = 1;  // Tstat is sub device
-
-				  /*
-					wait_SubSerial(100);
-					for(i = 0;i < sub_rece_size - 6;i++)
-					{					
-						tmp_sendbuf[6 + i] = sub_data_buffer[i];
-						 	
-					}					
-					TCPIP_TcpSend(TcpSocket_ME, tmp_sendbuf, sub_rece_size, TCPIP_SEND_NOT_FINAL); */
-				}
-
-			}
+//			vTaskPrioritySet(xHandleTcp,5);
+//			vTaskSuspend(Handle_Scan); 
+//			vTaskSuspend(Handle_ParameterOperation);
+		//	uart_init_send_com(sub_source_port);
+			TcpSocket_ME = pHttpConn->TcpSocket;
+//			
+			if(pData[UIP_HEAD + 1] == 0x03)
+			Set_transaction_ID(header, ((U16_T)pData[0] << 8) | pData[1], 2 * pData[UIP_HEAD + 5] + 3);
+			else
+			Set_transaction_ID(header, ((U16_T)pData[0] << 8) | pData[1], UIP_HEAD + 3);
+////			i = 3;
+//			while(i--)
+//			{
+//				forward_to_slave(pData + UIP_HEAD, length - UIP_HEAD,sub_source_port);
+//	//			if(wait_sub_response(20) == TRUE)
+//	//				break;
+//			}
+			
+			// response TCPIP
+			
+			Response_TCPIP_To_SUB(pData + UIP_HEAD,length - UIP_HEAD,UART0,header);
+//			vTaskResume(Handle_Scan); 
+//			vTaskResume(Handle_ParameterOperation);
+//			vTaskPrioritySet(xHandleTcp,2);	
 		
 		}
-		#endif	
 	}
 
 

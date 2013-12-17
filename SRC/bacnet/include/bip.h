@@ -32,8 +32,8 @@
 
 
 
-extern uint8_t *far bip_Data;
-extern uint8_t far bip_len;
+extern uint8_t *xdata bip_Data;
+extern uint8_t xdata bip_len;
 
 /* specific defines for BACnet/IP over Ethernet */
 #define MAX_HEADER_IP (1 + 1 + 2)

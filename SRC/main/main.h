@@ -75,6 +75,7 @@
 #include "dlenv.h"
 #include "device.h"
 #include "config.h"
+#include "dlenv.h"
 
 #include "ud_str.h"
 #include "user_data.h"
@@ -132,6 +133,22 @@
 	OFF = 0, TIMER, ON	
 };*/
 
+extern xTaskHandle Handle_Scan;
+extern xTaskHandle Handle_ParameterOperation;
+extern xTaskHandle xDisplayTask;		/* handle for display task */
+extern xTaskHandle xDisplayCheckTask;  /* handle for check display status task */
+
+extern xTaskHandle xdata xKeyTask;
+extern xTaskHandle xdata Handle_UpdateOutput;
+extern xTaskHandle xdata xHandleCommon;
+extern xTaskHandle xdata xSoftWatchTask;
+extern xTaskHandle xdata xHandleTcp;
+extern xTaskHandle xdata xHandleSchedule;
+extern xTaskHandle xdata Handle_UpdateAI; 
+extern xTaskHandle xdata Handle_SampleDI;
+extern xTaskHandle xdata Handle_UpdateDI;
+extern xTaskHandle xdata xHandleMSTP;  
+extern xTaskHandle xdata xHandleBacCon;
 
 
 extern U16_T far Test[50];
@@ -159,7 +176,7 @@ void Updata_Clock(void);
 extern U8_T IDATA ExecuteRuntimeFlag;
 extern U8_T flag_update; 
 
-
+extern U8_T	TcpSocket_ME;
 
 
 void SPI_Roution(void);
@@ -169,6 +186,8 @@ bit read_pic_version( void);
 void pic_relay(unsigned int set_relay);
 
 signed int RangeConverter(U8_T function, signed int para,U8_T i,U16_T cal);
+
+
 
 
 #endif

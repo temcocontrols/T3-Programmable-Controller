@@ -225,7 +225,6 @@ void TCPIP_Task(void)reentrant
 #if (!STOE_TRANSPARENT)
 		ETH_SendArpToGateway(ETH_CONTINUE_ARP_REQUEST_TO_GATEWAY_AFTER_REPLY);
 #endif
-		Test[0]++;
 		CheckArpTable();
 
 #if (INCLUDE_DHCP_CLIENT)

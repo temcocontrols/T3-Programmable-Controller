@@ -238,7 +238,7 @@
               <Ocr1>
                 <Type>0</Type>
                 <StartAddress>0x0</StartAddress>
-                <Size>0x80000</Size>
+                <Size>0x50000</Size>
               </Ocr1>
               <Ocr2>
                 <Type>0</Type>
@@ -284,7 +284,7 @@
             <uAregs>0</uAregs>
             <UseInterruptVector>1</UseInterruptVector>
             <Fuzzy>3</Fuzzy>
-            <Optimize>8</Optimize>
+            <Optimize>9</Optimize>
             <WarningLevel>2</WarningLevel>
             <SizeSpeed>1</SizeSpeed>
             <ObjectExtend>1</ObjectExtend>
@@ -783,11 +783,6 @@
           <GroupName>tcpip</GroupName>
           <Files>
             <File>
-              <FileName>tcpip.LIB</FileName>
-              <FileType>4</FileType>
-              <FilePath>.\tcpip\tcpip.LIB</FilePath>
-            </File>
-            <File>
               <FileName>uip.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\tcpip\uip.c</FilePath>
@@ -801,6 +796,11 @@
               <FileName>uip_arp.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\tcpip\uip_arp.c</FilePath>
+            </File>
+            <File>
+              <FileName>tcpip.LIB</FileName>
+              <FileType>4</FileType>
+              <FilePath>.\tcpip\tcpip.LIB</FilePath>
             </File>
           </Files>
         </Group>
@@ -938,14 +938,14 @@
           <GroupName>CommToTst</GroupName>
           <Files>
             <File>
-              <FileName>commsub.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Modbus\commsub.c</FilePath>
-            </File>
-            <File>
               <FileName>scan.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\scan\scan.c</FilePath>
+            </File>
+            <File>
+              <FileName>commsub.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\scan\commsub.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1038,36 +1038,6 @@
               <FilePath>.\bacnet\device.c</FilePath>
             </File>
             <File>
-              <FileName>ai.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\bacnet\ai.c</FilePath>
-            </File>
-            <File>
-              <FileName>av.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\bacnet\av.c</FilePath>
-            </File>
-            <File>
-              <FileName>bv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\bacnet\bv.c</FilePath>
-            </File>
-            <File>
-              <FileName>h_wp.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\bacnet\h_wp.c</FilePath>
-            </File>
-            <File>
-              <FileName>h_rp.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\bacnet\h_rp.c</FilePath>
-            </File>
-            <File>
-              <FileName>h_whois.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\bacnet\h_whois.c</FilePath>
-            </File>
-            <File>
               <FileName>npdu.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\bacnet\src\npdu.c</FilePath>
@@ -1108,16 +1078,6 @@
               <FilePath>.\bacnet\src\abort.c</FilePath>
             </File>
             <File>
-              <FileName>rp.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\bacnet\src\rp.c</FilePath>
-            </File>
-            <File>
-              <FileName>noserv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\bacnet\handler\noserv.c</FilePath>
-            </File>
-            <File>
               <FileName>reject.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\bacnet\src\reject.c</FilePath>
@@ -1128,19 +1088,9 @@
               <FilePath>.\bacnet\src\fifo.c</FilePath>
             </File>
             <File>
-              <FileName>whois.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\bacnet\src\whois.c</FilePath>
-            </File>
-            <File>
               <FileName>apdu.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\bacnet\src\apdu.c</FilePath>
-            </File>
-            <File>
-              <FileName>wp.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\bacnet\src\wp.c</FilePath>
             </File>
             <File>
               <FileName>ptransfer.c</FileName>
@@ -1176,6 +1126,31 @@
               <FileName>bvlc.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\bacnet\src\bvlc.c</FilePath>
+            </File>
+            <File>
+              <FileName>bac_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\bac_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>noserv.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\handler\noserv.c</FilePath>
+            </File>
+            <File>
+              <FileName>monitor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\monitor.c</FilePath>
+            </File>
+            <File>
+              <FileName>h_whois.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\h_whois.c</FilePath>
+            </File>
+            <File>
+              <FileName>whois.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\whois.c</FilePath>
             </File>
           </Files>
         </Group>

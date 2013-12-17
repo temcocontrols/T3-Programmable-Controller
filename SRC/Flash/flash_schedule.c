@@ -1,18 +1,19 @@
 #include "flash.h"
 #include "flash_schedule.h"
 #include "schedule.h"
-#include <string.h>
-
-#include "main.h"
+#include <string.h>	
+#include "user_data.h" 
+#include "define.h"
 
 STR_FLASH flash;
 
-STR_Flash_POS xdata Flash_Position[18] /*_at_ 0x800*/;
+static STR_Flash_POS xdata Flash_Position[18] _at_ 0x800;
 STR_flag_flash 	far bac_flash;
 
+void Lcd_Show_Data(char pos_x,char pos_y,unsigned int number,char dot,char mode);
 
 extern U16_T far Test[50];
-static	U8_T far tempbuf[1500] = {0};
+static	U8_T xdata tempbuf[5000] = {0};
 
 
 //extern U8_T  far Para[400]; 
@@ -21,11 +22,11 @@ static	U8_T far tempbuf[1500] = {0};
 void Flash_Inital(void)
 {
 	U8_T loop;
-	U16_T baseAddr = 0x5000;	 	
+	U8_T loop1;
+	U16_T baseAddr = 0;	 	
 	U16_T  len = 0;
 
 	U8_T END = 0;
-//	Test[41]++;
 	if(protocal <= TCP_IP)	END = T_END_OLD;
 	else 	
 		END = 18; // BACNET TABLE
@@ -61,7 +62,16 @@ void Flash_Inital(void)
 				break;			
 			case T_NAME:  // FOR CM5
 				baseAddr += len;
-				len = NAME_SIZE * MAX_NAME;	 
+				len = NAME_SIZE * MAX_NAME;
+//			case T_INPUT_RANGE:
+//				baseAddr += len;
+//				len = 1 * MAX_INPUT;
+//			case T_INPUT_FILTER:
+//				baseAddr += len;
+//				len = 1 * MAX_INPUT;
+//			case T_INPUT_CAL:
+//				baseAddr += len;
+//				len = 2 * MAX_INPUT;	 
 //			#endif	
 			default:
 				break;
@@ -70,8 +80,7 @@ void Flash_Inital(void)
 		else  //		#if (defined(BACDL_BIP) || defined(BACDL_MSTP))
 		{
 			switch(loop)
-			{
-	
+			{	
 		  	case OUT:	
 				baseAddr = 0;
 				len = sizeof(Str_out_point) * MAX_OUTS;
@@ -100,7 +109,7 @@ void Flash_Inital(void)
 				baseAddr += len;
 				len = sizeof(Str_program_point) * MAX_PRGS;
 				break;
-			/*case TBL:
+		/*	case TBL:
 				baseAddr += len;
 				len = sizeof(Tbl_point) * MAX_TBLS * 16;  
 				break;
@@ -138,15 +147,18 @@ void Flash_Inital(void)
 				break; */
 			case WR_TIME:
 				baseAddr += len; 
-				len = sizeof(Wr_one_day) * MAX_WR * 9;
+				len = sizeof(Wr_one_day) * MAX_WR * MAX_SCHEDULES_PER_WEEK;
 				break;
 			case AR_DATA:
 				baseAddr += len; 
-				len = sizeof(S8_T) * MAX_AR * 46; 
+				len = sizeof(S8_T) * MAX_AR * AR_DATES_SIZE; 
 				break;
 			default:
 				break; 
 			}
+			for(loop1 = 0;loop1 < MAX_PRGS;loop1++)
+				programs[loop1].bytes = 0;
+
 		}
 		Flash_Position[loop].addr = baseAddr;
 		Flash_Position[loop].len = len;
@@ -168,14 +180,13 @@ void Flash_Write_Mass(void)
 //	U16_T i;
  /* only the first block, erase memory */
 	IntFlashErase(ERA_RUN,0x70000);	
-	IntFlashWriteByte(0x70000 + 0xfff0,0x55);
+//	IntFlashWriteByte(0x70000 + 0xfff0,0x55);
 	// MassFlashWrite(0,Para,400); //LHN add
 	ptr_flash.index = 0;
 
 	for(loop = 0;loop < T_END ;loop++)
 	{
 		ptr_flash.table = loop;	
-		
 		ptr_flash.len = Flash_Position[loop].len;
 		base_addr = Flash_Position[loop].addr;
 		if(protocal <= TCP_IP)
@@ -239,6 +250,26 @@ void Flash_Write_Mass(void)
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);		
 				break;
+//			case T_INPUT_RANGE:
+//				
+//				memcpy(tempbuf,Modbus.Input_Range,32);	
+//								
+//				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+//					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);		
+//				break;
+//			case T_INPUT_FILTER:
+//				
+//				memcpy(tempbuf,Modbus.Input_Filter,32);	
+//								
+//				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+//					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);		
+//				break;
+//			case T_INPUT_CAL:
+//				
+//				memcpy(tempbuf,Modbus.Input_CAL,64);								
+//				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+//					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);		
+//				break;
 			default:
 				break;
 			}
@@ -248,14 +279,14 @@ void Flash_Write_Mass(void)
 		{
 			switch(loop)
 			{	
-			case OUT:
+			case OUT: 
 				for(loop1 = 0;loop1 < MAX_OUTS;loop1++)
 				{
 					memcpy(&tempbuf[sizeof(Str_out_point) * loop1],&outputs[loop1],sizeof(Str_out_point));					
 				}
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);
-
+				
 				break;
 			case IN:
 				for(loop1 = 0;loop1 < MAX_INS;loop1++)
@@ -266,7 +297,7 @@ void Flash_Write_Mass(void)
 					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);
 
 				break;
-			case VAR:
+			case VAR:  
 				for(loop1 = 0;loop1 < MAX_VARS;loop1++)
 				{
 					memcpy(&tempbuf[sizeof(Str_variable_point) * loop1],&vars[loop1],sizeof(Str_variable_point));					
@@ -274,7 +305,7 @@ void Flash_Write_Mass(void)
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);							
 				break;
-			/*case CON:
+		/*	case CON:
 				for(loop1 = 0;loop1 < MAX_CONS;loop1++)
 				{
 					memcpy(&tempbuf[sizeof(Str_controller_point) * loop1],&controllers[loop1],sizeof(Str_controller_point));					
@@ -282,7 +313,7 @@ void Flash_Write_Mass(void)
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);	
 				break;*/
-			case WRT:
+			case WRT:  				
 				for(loop1 = 0;loop1 < MAX_WR;loop1++)
 				{
 					memcpy(&tempbuf[sizeof(Str_weekly_routine_point) * loop1],&weekly_routines[loop1],sizeof(Str_weekly_routine_point));					
@@ -291,7 +322,7 @@ void Flash_Write_Mass(void)
 					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);	
 							
 				break;
-			case AR:
+			case AR: 
 				for(loop1 = 0;loop1 < MAX_AR;loop1++)
 				{
 					memcpy(&tempbuf[sizeof(Str_annual_routine_point) * loop1],&annual_routines[loop1],sizeof(Str_annual_routine_point));					
@@ -300,15 +331,15 @@ void Flash_Write_Mass(void)
 					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);	
 						
 				break;
-			case PRG:
+			case PRG:  
 				for(loop1 = 0;loop1 < MAX_PRGS;loop1++)
 				{
 					memcpy(&tempbuf[sizeof(Str_program_point) * loop1],&programs[loop1],sizeof(Str_program_point));					
 				}
-			//	for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
-			//		IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);	
+				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);	 Test[7]++;
 				break;
-			/*case TBL:
+		/*	case TBL:
 				for(loop1 = 0;loop1 < MAX_TBLS;loop1++)
 				{
 					memcpy(&tempbuf[sizeof(custom_tab) * 16 * loop1],&custom_tab[loop1],sizeof(custom_tab) * 16);					
@@ -323,7 +354,7 @@ void Flash_Write_Mass(void)
 				}
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);	
-				break;
+				break;	
 			case AMON:
 				for(loop1 = 0;loop1 < MAX_MONITORS;loop1++)
 				{
@@ -378,7 +409,7 @@ void Flash_Write_Mass(void)
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);						
 				break;		*/
-			case WR_TIME:
+			case WR_TIME: 	
 				for(loop1 = 0;loop1 < MAX_WR;loop1++)
 				{
 					memcpy(&tempbuf[sizeof(Wr_one_day) * 9 * loop1],&wr_times[loop1],sizeof(Wr_one_day) * 9);					
@@ -386,7 +417,7 @@ void Flash_Write_Mass(void)
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashWriteByte(0x70000 + base_addr + loop2,tempbuf[loop2]);	
 				break;
-			case AR_DATA: 
+			case AR_DATA:  
 				for(loop1 = 0;loop1 < MAX_AR;loop1++)
 				{
 					memcpy(&tempbuf[46 * sizeof(S8_T) * loop1],&ar_dates[loop1],46 * sizeof(S8_T));					
@@ -400,9 +431,13 @@ void Flash_Write_Mass(void)
 				break;
 		
 			}
+			
 		}
 	}
+	Flash_Store_Code();
 
+   	IntFlashWriteByte(0x7fff0,0x55); 
+	Test[13] = 66; 
 }
 
 void Flash_Read_Mass(void)
@@ -481,8 +516,7 @@ void Flash_Read_Mass(void)
 				{
 					memcpy(ID_Config[loop1].all,&tempbuf[ID_SIZE * loop1],ID_SIZE);					
 				}
-				break;	
-			
+				break;			
 			case T_NAME:
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
@@ -490,6 +524,27 @@ void Flash_Read_Mass(void)
 				{
 					memcpy(menu_name[loop1],&tempbuf[NAME_SIZE * loop1],NAME_SIZE);					
 				}  
+				break;
+//			case T_INPUT_RANGE:
+//				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+//					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+//
+//				memcpy(Modbus.Input_Range,tempbuf,32);	
+//								
+//				break;
+//			case T_INPUT_FILTER:
+//				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+//					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+//
+//				memcpy(Modbus.Input_Filter,tempbuf,32);	
+//								
+//				break;
+//			case T_INPUT_CAL:
+//				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+//					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+//
+//				memcpy(Modbus.Input_CAL,tempbuf,64);	
+//								
 				break;
 			default:
 				break;
@@ -500,17 +555,17 @@ void Flash_Read_Mass(void)
 		{
 			switch(loop)
 			{
-			case OUT:
+			case OUT:	 				
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
-				memcpy(outputs , tempbuf, ptr_flash.len);
+				memcpy(outputs , tempbuf, ptr_flash.len); 
 				break;
-			case IN:
+			case IN:   	
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
 				memcpy(inputs ,tempbuf, ptr_flash.len);
 				break;
-			case VAR:
+			case VAR:   	
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
 				memcpy(vars ,tempbuf, ptr_flash.len);
@@ -520,19 +575,19 @@ void Flash_Read_Mass(void)
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
 				memcpy(controllers ,tempbuf, ptr_flash.len);
 				break;*/
-			case WRT:
+			case WRT: 
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
 				memcpy(weekly_routines ,tempbuf, ptr_flash.len);
 				break;
-			case AR:
+			case AR:   	
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
 				memcpy(annual_routines ,tempbuf, ptr_flash.len);
 				break;
 			case PRG:
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
-					IntFlashReadByte(base_addr + loop2,&tempbuf[loop2]);
+					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
 				memcpy(programs ,tempbuf, ptr_flash.len);
 				break;
 		/*	case TBL:
@@ -545,7 +600,7 @@ void Flash_Read_Mass(void)
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
 				memcpy(totalizers ,tempbuf, ptr_flash.len);
 				break;
-			case AMON:
+			case AMON:	 
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
 				memcpy(monitors ,tempbuf, ptr_flash.len);
@@ -578,25 +633,99 @@ void Flash_Read_Mass(void)
 			case USER_NAME:
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
-				memcpy(passwords ,tempbuf, ptr_flash.len);*/
-				break;
-			case WR_TIME:
+				memcpy(passwords ,tempbuf, ptr_flash.len);
+				break; */
+			case WR_TIME:  	
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+				{	
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+				}
 				memcpy(wr_times ,tempbuf, ptr_flash.len);
-				break;
+				break; 
 			case AR_DATA: 
 				for(loop2 = 0;loop2 < ptr_flash.len;loop2++)
+				{		
 					IntFlashReadByte(0x70000 + base_addr + loop2,&tempbuf[loop2]);
+				}
 				memcpy(ar_dates ,tempbuf, ptr_flash.len);
 				break;
+					 
 			default:
 				break;
 
 			}
+
 		}	
-			
-	}								   
+	
+	} 	
+	Flash_Read_Code();	
+
 }
+
+void Flash_Store_Code(void)
+{
+	U8_T i;
+	U16_T temp = 0;
+	U32_T base_addr = 0;
+	U16_T loop;
+
+	for(i = 0;i < MAX_PRGS;i++)
+	{	
+		if(mGetPointWord2(programs[i].bytes) > 0 && mGetPointWord2(programs[i].bytes) < CODE_ELEMENT)	
+		{
+//			IntFlashWriteByte(BASE_CODE_INDEX + i * 2,mGetPointWord2(programs[i].bytes));
+//			IntFlashWriteByte(BASE_CODE_INDEX + i * 2 + 1,(mGetPointWord2(programs[i].bytes) >> 8));
+			IntFlashWriteInt(BASE_CODE_INDEX + i * 2,mGetPointWord2(programs[i].bytes));
+			IntFlashReadInt(BASE_CODE_INDEX + i * 2, &temp);
+			Test[40 + i] = mGetPointWord2(programs[i].bytes);
+			Test[30 + i] = temp;
+			for(loop = 0;loop < mGetPointWord2(programs[i].bytes) + USER_DATA_HEADER_LEN;loop++)
+			{
+				IntFlashWriteByte(BASE_CODE + base_addr + loop,prg_code[i][loop]);
+			}
+			base_addr += (mGetPointWord2(programs[i].bytes) + USER_DATA_HEADER_LEN);
+		}
+		else
+		{
+			temp = 0;
+//			IntFlashWriteByte(BASE_CODE_INDEX + i * 2,0);
+//			IntFlashWriteByte(BASE_CODE_INDEX + i * 2 + 1,0);
+			IntFlashWriteInt(BASE_CODE_INDEX + i * 2,temp);	
+		}
+	}
+	IntFlashWriteInt(BASE_CODE_LEN,Code_total_length);
+}
+
+void Flash_Read_Code(void)
+{
+	U8_T i;
+	U16_T loop;
+	U16_T temp = 0;
+	U32_T base_addr = 0;
+	Code_total_length = 0;
+	Test[29]++;
+	for(i = 0;i < MAX_PRGS;i++)
+	{	
+		IntFlashReadInt(BASE_CODE_INDEX + i * 2, &temp);
+		if(temp > CODE_ELEMENT)
+			temp = 0;
+		programs[i].bytes = mGetPointWord2(temp); 
+		Code_total_length += mGetPointWord2(programs[i].bytes);
+		if(mGetPointWord2(programs[i].bytes) > 0 && mGetPointWord2(programs[i].bytes) < CODE_ELEMENT)	
+		{
+			for(loop = 0;loop < mGetPointWord2(programs[i].bytes) + USER_DATA_HEADER_LEN;loop++)
+			{
+				IntFlashReadByte(BASE_CODE + base_addr + loop,&prg_code[i][loop]);
+			}
+			base_addr += (mGetPointWord2(programs[i].bytes) + USER_DATA_HEADER_LEN);
+			//return;
+		}
+		else
+			memcpy(&prg_code[i] ,0, CODE_ELEMENT);
+	}
+	//IntFlashReadInt(BASE_CODE_LEN, &Code_total_length);
+	//if(Code_total_length == 0xffff)		Code_total_length = 0;
+}
+
 
 

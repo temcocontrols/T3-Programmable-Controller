@@ -63,18 +63,21 @@ int decode_real(
 
 
     /* NOTE: assumes the compiler stores float as IEEE-754 float */
-/*#if BIG_ENDIAN
+#if BIG_ENDIAN
     my_data.byte[0] = apdu[0];
     my_data.byte[1] = apdu[1];
     my_data.byte[2] = apdu[2];
     my_data.byte[3] = apdu[3];
-#else */
+#else 
     my_data.byte[0] = apdu[3];
     my_data.byte[1] = apdu[2];
     my_data.byte[2] = apdu[1];
     my_data.byte[3] = apdu[0];
-//#endif
-	 
+#endif
+	Test[40] = apdu[0];
+    Test[41] = apdu[1];
+    Test[42] = apdu[2];
+    Test[43] = apdu[3]; 
     *real_value = my_data.real_value;
     return 4;
 }
@@ -84,8 +87,7 @@ int decode_real_safe(
     uint32_t len_value,
     float *real_value)
 {
-
-    if (len_value != 4) {
+    if (len_value != 4) {  
         *real_value = 0.0f;
         return (int) len_value;
     } else {

@@ -131,6 +131,7 @@ int Analog_Value_Encode_Property_APDU(
             apdu_len =
                 encode_application_real(&apdu[0],
                 AV_Present_Value[object_index]);
+			Test[44] = AV_Present_Value[object_index];
             break;
         case PROP_STATUS_FLAGS:
             bitstring_init(&bit_string);
@@ -206,6 +207,9 @@ bool Analog_Value_Write_Property(
                 object_index =
                     Analog_Value_Instance_To_Index(wp_data->object_instance);
                 AV_Present_Value[object_index] = value.type.Real;
+				Test[45] = AV_Present_Value[object_index]; 
+				Test[46] = value.type.Real;
+					Test[47]++;
                 status = true;
             } else {
                 *error_class = ERROR_CLASS_PROPERTY;

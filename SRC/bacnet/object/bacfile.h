@@ -75,12 +75,12 @@ extern "C" {
 
     /* handler ACK helper */
     bool bacfile_read_data(
-        BACNET_ATOMIC_READ_FILE_DATA * data);
+        BACNET_ATOMIC_READ_FILE_DATA * dat);
     bool bacfile_read_ack_stream_data(
         uint32_t instance,
-        BACNET_ATOMIC_READ_FILE_DATA * data);
+        BACNET_ATOMIC_READ_FILE_DATA * dat);
     bool bacfile_write_stream_data(
-        BACNET_ATOMIC_WRITE_FILE_DATA * data);
+        BACNET_ATOMIC_WRITE_FILE_DATA * dat);
 
     void bacfile_init(
         void);

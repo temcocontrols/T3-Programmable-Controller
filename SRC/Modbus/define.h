@@ -53,12 +53,12 @@
 
 #define UART0 0
 #define UART1 1
-
+#define UART2 2
 
 //typedef struct
 //{
 extern U16_T far wait;
-extern U8_T far protocal;
+extern U8_T xdata protocal;
 extern  unsigned char far demo_enable;
 extern	unsigned char far serialNum[4];
 //	unsigned char firmwareVer[2];
@@ -75,17 +75,19 @@ extern	U8_T far IspVer;
 //	U8_T UPDATE_STATUS;
 extern	U8_T far BASE_ADRESS;
 extern	U8_T far TCP_TYPE;   /* 0 -- DHCP, 1-- STATIC */
-extern	U8_T far IP_Addr[4];
-extern	U8_T far SUBNET[4];
-extern	U8_T far GETWAY[4];
-extern  U8_T far Mac_Addr[6];
+extern	U8_T xdata IP_Addr[4];
+extern	U8_T xdata Mac_Addr[6];
+extern	U8_T xdata SUBNET[4];
+extern	U8_T xdata GETWAY[4];
+extern	U16_T far TCP_PORT;
+
 
 extern	unsigned int  far AI_Value[10];	
 extern	unsigned char far Input_Range[10];
 extern	unsigned char far Input_Filter[10];	
 extern	unsigned int far Input_CAL[10];
 
-extern	S8_T far menu_name[36][14];
+extern	S8_T xdata menu_name[36][14];
 extern	unsigned char far dis_temp_num;
 extern	unsigned char far dis_temp_interval;
 extern	unsigned char far dis_temp_seq[10];
@@ -113,16 +115,25 @@ extern	U8_T far cool_no;
 
 typedef	union
 	{
-		unsigned char all[8];
+		unsigned char all[10];
 		struct 
 		{
-			unsigned int year;	
+		/*	unsigned int year;	
 			unsigned char mon;
 			unsigned char week;
 			unsigned char day;
 			unsigned char hour;
 			unsigned char min;
-			unsigned char sec;		
+			unsigned char sec;	*/
+			U8_T sec;				/* 0-59	*/
+			U8_T min;    		/* 0-59	*/
+			U8_T hour;      		/* 0-23	*/
+			U8_T day;       		/* 1-31	*/
+			U8_T mon;     		/* 0-11	*/
+			U8_T year;      		/* 0-99	*/
+			U8_T week;  		/* 0-6, 0=Sunday	*/
+			U16_T day_of_year; 	/* 0-365	*/
+			S8_T is_dst;        /* daylight saving time on / off */		
 				
 		}Clk;
 	}UN_Time;
@@ -148,6 +159,7 @@ extern UN_Time RTC;
 
 enum{
 	//EEP_IP = 0x19
+	EEP_MAC = 0x06,	  // 6 bytes 0x06 - 0x0b
 	EEP_IP = 0x19,  // 4 bytes	  0x19 - 0x1c
 	EEP_SUBNET = 0x1d, // 4 bytes  0x1d - 0x20
 //--- other thing
@@ -260,7 +272,14 @@ enum{
 	EEP_DIS_TEMP_SEQ_FIRST,
 	EEP_DIS_TEMP_SEQ_LAST = EEP_DIS_TEMP_SEQ_FIRST + 9,
 
+	EEP_PORT_LOW,
+	EEP_PORT_HIGH,
 
+	EEP_INSTANCE_LOW,
+	EEP_INSTANCE_HIGH,
+	EEP_STATION_NUM,
+
+	MAX_EEP_CONSTRANGE = 208,
 };
 
 
@@ -314,6 +333,9 @@ enum {
 	MODBUS_DEMO_ENABLE = 31,
 	MODBUS_PROTOCAL = 32,
 	MODBUS_RESET_PARAMETER = 33,
+	MODBUS_BACNET_PORT,
+	MODBUS_INSTANCE,
+	MODBUS_STATION_NUM,
 
 
 	MODBUS_ENABLE_WRITE_MAC = 93,

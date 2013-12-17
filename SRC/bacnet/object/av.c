@@ -305,9 +305,8 @@ int Analog_Value_Read_Property(
         case PROP_PRESENT_VALUE:
 			
             real_value = Analog_Value_Present_Value(rpdata->object_instance);
-		//	Test[45] = real_value;
+			Test[45] = real_value;
             apdu_len = encode_application_real(&apdu[0], real_value);
-		//	Test[46] = apdu_len;
             break;
 
         case PROP_STATUS_FLAGS:

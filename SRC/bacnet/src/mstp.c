@@ -730,7 +730,7 @@ bool MSTP_Master_Node_FSM(
         case MSTP_MASTER_STATE_WAIT_FOR_REPLY:
             /* In the WAIT_FOR_REPLY state, the node waits for  */
             /* a reply from another node. */
-            if (mstp_port->SilenceTimer((void *) mstp_port) >= Treply_timeout) {  	Test[26]++;
+            if (mstp_port->SilenceTimer((void *) mstp_port) >= Treply_timeout) {  
                 /* ReplyTimeout */
                 /* assume that the request has failed */
                 mstp_port->FrameCount = mstp_port->Nmax_info_frames;
@@ -1233,7 +1233,7 @@ static void Timer_Silence_Reset(
 }
 
 
-void sub_send_byte(uint8_t buffer, uint8_t crc);
+;;;
 
 void RS485_Send_Frame(
     volatile struct mstp_port_struct_t *mstp_port,      /* port specific data */
@@ -1245,7 +1245,7 @@ void RS485_Send_Frame(
 
 	for(i = 0; i < nbytes; i++)
 	{ 
-		sub_send_byte(buffer[i],1);
+		bacnet_send_byte(buffer[i],1);
 		Timer_Silence_Reset();
 	}
 }

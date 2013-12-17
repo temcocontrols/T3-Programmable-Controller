@@ -52,7 +52,7 @@ static U32_T eth_ArpSendIntervalTime = 5;
 static U32_T eth_ArpSendTime = 0;
 #endif
 
-extern	U8_T far Mac_Addr[6];
+extern	U8_T xdata Mac_Addr[6];
 
 
 

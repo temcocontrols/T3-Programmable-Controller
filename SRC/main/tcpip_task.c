@@ -76,6 +76,8 @@ void UpdateIpSettings(U32_T ip)
 		IP_Addr[1] = (U8_T)(ip>>16);		
 		IP_Addr[2] = (U8_T)(ip>>8);		
 		IP_Addr[3] = (U8_T)(ip);
+
+
 	
 		SUBNET[0] = (U8_T)(subnet>>24);
 		SUBNET[1] = (U8_T)(subnet>>16);
@@ -92,6 +94,8 @@ void UpdateIpSettings(U32_T ip)
 		E2prom_Write_Byte(EEP_IP + 1, IP_Addr[2]);
 		E2prom_Write_Byte(EEP_IP + 2, IP_Addr[1]);
 		E2prom_Write_Byte(EEP_IP + 3, IP_Addr[0]);
+
+
 
 	}
 	else
@@ -244,9 +248,10 @@ void TCPIP_Task(void)reentrant
 	while (1)
 	{
 //		HSUR_ErrorRecovery(); 
+		
 		if(firmware_update == TRUE)
 		{
-			Lcd_All_Off();
+			Lcd_All_Off();DELAY_Ms(1);
 			Lcd_Show_String(1,1,"update firmware",NORMAL,15);
 			IntFlashErase(ERA_RUN,0x4000);
 			RELAY1_8 = 0;
@@ -294,24 +299,22 @@ void TCPIP_Task(void)reentrant
 
 #if (!MAC_GET_INTSTATUS_MODE)
 		if (MAC_GetInterruptFlag())
-		{
-			Test[0]++;
+		{	 
 			MAC_ProcessInterrupt();
 		}
 #else
 		linktype = MAC_LinkSpeedChk();
-		if(linktype == 0)  flag_EthPort = 0;
-		else 	flag_EthPort = 1;
+		if(linktype == 0)  {flag_EthPort = 0;}
+		else 	{flag_EthPort = 1;}	
 #endif
 
 		timeCount = (U16_T)SWTIMER_Tick();
 		if ((timeCount- preTimeCount)>= TIME_OUT_COUNTER)
 		{
 			preTimeCount = timeCount;
-			TCPIP_PeriodicCheck();	
-
+			TCPIP_PeriodicCheck();
+		
 		}
-	//	vTaskDelay(xDelayPeriod);
 		
        timeCount = (U16_T)SWTIMER_Tick();
 	 #if 0    // dont understand it 
