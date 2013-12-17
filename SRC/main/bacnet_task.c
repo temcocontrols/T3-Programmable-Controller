@@ -58,6 +58,7 @@ void BACnet_Common_task(void) reentrant
 			if(flag_write_mass)
 			{	
 				Flash_Write_Mass();	
+				Flash_Read_Mass();
 				flag_write_mass = 0;
 			}	
 			

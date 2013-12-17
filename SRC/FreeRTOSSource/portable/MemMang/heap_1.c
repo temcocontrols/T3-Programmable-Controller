@@ -75,7 +75,7 @@ typedef struct
 	unsigned portLONG ulDummy;
 	unsigned portCHAR ucHeap[ portTOTAL_HEAP_SIZE ];
 }xRTOS_HEAP;
-static xRTOS_HEAP far xHeap;
+static xRTOS_HEAP xdata xHeap;
 
 static unsigned portSHORT usNextFreeByte = ( unsigned portSHORT ) 0;
 /*-----------------------------------------------------------*/

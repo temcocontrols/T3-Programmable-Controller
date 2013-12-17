@@ -53,38 +53,38 @@ extern "C" {
     int awf_encode_apdu(
         uint8_t * apdu,
         uint8_t invoke_id,
-        BACNET_ATOMIC_WRITE_FILE_DATA * data);
+        BACNET_ATOMIC_WRITE_FILE_DATA * dat);
 
 /* decode the service request only */
     int awf_decode_service_request(
         uint8_t * apdu,
         unsigned apdu_len,
-        BACNET_ATOMIC_WRITE_FILE_DATA * data);
+        BACNET_ATOMIC_WRITE_FILE_DATA * dat);
 
     int awf_decode_apdu(
         uint8_t * apdu,
         unsigned apdu_len,
         uint8_t * invoke_id,
-        BACNET_ATOMIC_WRITE_FILE_DATA * data);
+        BACNET_ATOMIC_WRITE_FILE_DATA * dat);
 
 /* Atomic Write File Ack */
 /* encode service */
     int awf_ack_encode_apdu(
         uint8_t * apdu,
         uint8_t invoke_id,
-        BACNET_ATOMIC_WRITE_FILE_DATA * data);
+        BACNET_ATOMIC_WRITE_FILE_DATA * dat);
 
 /* decode the service request only */
     int awf_ack_decode_service_request(
         uint8_t * apdu,
         unsigned apdu_len,
-        BACNET_ATOMIC_WRITE_FILE_DATA * data);
+        BACNET_ATOMIC_WRITE_FILE_DATA * dat);
 
     int awf_ack_decode_apdu(
         uint8_t * apdu,
         unsigned apdu_len,
         uint8_t * invoke_id,
-        BACNET_ATOMIC_WRITE_FILE_DATA * data);
+        BACNET_ATOMIC_WRITE_FILE_DATA * dat);
 
 #ifdef TEST
 #include "ctest.h"

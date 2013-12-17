@@ -15,6 +15,8 @@ signed int far old_reading[10];
 
 U16_T  look_up_table(U16_T count);
 signed int RangeConverter(unsigned char function, signed int para,unsigned char i,unsigned int cal);
+extern float AV_Present_Value[MAX_ANALOG_VALUES];
+
 
 
 U8_T far input1[8] = 0;
@@ -101,11 +103,14 @@ void Update_AI(void)
 		{
 			if(read_pic(loop))
 			{ 
-				if(protocal <= TCP_IP)					
+				//if(protocal <= TCP_IP)					
 					temperature[loop] =	(RangeConverter(1,AI_Value[loop], loop , Input_CAL[loop]));	 // range is 1				
 
-				else		
-					temperature[loop] =	(RangeConverter(1/*inputs[loop].range*/,inputs[loop].value, loop , inputs[loop].calibration));	
+//				else
+//				{		
+//					temperature[loop] =	(RangeConverter(1/*inputs[loop].range*/,inputs[loop].value, loop , inputs[loop].calibration));
+//					AV_Present_Value[loop] =  temperature[loop];
+//				}	
 				loop++;
 			}
 		}	
@@ -132,7 +137,7 @@ void Sampel_DI_Task(void)
 		U8_T far temp_val = 0;	  		
 
 		vTaskDelay(xDelayPeriod);
-		Test[5]++;
+//		Test[5]++;
 
 		if(WriteFlash == 1) 
 		{ 			
@@ -273,7 +278,7 @@ void Update_DI_Task(void)
 	for( ; ;)
 	{ 	
 		U8_T loop = 0;	
-		Test[6]++;
+//		Test[6]++;
 		vTaskDelay(xDelayPeriod);
 
 		if(protocal <= TCP_IP)					

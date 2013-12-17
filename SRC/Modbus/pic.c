@@ -27,11 +27,11 @@ bit read_pic( char channel)
 {
 	i2c_pic_start();
 	i2c_pic_write(READ_CHAN0 + channel);
-	
 	DELAY_Us(10);
 	if (GET_ACK())
 	{	 
 		sI2C_stop();
+		Test[38]++;
 		return 0;
 	}
 	DELAY_Us(10); 
@@ -45,11 +45,13 @@ bit read_pic( char channel)
 	//checksum = (data_buf[0] + data_buf[1] + data_buf[2] + data_buf[3])& 0xFFFF;
 	if (data_buf[1] == /*checksum*/250)
 	{
-		if(protocal <= TCP_IP)
+		//if(protocal <= TCP_IP)
+		  Test[39]++;
+		
+		
 			AI_Value[channel] = Filter(channel,data_buf[0]);//Filter(channel,data_buf[0] / 3);
-		else 
-			
-			inputs[channel].value = Filter(channel,data_buf[0]);//Filter(channel,data_buf[0] / 3);
+//		else 			
+//			inputs[channel].value = Filter(channel,data_buf[0]);//Filter(channel,data_buf[0] / 3);
 		
 			
 		return 1;

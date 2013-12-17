@@ -19,7 +19,7 @@
 
 
 /* ONLY FOR CM5 */
-extern	S8_T far menu_name[36][14];	
+extern	S8_T xdata menu_name[36][14];	
   
 #define NAME_SIZE 	14  // 14 * 36 = 504
 #define MAX_NAME	36  // 10 OUTPUT 26 INPUT

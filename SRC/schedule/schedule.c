@@ -66,7 +66,7 @@ sbit  		ID_STATE2			= ID_FLAG^4 ;
 
 unsigned int CRC16(unsigned char *puchMsg, unsigned char usDataLen);
 void SendRelayDataToSub(unsigned char num, unsigned char *data_buffer);
-
+extern xSemaphoreHandle sem_subnet_tx_uart0;
 
 void SetBit(unsigned char bit_number,unsigned char *byte)
 {
@@ -93,8 +93,6 @@ bit GetBit(unsigned char bit_number,unsigned char *value)
 	return (bit)(*(value + octet_index) & mask);
 }
 
-
-
 void SendSchedualData(unsigned char number,bit flag)
 {
 	union {
@@ -106,48 +104,33 @@ void SendSchedualData(unsigned char number,bit flag)
 	bit receive_success = 0;
 	unsigned char output_value;
 	U8_T ort_num = 0;
-	number++;
-	while(success--)
-	{ 		 
-		if(flag)
-		{
-			output_value = 1;
-		}
-		else
-		{	
-			output_value = 0;
-		}		 
-		
-		send_schedual[0] = number;
-		send_schedual[1] = 0x06;
-		send_schedual[2] = 0;
-		send_schedual[3] = 184;
-		send_schedual[4] = 0;
-		send_schedual[5] = output_value;
-		crc.word = CRC16(send_schedual,0x06);
-		send_schedual[6] = crc.byte[0];
-		send_schedual[7] = crc.byte[1];
-		Test[47]++;
-		flag_send_schedual = 1;
+
+	if(flag)
+	{
+		output_value = 1;
+	}
+	else
+	{	
+		output_value = 0;
 	}	
-  	
+	write_parameters_to_nodes(sub_addr[number],184,output_value);
  
 	if(success ==255 && receive_success == 0)
 	{
-		number--;
+	//	number--;
 		if(flag) 
 		{
-			if(GetBit(number,output_state_index) == 0)
+			if(GetBit(sub_addr[number],output_state_index) == 0)
 			{
-				SetBit( number & 0x07,&output_state_index[ number >> 3 ]);
+				SetBit( sub_addr[number] & 0x07,&output_state_index[ sub_addr[number] >> 3 ]);
 				ID_CHANGED = 0;
 			}
 		}
 		else 
 		{
-			if(GetBit(number,output_state_index) == 1)
+			if(GetBit(sub_addr[number],output_state_index) == 1)
 			{
-				ClearBit( number & 0x07,&output_state_index[ number >> 3 ]);
+				ClearBit( sub_addr[number] & 0x07,&output_state_index[ sub_addr[number] >> 3 ]);
 				ID_CHANGED = 0;
 			}
 		}
@@ -402,7 +385,6 @@ void CheckWeeklyRoutines(void)
 		
 		WR_FLAG = WR_Roution[i].UN.Desc.flag;
 
-		Test[23] = WR_FLAG;
 
 		j = WR_Roution[i].UN.Desc.holiday2;	
 	
@@ -465,11 +447,9 @@ void CheckWeeklyRoutines(void)
 		else
 			ClearBit( i & 0x07 , &holiday1_state_index[ i >> 3 ] );
 
-		Test[22]++;
 
 		if( !WR_A_M ) // auto 
 		{
-			Test[20]++;
 			for(j = 7;j >= 0 ;j--)
 			{
 				if(j % 2 == 0)  // check ontime j = 0,2,4,6
@@ -507,10 +487,8 @@ void CheckWeeklyRoutines(void)
 			{
 				if( j % 2) /* current time is  off time*/
 				{
-					Test[26]++;
 					if(GetBit(i,wr_state_index) == 1)
 					{	
-						Test[28] = 100;	 
 						ClearBit( i & 0x07 , &wr_state_index[ i >> 3 ] );
 						WEEKLY_CHANGED = 0;
 					} 
@@ -518,10 +496,8 @@ void CheckWeeklyRoutines(void)
 					 
 				else   /* current time is on time*/
 				{
-					Test[27]++;
 					if(GetBit(i,wr_state_index) == 0)
 					{	
-						Test[29] = 100;	 	 
 						SetBit( i & 0x07,&wr_state_index[ i >> 3 ]);
 						WEEKLY_CHANGED = 0;
 					}
@@ -532,7 +508,6 @@ void CheckWeeklyRoutines(void)
 		}
 		else   // manual
 		{
-			Test[21]++;
 			if(WR_FLAG != 0xff)
 			{
 				if(WR_VALUE)
@@ -644,8 +619,6 @@ void CheckIdRoutines(void)
 			{
  				if(wr1_valid || wr2_valid )
 				{
-				//	test0 = 5;
-					Test[40] = 5;
 				//	SendSchedualData(i,wr1_value | wr2_value);  
 			#if 1
 					output_value = GetBit(i,output_state_index); 
@@ -655,11 +628,11 @@ void CheckIdRoutines(void)
 						if(temp_bit == 0)
 						SetBit(i & 0x07 ,&first_time_schedual[ i >> 3 ]);					 
  		 				
-						SendSchedualData(i,wr1_value | wr2_value);  
+						SendSchedualData(scheduel_id,wr1_value | wr2_value);  
 					}
 					else if(cycle_minutes_timeout == 1)
 					{
-						SendSchedualData(i,wr1_value | wr2_value);  
+						SendSchedualData(scheduel_id,wr1_value | wr2_value);  
 						if(i == MAX_ID - 1)
 						cycle_minutes_timeout = 0;
 					}
@@ -679,12 +652,12 @@ void CheckIdRoutines(void)
 					//	test0 = 8;
 						if(temp_bit == 0)
 						SetBit(i & 0x07 ,&first_time_schedual[ i >> 3 ]);					 
-						SendSchedualData(i,ID_OUTPUT);
+						SendSchedualData(scheduel_id,ID_OUTPUT);
 					}
 					else if(cycle_minutes_timeout == 1)
 					{
 					//	test0 = 9;
-						SendSchedualData(i,ID_OUTPUT);
+						SendSchedualData(scheduel_id,ID_OUTPUT);
 						if(i == MAX_ID -1)
 						cycle_minutes_timeout = 0;
 					}
@@ -715,9 +688,7 @@ void Schedule_task(void) reentrant
 	{ 	
 		vTaskDelay(xDelayPeriod);
 
-		if(sub_no == 0) continue;
-		
-		Test[1]++;
+		if(sub_no == 0) continue; 
 
 
 			

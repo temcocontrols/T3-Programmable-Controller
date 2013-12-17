@@ -43,6 +43,7 @@
 #include <ctype.h>      /* for isalnum */
 //#endif
 
+#include "ud_str.h"
 /** @file bacstr.c  Manipulate Bit/Char/Octet Strings */
 
 void bitstring_init(
@@ -652,7 +653,7 @@ bool octetstring_init(
     if (octet_string) {
         octet_string->length = 0;
         if (length <= MAX_OCTET_STRING_BYTES) {
-            if (value) {
+            if (value) { 
                 for (i = 0; i < length; i++) {
                     if (i < length) {
                         octet_string->value[octet_string->length] = value[i];
@@ -661,7 +662,7 @@ bool octetstring_init(
                         octet_string->value[i] = 0;
                     }
                 }
-            } else {
+            } else { 
                 for (i = 0; i < MAX_OCTET_STRING_BYTES; i++) {
                     octet_string->value[i] = 0;
                 }
@@ -680,13 +681,13 @@ bool octetstring_init(
    returns true if successfully converted and fits; false if too long */
 
 extern uint16_t transfer_len;
-
+extern uint8_t header_len;
 bool octetstring_init_ascii_hex(
     BACNET_OCTET_STRING * octet_string,
     const char *ascii_hex)
 {
     bool status = false;        /* return value */
-    uint8_t index = 0; 		/* offset into buffer */
+    uint16_t index = 0; 		/* offset into buffer */
 	#if 0
     uint8_t value = 0;
     char hex_pair_string[3] = "";
@@ -730,7 +731,7 @@ bool octetstring_init_ascii_hex(
     }
 	#endif
 	status = true;
-	octet_string->length = transfer_len + 6;
+	octet_string->length = transfer_len + header_len/*USER_DATA_HEADER_LEN*/;
 	for(index = 0;index < octet_string->length;index++)
 		octet_string->value[index] = ascii_hex[index]; 
     return status;

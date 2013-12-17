@@ -40,17 +40,17 @@ extern "C" {
 
     int ihave_encode_apdu(
         uint8_t * apdu,
-        BACNET_I_HAVE_DATA * data);
+        BACNET_I_HAVE_DATA * dat);
 
     int ihave_decode_service_request(
         uint8_t * apdu,
         unsigned apdu_len,
-        BACNET_I_HAVE_DATA * data);
+        BACNET_I_HAVE_DATA * dat);
 
     int ihave_decode_apdu(
         uint8_t * apdu,
         unsigned apdu_len,
-        BACNET_I_HAVE_DATA * data);
+        BACNET_I_HAVE_DATA * dat);
 
 #ifdef TEST
 #include "ctest.h"

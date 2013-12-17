@@ -1,554 +1,1022 @@
+
+#include <stdlib.h>
+#include <string.h>
+#include "scan.h"
 #include "main.h"
+#include "commsub.h"
 
-/* record every tstat on and off time, to check whether the tstat is off and have same ID */
-/*U16_T time_tstat_off[254];     // record off line time for every ID 
-U16_T time_tstat_on[254];		
-U8_T error_rate[254];
-*/
+#define	MAX_EXT_TST					254
+#define	SCAN_DB_SIZE				5
+
+#define ScanSTACK_SIZE					1024
+#define ParameterOperationSTACK_SIZE	512
+xTaskHandle Handle_Scan, Handle_ParameterOperation;
+
+extern xSemaphoreHandle sem_subnet_tx_uart0;
+//extern xQueueHandle qSubSerial_uart0;
+//extern xSemaphoreHandle sem_subnet_tx_uart2;
+//extern xQueueHandle qSubSerial_uart2;
 
 
-#if 1
 
-SCAN_DB far scan_db[8];
-SCAN_DB far temp_scan_db;
-U8_T far tempaddr[8];
-U8_T far temp_sub_no;
 
-extern xQueueHandle	xSubRevQueue;
+extern U8_T subnet_rec_package_size;
+extern U8_T subnet_response_buf[255];
 
-uint8 const code scan_id_table[1+2+4+8+16+32+64+128+256][2] = 
+U16_T crc16(U8_T *p, U8_T length);
+void sub_send_string(U8_T *p, U16_T length,U8_T port);
+void set_subnet_parameters(U8_T io, U8_T length,U8_T port);
+U8_T wait_subnet_response(U16_T nDoubleTick,U8_T port);
+
+SCAN_DB xdata scan_db[255];
+SCAN_DB xdata current_db;
+U8_T db_ctr = 1;
+U8_T reset_scan_db_flag = 0;
+
+U8_T xdata db_online[32];	// Should be added by scan
+U8_T xdata db_occupy[32]; // Added/subtracted by scan
+U8_T xdata current_online[32]; // Added/subtracted by co2 request command
+U8_T current_online_ctr = 0;
+
+U8_T xdata get_para[32];
+
+static U8_T scan_db_changed = FALSE;
+
+
+#define STACK_LEN  5
+#define MAX_WRITE_RETRY 10
+typedef struct
 {
-	// 1
-	{1, 254},
-	// 2
-	{1, 127},	{128, 254},
-	// 4
-	{1, 63},	{64, 127},	{128, 191},	{192, 254},
-	// 8
-	{1, 31},	{32, 63},	{64, 95},	{96, 127},	{128, 159},	{160, 191},	{192, 223},	{224, 254},
-	// 16
-	{1, 15},	{16, 31},	{32, 47},	{48, 63},	{64, 79},	{80, 95},	{96, 111},	{112, 127},
-	{128, 143},	{144, 159},	{160, 175},	{176, 191},	{192, 207},	{208, 223},	{224, 239},	{240, 254},
-	// 32
-	{1, 7},		{8, 15},	{16, 23},	{24, 31},	{32, 39},	{40, 47},	{48, 55},	{56, 63},	
-	{64, 71},	{72, 79},	{80, 87},	{88, 95},	{96, 103},	{104, 111},	{112, 119},	{120, 127},
-	{128, 135},	{136, 143},	{144, 151},	{152, 159},	{160, 167},	{168, 175},	{176, 183},	{184, 191},	
-	{192, 199},	{200, 207},	{208, 215}, {216, 223},	{224, 231},	{232, 239},	{240, 247},	{248, 254},
-	// 64
-	{1, 3},		{4, 7},		{8, 11},	{12, 15},	{16, 19},	{20, 23},	{24, 27},	{28, 31},	
-	{32, 35},	{36, 39},	{40, 43},	{44, 47},	{48, 51},	{52, 55},	{56, 59},	{60, 63},	
-	{64, 67},	{68, 71},	{72, 75},	{76, 79},	{80, 83},	{84, 87},	{88, 91},	{92, 95},	
-	{96, 99},	{100, 103},	{104, 107},	{108, 111},	{112, 115},	{116, 119},	{120, 123},	{124, 127},
-	{128, 131},	{132, 135},	{136, 139},	{140, 143},	{144, 147},	{148, 151},	{152, 155},	{156, 159},	
-	{160, 163},	{164, 167},	{168, 171},	{172, 175},	{176, 179},	{180, 183},	{184, 187},	{188, 191},	
-	{192, 195},	{196, 199},	{200, 203},	{204, 207},	{208, 211},	{212, 215}, {216, 219},	{220, 223},	
-	{224, 227},	{228, 231},	{232, 235}, {236, 239},	{240, 243},	{244, 247},	{248, 251},	{252, 254},
-	// 128
-	{1, 1},		{2, 3},		{4, 5},		{6, 7},		{8, 9},		{10, 11},	{12, 13},	{14, 15},	
-	{16, 17},	{18, 19},	{20, 21},	{22, 23},	{24, 25},	{26, 27},	{28, 29},	{30, 31},	
-	{32, 33},	{34, 35},	{36, 37},	{38, 39},	{40, 41},	{42, 43},	{44, 45},	{46, 47},	
-	{48, 49},	{50, 51},	{52, 53},	{54, 55},	{56, 57},	{58, 59},	{60, 61},	{62, 63},	
-	{64, 65},	{66, 67},	{68, 69},	{70, 71},	{72, 73},	{74, 75},	{76, 77},	{78, 79},	
-	{80, 81},	{82, 83},	{84, 85},	{86, 87},	{88, 89},	{90, 91},	{92, 93},	{94, 95},	
-	{96, 97},	{98, 99},	{100, 101},	{102, 103},	{104, 105},	{106, 107},	{108, 109},	{110, 111},	
-	{112, 113},	{114, 115},	{116, 117},	{118, 119},	{120, 121},	{122, 123},	{124, 125},	{126, 127},
-	{128, 129},	{130, 131},	{132, 133},	{134, 135},	{136, 137},	{138, 139},	{140, 141},	{142, 143},	
-	{144, 145},	{146, 147},	{148, 149},	{150, 151},	{152, 153},	{154, 155},	{156, 157},	{158, 159},	
-	{160, 161},	{162, 163},	{164, 165},	{166, 167},	{168, 169},	{170, 171},	{172, 173},	{174, 175},	
-	{176, 177},	{178, 179},	{180, 181}, {182, 183},	{184, 185},	{186, 187},	{188, 189},	{190, 191},	
-	{192, 193},	{194, 195},	{196, 197}, {198, 199},	{200, 201},	{202, 203},	{204, 205},	{206, 207},	
-	{208, 209},	{210, 211},	{212, 213},	{214, 215}, {216, 217},	{218, 219},	{220, 221},	{222, 223},	
-	{224, 225},	{226, 227},	{228, 229},	{230, 231},	{232, 233},	{234, 235}, {236, 237},	{238, 239},	
-	{240, 241},	{242, 243},	{244, 245},	{246, 247},	{248, 249},	{250, 251},	{252, 253},	{254, 254},
-	// 256
-	{1, 1},		{1, 1},		{2, 2},		{3, 3},		{4, 4},		{5, 5},		{6, 6},		{7, 7},
-	{8, 8},		{9, 9},		{10, 10},	{11, 11},	{12, 12},	{13, 13},	{14, 14},	{15, 15},
-	{16, 16},	{17, 17},	{18, 18},	{19, 19},	{20, 20},	{21, 21},	{22, 22},	{23, 23},
-	{24, 24},	{25, 25},	{26, 26},	{27, 27},	{28, 28},	{29, 29},	{30, 30},	{31, 31},
-	{32, 32},	{33, 33},	{34, 34},	{35, 35},	{36, 36},	{37, 37},	{38, 38},	{39, 39},
-	{40, 40},	{41, 41},	{42, 42},	{43, 43},	{44, 44},	{45, 45},	{46, 46},	{47, 47},
-	{48, 48},	{49, 49},	{50, 50},	{51, 51},	{52, 52},	{53, 53},	{54, 54},	{55, 55},
-	{56, 56},	{57, 57},	{58, 58},	{59, 59},	{60, 60},	{61, 61},	{62, 62},	{63, 63},
-	{64, 64},	{65, 65},	{66, 66},	{67, 67},	{68, 68},	{69, 69},	{70, 70},	{71, 71},
-	{72, 72},	{73, 73},	{74, 74},	{75, 75},	{76, 76},	{77, 77},	{78, 78},	{79, 79},
-	{80, 80},	{81, 81},	{82, 82},	{83, 83},	{84, 84},	{85, 85},	{86, 86},	{87, 87},
-	{88, 88},	{89, 89},	{90, 90},	{91, 91},	{92, 92},	{93, 93},	{94, 94},	{95, 95},
-	{96, 96},	{97, 97},	{98, 98},	{99, 99},	{100, 100},	{101, 101},	{102, 102},	{103, 103},
-	{104, 104},	{105, 105},	{106, 106},	{107, 107},	{108, 108},	{109, 109},	{110, 110},	{111, 111},
-	{112, 112},	{113, 113},	{114, 114},	{115, 115},	{116, 116},	{117, 117},	{118, 118},	{119, 119},
-	{120, 120},	{121, 121},	{122, 122},	{123, 123},	{124, 124},	{125, 125},	{126, 126},	{127, 127},
-	{128, 128},	{129, 129},	{130, 130},	{131, 131},	{132, 132},	{133, 133},	{134, 134},	{135, 135},
-	{136, 136},	{137, 137},	{138, 138},	{139, 139},	{140, 140},	{141, 141},	{142, 142},	{143, 143},
-	{144, 144},	{145, 145},	{146, 146},	{147, 147},	{148, 148},	{149, 149},	{150, 150},	{151, 151},
-	{152, 152},	{153, 153},	{154, 154},	{155, 155},	{156, 156},	{157, 157},	{158, 158},	{159, 159},
-	{160, 160},	{161, 161},	{162, 162},	{163, 163},	{164, 164},	{165, 165},	{166, 166},	{167, 167},
-	{168, 168},	{169, 169},	{170, 170},	{171, 171},	{172, 172},	{173, 173},	{174, 174},	{175, 175},
-	{176, 176},	{177, 177},	{178, 178},	{179, 179},	{180, 180},	{181, 181},	{182, 182},	{183, 183},
-	{184, 184},	{185, 185},	{186, 186},	{187, 187},	{188, 188},	{189, 189},	{190, 190},	{191, 191},
-	{192, 192},	{193, 193},	{194, 194},	{195, 195},	{196, 196},	{197, 197},	{198, 198},	{199, 199},
-	{200, 200},	{201, 201},	{202, 202},	{203, 203},	{204, 204},	{205, 205},	{206, 206},	{207, 207},
-	{208, 208},	{209, 209},	{210, 210},	{211, 211},	{212, 212},	{213, 213},	{214, 214},	{215, 215},
-	{216, 216},	{217, 217},	{218, 218},	{219, 219},	{220, 220},	{221, 221},	{222, 222},	{223, 223},
-	{224, 224},	{225, 225},	{226, 226},	{227, 227},	{228, 228},	{229, 229},	{230, 230},	{231, 231},
-	{232, 232},	{233, 233},	{234, 234},	{235, 235},	{236, 236},	{237, 237},	{238, 238},	{239, 239},
-	{240, 240},	{241, 241},	{242, 242},	{243, 243},	{244, 244},	{245, 245},	{246, 246},	{247, 247},
-	{248, 248},	{249, 249},	{250, 250},	{251, 251},	{252, 252},	{253, 253},	{254, 254},	{254, 254},	
-};
+	U8_T id;
+	U16_T reg;
+	U16_T value;
+	U8_T flag;
+	U8_T retry;
+}STR_NODE_OPERATE;
+
+typedef enum { WRITE_OK,WAIT_FOR_WRITE};
+
+STR_NODE_OPERATE xdata node_write[STACK_LEN];
+
+//static U8_T node_operate_index = 0;
+//static U16_T node_operate_reg = 0;
+//static U16_T node_operate_value = 0;
+//static U8_T node_operate_flag = 0;
 
 
-void calculate_ID_table(void)
-{
-	U16_T i;
-		binsearch_Table[0].valid = 1;
-
-//	memset(binsearch_Table,1,sizeof(BinSearch) * 511);	 	
-
-/*	memset(time_tstat_off,0,2 * 254);
-	memset(time_tstat_on,0,2 * 254);
-	memset(error_rate,0,254);
-*/
-/*	binsearch_Table[0].max = 254;
-	binsearch_Table[0].min = 1; 
+U8_T external_nodes_plug_and_play = 1;
 
 
-	for(i = 0;i < 255;)
+void recount_sub_addr(void)
+{	
+	U8_T i;
+	U8_T tmp_uart0 = 0;
+//	for(i = 1;i < db_ctr + 1;i++)
+//	{
+//		if(scan_db[i].port == UART0 + 1)
+//			uart0_sub_addr[tmp_uart0++]	= scan_db[i].id;	
+//	}
+	for(i = 0;i < db_ctr;i++)
 	{
-		binsearch_Table[2 * i + 1].max = binsearch_Table[i].max;
-		binsearch_Table[2 * i + 1].min = (binsearch_Table[i].max + binsearch_Table[i].min) / 2;
-		binsearch_Table[2 * i + 1].valid = 0;
-
-
-		binsearch_Table[2 * (i + 1)].max = (binsearch_Table[i].max + binsearch_Table[i].min) / 2 - 1;
-		binsearch_Table[2 * (i + 1)].min =  binsearch_Table[i].min;
-		binsearch_Table[2 * (i + 1)].valid = 0;
-
-		if((binsearch_Table[2 * i + 1].max > binsearch_Table[2 * i + 1].min) && 
-			(binsearch_Table[2 * (i + 1)].max  > binsearch_Table[2 * (i + 1)].min))
- 			i++;	
-			
-	} */
-}
-
-
-void Send_Test_Tstat(U8_T addr,U8_T start,U8_T len)
-{ 
-	U8_T far buf[8];
-	U16_T far crc_val;
-	U8_T far i;
-
-//	comm_tstat = CM5_Check_Sub_OnLine;
-
-	sub_init_send_com();
-	sub_init_crc16();
-	
-	buf[0] = addr;
-	buf[1] = 0x03;
-	buf[2] = 0x00;
-	buf[3] = start;
-	buf[4] = 0x00;
-	buf[5] = len;
-
-	crc_val = crc16(buf,6);
-		
-	buf[6] = crc_val >> 8;
-	buf[7] = (U8_T)crc_val;
-
-	for(i = 0;i < 8;i++)
-	{
-		sub_send_byte(buf[i],CRC_YES);
+		if(map_id_port[i].port == UART0 + 1)
+			uart0_sub_addr[tmp_uart0++]	= map_id_port[i].id;	
 	}
+	uart0_sub_no = tmp_uart0;
 
-	sub_rece_size = 5 + len * 2;;
-	sub_serial_restart();
-	//for(i = 0;i < 12;i++)
-	//	sub_data_buffer[i] = 0;		
+	sub_no = uart0_sub_no /*+ uart2_sub_no*/;
+	memcpy(sub_addr,uart0_sub_addr,uart0_sub_no);
+
 }
 
 
-U8_T Get_Idle_ID(U8_T *subaddr,U8_T subno)
-{
-	U8_T far i; 
-	U8_T far temp;
 
-	if(subno == 0)	
+U8_T receive_scan_reply(U8_T *p, U8_T len)
+{
+	U16_T crc_check = crc16(p, 7); // crc16
+	if((subnet_response_buf[0] = 0xff) && (subnet_response_buf[1] == CHECKONLINE)
+		&& (HIGH_BYTE(crc_check) == p[7]) && (LOW_BYTE(crc_check) == p[8]))
 	{
-		do
+		current_db.id = p[2];
+		current_db.sn = ((U32_T)p[6] << 24) | ((U32_T)p[5] << 16) | 
+						((U32_T)p[4] << 8) | p[3];
+		
+		if((len == subnet_rec_package_size) && (subnet_response_buf[2] == subnet_response_buf[3]))
 		{
-			temp = rand() % 255;
+			return UNIQUE_ID;
 		}
-		while(temp == 255 || temp ==  Modbus_address) ;
+		else
+		{
+			return UNIQUE_ID_FROM_MULTIPLE;
+		}
 	}
 	else
-	{
-		for(i = 0;i < subno;i++)
-		{
-		   	do
-			{
-				temp = rand() % 255;
-			}
-			while(temp == 255 || temp ==  Modbus_address || temp == subaddr[i]);
-		}
+	{ 		return MULTIPLE_ID;
 	}
-	return temp;
 }
 
-void Send_Scan_Cmd(U8_T max, U8_T min)
-{	
+U8_T send_scan_cmd(U8_T max_id, U8_T min_id,U8_T port)
+{
+	U16_T wCrc16;	
+	U8_T buf[6];
+	U8_T length;
+	U8_T ret;
+	xSemaphoreHandle  tempsem;
+//	xQueueHandle tempque;
+	if(port == UART0)	
+	{			
+		tempsem = sem_subnet_tx_uart0;
+//		tempque = qSubSerial_uart0;
+	}
+//	else if(port == UART2)	
+//	{	
+//		tempsem = sem_subnet_tx_uart2;
+//		tempque = qSubSerial_uart2;
+//	}
+	if(cSemaphoreTake(tempsem, 10) == pdFALSE)
+		return SCAN_BUSY;
 
-	U8_T far buf[8];
-	U16_T far crc_val;
-	U8_T far i;
-
-	sub_init_send_com();
-	sub_init_crc16();
-	
+	uart_init_send_com(port);
 	buf[0] = 0xff;
 	buf[1] = 0x19;
-	buf[2] = max;
-	buf[3] = min;
+	buf[2] = max_id;
+	buf[3] = min_id;
 
-	crc_val = crc16(buf,4);
-		
-	buf[4] = crc_val >> 8;
-	buf[5] = (U8_T)crc_val;
-
-	for(i = 0;i < 6;i++)
-	{
-		sub_send_byte(buf[i],CRC_YES);
+	wCrc16 = crc16(buf, 4);
+	buf[4] = HIGH_BYTE(wCrc16);
+	buf[5] = LOW_BYTE(wCrc16);
+	sub_send_string(buf, 6,port);
+	set_subnet_parameters(RECEIVE,9,port);
+	if(length = wait_subnet_response(200,port))
+	{		
+//		U8_T i;	
+		if(port == UART0) 
+		{
+			memcpy(subnet_response_buf,sub_data_buffer,length);
+		}
+		ret = receive_scan_reply(subnet_response_buf, length);
+	}
+	else // NONE_ID || MULTIPLE_ID
+	{	
+		/*if(port == UART0)
+		{
+			if(ucQueueMessagesWaiting(tempque) > subnet_rec_package_size)
+			{	
+				ret = MULTIPLE_ID;
+			}
+			else
+				ret = NONE_ID;
+		}
+		else */
+		{
+			if(length > subnet_rec_package_size)
+			{	
+				ret = MULTIPLE_ID;
+			}
+			else
+				ret = NONE_ID;
+		}
 	}
 
-	sub_rece_size = 12;
-//	sub_rece_size = 20;
-//	scan_response_state = NONE_ID;
-	sub_serial_restart();
-	for(i = 0;i < 12;i++)
-		sub_data_buffer[i] = 0;	
+	set_subnet_parameters(SEND, 0,port);
+	cSemaphoreGive(tempsem);
+	return ret;
 }
 
-
-
-/* check tstat id, make sure whether add new tstat list or remove the old one form tstat list */
-void update_tstat_list(U8_T tstat_id)
+U8_T receive_assign_id_reply(U8_T *p, U8_T length)
 {
-
-	U8_T far retry = 0; // no reply, retry 3 time
-	U8_T far retry1 = 0;
-	U8_T far emptypos,loop1,loop2;
-	bit flag_retry = 0;  // whether retry
-	U8_T far  i,j; 
-	U8_T far test_register_len;
-
-
-	U16_T crc_val = 0;
-	bit old_tstat = 0;
-	U16_T loop0;
-	U8_T tempID;
-	U8_T ret = 0;
-
-
-	memset(tempaddr,'0',8);
-	memcpy(tempaddr,sub_addr,8);
-	temp_sub_no = sub_no;
-//	Test[17] = tstat_id;
-	if(tstat_id <= 0 || tstat_id >= 255)  // make sure correct id	
-		return;
-	
-	if(tstat_id == Modbus_address)
-	{// if current tstat ID is same as CM5's ID, Must change it
-		tempID = Get_Idle_ID(tempaddr,temp_sub_no);	 // get new id	
-		Test[41]++;
-		if(tstat_id != tempID)
-		{	
-			assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn);
-			DELAY_Us(10);	
-			tstat_id = tempID;	
-			
-		}  		
-	}
-	/* get new id, update tstat id list */
-
-	if(temp_sub_no == 0)
-	{/* if check tstat on line first time or no tstat in tstat list*/
-		tempaddr[0] = tstat_id;	 /* add new one */
-		scan_db[0].id = tstat_id;
-		scan_db[0].sn = temp_scan_db.sn;
-		temp_sub_no = 1;
-	} 
+	U16_T crc_check = crc16(p, 10); // crc16
+	if((length == subnet_rec_package_size) && (HIGH_BYTE(crc_check) == p[10]) && (LOW_BYTE(crc_check) == p[11]))
+		return ASSIGN_ID;
 	else
-	{	
-		old_tstat = 0;
+		return NONE_ID;
+}
 
-		/* scan old tstat list , add or remove tstat id */
-		//  old_tstat 0: continue compare  1: end compare
-		for(loop0 = 0;loop0 < temp_sub_no && !old_tstat;loop0++)
+U8_T assignment_id_with_sn(U8_T old_id, U8_T new_id, U32_T current_sn,U8_T port)
+{
+	U8_T buf[12];
+	U16_T wCrc16;
+	U8_T length, ret;
+	U8_T loop;
+	xSemaphoreHandle  tempsem;
+//	xQueueHandle tempque;
+
+	if(port == UART0)	
+	{
+		tempsem = sem_subnet_tx_uart0;
+//		tempque = qSubSerial_uart0;
+	}
+
+	if(cSemaphoreTake(tempsem, 10) == pdFALSE)
+		return SCAN_BUSY;
+
+	uart_init_send_com(port);
+
+	buf[0] = old_id;
+	buf[1] = 0x06;
+	buf[2] = 0;
+	buf[3] = 0x0a;	//MODBUS_ADDRESS_PLUG_N_PLAY = 10
+	buf[4] = 0x55;
+	buf[5] = new_id;
+
+	buf[6] = (U8_T)(current_sn);
+	buf[7] = (U8_T)(current_sn >> 8);
+	buf[8] = (U8_T)(current_sn >> 16);
+	buf[9] = (U8_T)(current_sn >> 24);
+
+	wCrc16 = crc16(buf, 10);
+
+	buf[10] = HIGH_BYTE(wCrc16);
+	buf[11] = LOW_BYTE(wCrc16);
+
+	sub_send_string(buf, 12,port);
+	set_subnet_parameters(RECEIVE, 12,port);
+
+	if(length = wait_subnet_response(500,port))
+	{
+//		U8_T i;
+		if(port == UART0) 
 		{
-		 /* search whether the current tstat is in old tstat list */		
-			if(tstat_id == tempaddr[loop0])	
-			{  /* if the tstat id is in tstat list, the current id is old one,end compare	*/
-			//	old_tstat = 1;
-				if(scan_db[loop0].sn == temp_scan_db.sn)  // compare serail number, whether this one is new one
-					old_tstat = 1;
-				else 
-				{	
-					tempID = Get_Idle_ID(tempaddr,temp_sub_no);	
-				//	Test[42]++;			
-					old_tstat = 1;
-					if(tstat_id != tempID)
-					{	
-						old_tstat = 0;
-						assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn);	
-						assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn);	
-						assignment_id_with_sn(tstat_id,tempID,temp_scan_db.sn);	
-						DELAY_Us(10);
-						tstat_id = tempID;	
-					}  				
-				}
-			}
+			memcpy(subnet_response_buf,sub_data_buffer,length);
 		}
+//		else if(port == UART2) 
+//		{
+//			memcpy(subnet_response_buf,hsurRxBuffer,length);
+//		}
+		Test[27]++;
+		ret = receive_assign_id_reply(subnet_response_buf, length);
+		Test[29] = ret;
+	}
+	else
+		Test[28]++;
+	set_subnet_parameters(SEND, 0,port);
+	cSemaphoreGive(tempsem);
+	return ret;
+}
 
-		/* if not in list, it is a new one, add it */
-		if(!old_tstat && tstat_id != 0)	
-		{	
-			if(switch_sub_bit & (0x01 << temp_sub_no))  // 
-			{	
-				tempaddr[sub_no] = tstat_id; /* add new one */
-				scan_db[sub_no].id = tstat_id;
-				scan_db[sub_no].sn = temp_scan_db.sn; 
-				temp_sub_no++;
+U8_T get_idle_id(void)
+{
+	U8_T i;
+	U8_T temp;
+
+	for(i = 1; i < 255; i++)
+	{
+		if(((db_online[i / 8] & (1 << (i % 8))) == 0)	&& ((db_occupy[i / 8] & (1 << (i % 8))) == 0))
+			return i;
+	}
+
+	return 0xff;
+}
+
+void check_id_in_database(U8_T id, U32_T sn,U8_T port)
+{
+	if(db_online[id / 8] & (1 << (id % 8))) // in the database
+	{
+		U8_T i;
+		for(i = 0; i < db_ctr; i++)
+		{
+			if(id == scan_db[i].id) // id already in the database
+			{
+				if(sn != scan_db[i].sn) // if there exist the same id with defferent sn, push it into the db_occupy list
+				{
+					if(external_nodes_plug_and_play == 0)
+					{
+						remove_id_from_db(i);
+					}
+					else
+						db_occupy[id / 8] |= 1 << (id % 8);
+				}
+				break;
+			}
+			// if the device is already in the database, return without doing anything
+		}
+	}
+	else
+	{
+		db_online[id / 8] |= 1 << (id % 8);
+		db_occupy[id / 8] &= ~(1 << (id % 8));
+		get_para[db_ctr / 8] |= 1 << (db_ctr % 8);
+		scan_db[db_ctr].id = id;
+		scan_db[db_ctr].sn = sn;
+		
+		 
+		scan_db[db_ctr].port = port + 1;
+		map_id_port[db_ctr - 1].id = id;
+		map_id_port[db_ctr - 1].port = port + 1;
+		db_ctr++;
+
+		scan_db_changed = TRUE;
+	}
+}
+
+void bin_search(U8_T min_id, U8_T max_id,U8_T port) reentrant
+{
+	U8_T scan_status;
+	if(min_id > max_id) return;
+	scan_status = send_scan_cmd(max_id, min_id, port);
+	switch(scan_status)	// wait for response from nodes scan command
+	{
+		case UNIQUE_ID:	
+					// unique id means it is the only id in the range.
+			// if the id is already in the database, set it occupy and then change the id with sn in the dealwith_conflict_id routine.
+			check_id_in_database(current_db.id, current_db.sn,port);
+			if(min_id != max_id) // to avoid the miss reply some nodes
+			{
+				bin_search(min_id, (U8_T)(((U16_T)min_id + (U16_T)max_id) / 2),port);
+				bin_search((U8_T)(((U16_T)min_id + (U16_T)max_id) / 2) + 1, max_id,port);
+			}			
+			break;
+		case MULTIPLE_ID: 
+					// multiple id means there is more than one id in the range.
+			// if the min_id == max_id, there is same id, set the id occupy and return
+			// if the min_id != max_id, there is multi id in the range, divide the range and do the sub scan
+			if(min_id == max_id)
+			{
+				db_occupy[min_id / 8] |= 1 << (min_id % 8);
+				if((db_online[min_id / 8] & (1 << (min_id % 8))) && (external_nodes_plug_and_play == 0))
+				{
+					U8_T i = 0;
+					for(i = 0; i < db_ctr; i++)
+						if(scan_db[i].id == min_id)
+							break;
+					remove_id_from_db(i);
+					
+				}
 			}
 			else
 			{
-			tempaddr[temp_sub_no] = tstat_id; /* add new one */
-			scan_db[temp_sub_no].id = tstat_id;
-			scan_db[temp_sub_no].sn = temp_scan_db.sn;
-			/* new tstat , increase temp_sub_no */
-			temp_sub_no++;
-			}	
-		} 
-	}
-	
-	
-	sub_no = temp_sub_no;
-	memcpy(sub_addr,tempaddr,8);
-}
-
-
-
-void read_sn_for_assignment_id(U8_T address)
-{ 	
-	sub_init_send_com();
-	sub_init_crc16();
-	sub_send_byte(address,CRC_NO);
-	sub_send_byte(READ_VARIABLES,CRC_NO);
-	sub_send_byte(0,CRC_NO);
-	sub_send_byte(MODBUS_ADDRESS_PLUG_N_PLAY,CRC_NO);
-	sub_send_byte(0,CRC_NO);
-	sub_send_byte(1,CRC_NO);  // must be 1
-	sub_send_byte(SubCRChi,CRC_YES);
-	sub_send_byte(SubCRClo,CRC_YES);
-//	sub_rece_size = 11;
-	sub_serial_restart();
-}
-
-void assignment_id_with_sn(U8_T address, U8_T new_address,unsigned long current_sn)
-{
-//	comm_tstat = CM5_Assign_ID;
-	sub_init_send_com();
-	sub_init_crc16();
-	sub_send_byte(address,CRC_NO);
-	sub_send_byte(WRITE_VARIABLES,CRC_NO);
-	sub_send_byte(0,CRC_NO);
-	sub_send_byte(MODBUS_ADDRESS_PLUG_N_PLAY,CRC_NO);
-	sub_send_byte(0x55,CRC_NO);
-	sub_send_byte(new_address,CRC_NO);
-	sub_send_byte((U8_T)(current_sn >> 24),CRC_NO);
-	sub_send_byte((U8_T)(current_sn >> 16),CRC_NO);
-	sub_send_byte((U8_T)(current_sn >> 8),CRC_NO);
-	sub_send_byte((U8_T)current_sn ,CRC_NO);
-
-	sub_send_byte(SubCRChi,CRC_YES);
-	sub_send_byte(SubCRClo,CRC_YES);
-//	sub_rece_size = 8;
-	sub_serial_restart();
-	
-}
-
-
-void check_on_line(void)
-{
-	U8_T far ret = 0;
-	U8_T far retry = 0; // no reply, retry 3 time
-	U8_T far retry1 = 0;
-	U8_T far emptypos,loop1,loop2;
-	bit flag_retry = 0;  // whether retry
-	U16_T far crc_val = 0;
-
-	U8_T i,j;  
-	U8_T test_register_len;
-
-	memset(tempaddr,'0',8);
-	memcpy(tempaddr,sub_addr,8);
-	temp_sub_no = sub_no;
-	#if 1
-	retry = 0;
-	Test[27] = temp_sub_no;		
-	for(loop1 = 0;loop1 < temp_sub_no /*&& retry < 10*/;loop1++)
-	{		
-		flag_retry = 0;
-												  
-		test_register_len = 1;
-		Test[28] = tempaddr[loop1];
-		
-	/*	Send_Test_Tstat(tempaddr[loop1],101,test_register_len);		
-	//	Com_Tstat(READ_ADDRESS,tempaddr[loop1]); 
-		ret = wait_SubSerial(10);
-		if(cQueueReceive( xSubRevQueue, ( void * )&sub_data_buffer, 0))	
-		{
-			if(ret == 1)   // get reply
-			{					
-				crc_val = crc16(sub_data_buffer,test_register_len * 2 + 5 - 2);
-			
-				if(crc_val == sub_data_buffer[test_register_len * 2 + 5 - 2] * 256 + sub_data_buffer[test_register_len * 2 + 5 - 1])
-				{	 
-					flag_retry = 0;
-					retry = 0;
-				}
-				else
-				{
-					loop1--;
-					flag_retry = 1;
-					retry++;
-				}			
-				
-			}			
-			else if(ret == 0) 
-			{
-				flag_retry = 1;
-				loop1--;
-				retry++;
-				
-			} 	 
-		}*/	
-		
-	/*	if(retry == 10)
-		{	
-			loop1++;
-			retry = 0;
-
-			emptypos = 0;
-			for(loop2 = 0;loop2 < temp_sub_no && emptypos == 0;loop2++)
-			{
-				if(tempaddr[loop1] == tempaddr[loop2]) // find the old position in address table
-				{
-					emptypos = loop2; 
-				}
+				bin_search(min_id, (U8_T)(((U16_T)min_id + (U16_T)max_id) / 2),port);
+				bin_search((U8_T)(((U16_T)min_id + (U16_T)max_id) / 2) + 1, max_id,port);
 			}
-			for(loop2 = emptypos;loop2 < temp_sub_no;loop2++)
-			{ // fill the empty postion
-				tempaddr[loop2] = tempaddr[loop2 + 1];
-			}
-			tempaddr[loop2] = 0;
-			temp_sub_no--;
-			
-		} */
+			break;
+		case UNIQUE_ID_FROM_MULTIPLE:   
+			// there are multiple ids in the range, but the fisrt reply is good.
+			if(min_id == max_id)
+			{
+				db_occupy[min_id / 8] |= 1 << (min_id % 8);
+				if((db_online[min_id / 8] & (1 << (min_id % 8))) && (external_nodes_plug_and_play == 0))
+				{
+					U8_T i = 0;
 					
-	}
-	#endif
-	sub_no = temp_sub_no;
-	if(protocal <= TCP_IP)
-	{	
-		for(i = 0;i < 8;i++)
-		{			
-			if(DI_Type[i] == DI_SWITCH)
-			{
-				if(tempaddr[i] != 0)   // position is not free
-				{
-					tempaddr[sub_no++] = tempaddr[i];
+					for(i = 0; i < db_ctr; i++)
+						if(scan_db[i].id == min_id)
+							break;
+					remove_id_from_db(i);
+				
 				}
-				if(switch_tstat_val & (0x01 << i))
-					tempaddr[i] = 1;
-				else
-					tempaddr[i] = 0;						
-			}	
-		}
-	}
-	else 
-	{		
-	/*	tbd: t3000_bacnet should add the following property
-		for( i=0; i< 8; i++ )
-		{
-			if(inputs[i].unused == DI_SWITCH)
-			{
-				if(tempaddr[i] != 0)   // position is not free
-				{
-					tempaddr[sub_no++] = tempaddr[i];
-				}
-				if(switch_tstat_val & (0x01 << i))
-					tempaddr[i] = 1;
-				else
-					tempaddr[i] = 0;						
-			}	
-		} */
-	}
-	memcpy(sub_addr,tempaddr,8);
-}
-
-
-
-
-void Scan_Sub_ID(void)
-{
-	static char tt = 35;
-
-/*	while(binsearch_Table[scan_index].valid == 0 && scan_index < 511)
-	{
-		if(2 * (scan_index + 1) < 511)
-		{
-			binsearch_Table[2 * scan_index + 1].valid = 0;
-			binsearch_Table[2 * (scan_index + 1)].valid = 0;
-		}
-		scan_index++;
-
-	} */
-
-
-	if(scan_index < 511)
-	{
-		if(binsearch_Table[scan_index].valid == 0)
-		{// if the current range is invalid, the following sub range is invalid, too	
-			//every range have two sub range 
-			if(2 * (scan_index + 1) < 511)
-			{
-				binsearch_Table[2 * scan_index + 1].valid = 0;
-				binsearch_Table[2 * (scan_index + 1)].valid = 0;
 			}
-		} 
-		else 
+			else
+			{	  
+				check_id_in_database(current_db.id, current_db.sn,port);
+				bin_search(min_id, (U8_T)(((U16_T)min_id + (U16_T)max_id) / 2),port);
+				bin_search((U8_T)(((U16_T)min_id + (U16_T)max_id) / 2) + 1, max_id,port);
+			}
+			break;
+		case NONE_ID: 
+			// none id means there is not id in the range
+			break;
+		case SCAN_BUSY:
+		default:
+			bin_search(min_id, max_id,port);
+			break;
+	}
+
+	return;
+}
+
+void dealwith_conflict_id(U8_T port)
+{
+	U8_T idle_id;
+	U8_T status;
+	U8_T occupy_id = 1;
+
+	while(1)
+	{	
+		if(db_occupy[occupy_id / 8] & (1 << (occupy_id % 8)))
 		{
-			Send_Scan_Cmd(scan_id_table[scan_index][1],scan_id_table[scan_index][0]/*binsearch_Table[scan_index].max,binsearch_Table[scan_index].min*/);
-		 //   Test[tt++] = scan_index;
-			scan_index++;
-		 //   Test[15]++;
-		} 
-		while(binsearch_Table[scan_index].valid == 0)
+			idle_id = get_idle_id();
+			Test[20]++;
+			Test[19] = idle_id;
+			if(idle_id == 0xff) break;
+			status = send_scan_cmd(occupy_id, occupy_id,port); // get the seperate sn
+			
+			if((status == UNIQUE_ID) || (status == UNIQUE_ID_FROM_MULTIPLE))
+			{				
+				Test[21]++;
+
+				if(occupy_id == current_db.id)
+					db_occupy[occupy_id / 8] &= ~(1 << (occupy_id % 8));
+				Test[22] = current_db.id;
+				check_id_in_database(current_db.id, current_db.sn,port);
+				// if still occupy in the database
+				if(db_occupy[current_db.id / 8] & (1 << (current_db.id % 8)))
+				{
+					Test[23]++;
+					// assign idle id with sn to this occupy device.
+					if(assignment_id_with_sn(current_db.id, idle_id, current_db.sn,port)== ASSIGN_ID)
+					{
+						db_online[idle_id / 8] |= 1 << (idle_id % 8);
+
+						scan_db[db_ctr].id = idle_id;
+      					scan_db[db_ctr].sn = current_db.sn;	
+
+						map_id_port[db_ctr - 1].id = idle_id;
+						map_id_port[db_ctr - 1].port = port + 1;
+
+						db_ctr++;
+						Test[24]++;
+						scan_db_changed = TRUE;
+					}
+					else
+						Test[26]++;
+				}
+
+				if(status == UNIQUE_ID_FROM_MULTIPLE)
+				{	
+					Test[25]++;
+					continue;
+				}
+			}
+			else if(status == MULTIPLE_ID)
+			{	
+				continue;
+			}
+			else // if(status == NONE_ID)
+			{	
+				// maybe the nodes are removed from the subnet, so skip it.
+			}
+		}
+		
+		occupy_id++;
+		if(occupy_id == 0xff) break;
+	}
+
+	return;
+}
+
+void scan_sub_nodes(U8_T port)
+{
+	bin_search(1, 254,port);
+	if(external_nodes_plug_and_play == 1)
+		dealwith_conflict_id(port);
+
+	if(scan_db_changed == TRUE)
+	{
+//		start_data_save_timer();
+		scan_db_changed = FALSE;
+	}
+}
+
+// read from flash to get the init db_online status
+void init_scan_db(void)
+{
+	U8_T i;
+
+	U8_T local_id = Modbus_address;//Modbus.ADDRESS;
+	U32_T local_sn = ((U32_T)serialNum[3] << 24) | ((U32_T)serialNum[2] << 16) | \
+				((U32_T)serialNum[1] << 8) | serialNum[0];
+
+	memset(db_online, 0, 32);
+	memset(db_occupy, 0, 32);
+	memset(get_para, 0, 32);
+	memset(current_online, 0, 32);
+	memset((uint8 *)(&scan_db[0].id), 0, SCAN_DB_SIZE * MAX_EXT_TST);
+	current_online_ctr = 0;
+
+	if((db_ctr == 0) || (db_ctr == 0xff))
+		db_ctr = 1;
+
+	for(i = 0; i < db_ctr; i++)
+	{
+		if(i == 0)
 		{
-			scan_index++;
+			if((scan_db[i].id != local_id) || (scan_db[i].sn != local_sn))
+			{
+				scan_db[i].id = local_id;
+				scan_db[i].sn = local_sn;
+//				start_data_save_timer();
+			}
 		}
 
-	//	Test[17] = scan_index + 1;
+		db_online[scan_db[i].id / 8] |= (1 << (scan_db[i].id % 8));
+	}
+}
+
+void clear_scan_db(void)
+{
+	db_ctr = 0;
+	init_scan_db();
+//	start_data_save_timer();
+}
+
+void remove_id_from_db(U8_T index)
+{
+	U8_T i;
+	if((db_ctr > 1) && (index < db_ctr) && (index > 0)) // can not delete the internal sensor
+	{
+		i = scan_db[index].id;
+		db_online[i / 8] &= ~(1 << (i % 8));
+		db_occupy[i / 8] &= ~(1 << (i % 8));
+		if(current_online[i / 8] & (1 << (i % 8)))
+		{
+			current_online[i / 8] &= ~(1 << (i % 8));
+			current_online_ctr--;
+		}
+
+		for(i = index; i < db_ctr - 1; i++)
+		{
+			scan_db[i].id = scan_db[i + 1].id;
+			scan_db[i].sn = scan_db[i + 1].sn;
+			scan_db[i].port	= scan_db[i + 1].port;
+		}
+
+		for(i = index; i < db_ctr - 1; i++)
+		{
+			map_id_port[i].id = map_id_port[i + 1].id;
+			map_id_port[i].port = map_id_port[i + 1].port;
+		}
+
+		db_ctr--;
+
+		scan_db_changed = TRUE;
+	}
+}
+
+U8_T check_master_id_in_database(U8_T set_id, U8_T increase) reentrant
+{
+	U8_T i;
+
+	if((set_id == 0) && (increase == 0))
+		set_id = 254;
+	
+	if((set_id == 255) && (increase == 1))
+		set_id = 1;
+
+	for(i = 1; i < db_ctr; i++)
+	{
+		if(scan_db[i].id == set_id)
+			break;
+	}
+
+	if(i >= db_ctr)
+		return set_id;
+	else
+	{
+		if(increase == 1)
+			return check_master_id_in_database(set_id+1, 1);
+		else
+			return check_master_id_in_database(set_id-1, 0);
+	}
+}
+
+void modify_master_id_in_database(U8_T old_id, U8_T set_id)
+{
+	Modbus_address = set_id;
+	scan_db[0].id = set_id;
+	E2prom_Write_Byte(EEP_ADDRESS, Modbus_address);
+
+	// modify scan datebase
+	db_online[old_id / 8] &= ~(1 << (old_id % 8));
+	db_online[set_id / 8] |= 1 << (set_id % 8);
+
+//	start_data_save_timer();
+}
+
+void get_parameters(uint8 index, uint8 *p,uint8 reg)
+{
+	U16_T crc_check = crc16(p, 5); // crc16
+	if((HIGH_BYTE(crc_check) == p[5]) && (LOW_BYTE(crc_check) == p[6]))
+	{
+		switch(reg)
+		{  
+			case TST_PRODUCT_MODEL:  
+				if(p[4] == 6 || p[4] == 7)
+					tst_info[index].type = TSTAT_6;
+				else if(p[4] == 1 || p[4] == 2 ||p[4] == 3 ||p[4] == 4 ||p[4] == 12||p[4] == 17)
+				{	
+					tst_info[index].type = TSTAT_5A;				
+				}
+				else if(p[4] == 16 || p[4] == 19)
+					tst_info[index].type = TSTAT_5E;
+				tst_info[index].product_model = p[4];
+				break;
+			case TST_OCCUPIED: tst_info[index].occupied = (U16_T)((p[3] << 8) | p[4]);	  //???????????????????
+				break;
+			case TST_COOL_SETPOINT:	 tst_info[index].cool_setpoint = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_HEAT_SETPOINT:   	tst_info[index].heat_setpoint = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_ROOM_SETPOINT:	tst_info[index].setpoint = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_ROOM_TEM:  tst_info[index].temperature = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_MODE:  tst_info[index].mode = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_OUTPUT_STATE:	  tst_info[index].output_state = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_NIGHT_HEAT_DB:   tst_info[index].night_cool_db = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_NIGHT_COOL_DB:   tst_info[index].night_heat_db = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_NIGHT_HEAT_SP:   tst_info[index].night_heat_sp = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_NIGHT_COOL_SP:   tst_info[index].night_cool_sp = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_OVER_RIDE:		tst_info[index].over_ride = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_SERIAL_NUM_0:	tst_info[index].serial_number[0] = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_SERIAL_NUM_1:	tst_info[index].serial_number[1] = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_SERIAL_NUM_2:	tst_info[index].serial_number[2] = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			case TST_SERIAL_NUM_3:	tst_info[index].serial_number[3] = (U16_T)((p[3] << 8) | p[4]);
+				break;
+//			case TST_ADDRESS:	tstat_product_model[index - 1] = (U16_T)((p[3] << 8) | p[4]);
+//				break;
+			case TST_ADDRESS:			tst_info[index].address = (U16_T)((p[3] << 8) | p[4]);
+				break;
+			break;
+		}
+		get_para[(index + 1) / 8] &= ~(1 << ((index + 1) % 8));	
+	}
+}
+
+void get_parameters_from_nodes(U8_T port)
+{
+	U8_T i, j, length;
+	U8_T buf[8];
+	U16_T crc_check;
+	static U8_T current_index0 = 0;
+//	static U8_T current_index2 = 0;
+	static U8_T sub_reg0 = READ_PRODUCT_MODLE;
+//	static U8_T sub_reg2 = READ_PRODUCT_MODLE;
+	U8_T type = 0; 
+	U8_T sub_reg;
+	U8_T tst_id;
+	xSemaphoreHandle  tempsem;
+//	xQueueHandle tempque;
+
+
+//	for(i = 0; i < 254; i++)
+//		if(get_para[i]) break;
+//	
+//	if(i >= 254) return;
+//
+//	for(j = 0; j < 8; j++)
+//		if(get_para[i] & (1 << j)) break;
+//
+//	i = (i << 3) + j;
+//	j = i;
+
+	if(port == UART0)	
+	{			
+		if(uart0_sub_no == 0)	return;
+
+		tempsem = sem_subnet_tx_uart0;
+		
+		i = current_index0;
+		sub_reg = sub_reg0;
+		tst_id = uart0_sub_addr[i];
+		type = tst_info[i].type;
+		j = i;
+	}
+
+	if(type == 0xff)  // 0xff initial type
+	{		
+		if(sub_reg == READ_PRODUCT_MODLE)
+			type = 0;
+		else
+			return;
+	}	
+
+	if(cSemaphoreTake(tempsem, 5) == pdFALSE)	
+		return ;
+
+	uart_init_send_com(port);
+
+	buf[0] = tst_id;
+	buf[1] = READ_VARIABLES;
+	buf[2] = HIGH_BYTE(Tst_Register[sub_reg][type]);
+	buf[3] = LOW_BYTE(Tst_Register[sub_reg][type]); // start address
+	buf[4] = 0;
+	buf[5] = 1;
+
+	crc_check = crc16(buf, 6); // crc16
+	buf[6] = HIGH_BYTE(crc_check);
+	buf[7] = LOW_BYTE(crc_check);
+
+	sub_send_string(buf, 8,port);
+	set_subnet_parameters(RECEIVE, 7,port);
+	if(length = wait_subnet_response(10,port))
+	{
+		if(port == UART0) 
+		{
+			memcpy(subnet_response_buf,sub_data_buffer,length);
+		}
+		get_parameters(j, subnet_response_buf,sub_reg);
+
+		if(port == UART0)
+		{
+			if(current_index0 < uart0_sub_no && sub_reg == TST_SERIAL_NUM_3) 
+			{ 	
+				current_index0++; 
+				if(current_index0 == uart0_sub_no) 
+					current_index0 = 0;
+			}
+		}
+
+		if(sub_reg < TST_SERIAL_NUM_3) 	 sub_reg++;
+		else 
+			 sub_reg = READ_PRODUCT_MODLE;
+
+		if(port == UART0)	sub_reg0 = sub_reg;
 
 	}
-	else 
+
+	set_subnet_parameters(SEND, 0, port);
+	cSemaphoreGive(tempsem);
+//		return;
+}
+
+void write_parameters_to_nodes(uint8 index, uint16 reg, uint16 value)
+{
+	U8_T i;
+
+	for(i = 0;i < STACK_LEN;i++)
 	{
-		scan_index = 0;
-	//	tt = 35;
-	//	memset(&Test[tt],0,15);
-	//	binsearch_Table[0].max = 254;
-	//	binsearch_Table[0].min = 1; 
-		binsearch_Table[0].valid = 1; 
+		if(node_write[i].flag == WRITE_OK) 	break;
+	}
+	if(i == STACK_LEN)		
+	{  // stack full
+	// tbd
+		return;	
+	}
+	else
+	{
+		node_write[i].id = index;
+		node_write[i].reg = reg;
+		node_write[i].value = value;
+		node_write[i].flag = WAIT_FOR_WRITE;
+		node_write[i].retry = 0;
+	}
+
+}
+
+void check_write_to_nodes(U8_T port)
+{
+	U8_T buf[8], length;
+	U16_T crc_check;
+	U8_T i;
+	xSemaphoreHandle  tempsem;
+//	xQueueHandle tempque;
+
+	if(port == UART0)	
+	{
+		tempsem = sem_subnet_tx_uart0;
+//		tempque = qSubSerial_uart0;
+	}
+//	else if(port == UART2)	
+//	{
+//		tempsem = sem_subnet_tx_uart2;
+//		tempque = qSubSerial_uart2;
+//	}
+
+	for(i = 0;i < STACK_LEN;i++)
+	{
+		if(node_write[i].flag == WAIT_FOR_WRITE) //	get current index, 1 -- WAIT_FOR_WRITE, 0 -- WRITE_OK
+		{
+			if(node_write[i].retry < MAX_WRITE_RETRY)
+			{
+				node_write[i].retry++;
+				break;
+			}
+			else
+			{  	// retry 10 time, give up
+				node_write[i].flag = WRITE_OK; 
+				return;
+			}
+		}
+	}
+
+	if(i == STACK_LEN)		// no WAIT_FOR_WRITE
+		return;
+
+	if(cSemaphoreTake(tempsem, 5) == pdFALSE)
+		return;
+
+	uart_init_send_com(port);
+
+
+	buf[0] = node_write[i].id;//sub_addr[node_operate_index];//scan_db[node_operate_index].id;
+	buf[1] = WRITE_VARIABLES;
+	buf[2] = HIGH_BYTE(node_write[i].reg);
+	buf[3] = LOW_BYTE(node_write[i].reg); // start address
+
+	buf[4] = HIGH_BYTE(node_write[i].value);
+	buf[5] = LOW_BYTE(node_write[i].value);
+
+	crc_check = crc16(buf, 6); // crc16
+	buf[6] = HIGH_BYTE(crc_check);
+	buf[7] = LOW_BYTE(crc_check);
+
+	sub_send_string(buf, 8,port);
+
+	set_subnet_parameters(RECEIVE, 8,port);
+
+	// send successful if receive the reply
+	if(length = wait_subnet_response(100,port))
+	{	
+		Test[43]++;
+		node_write[i].flag = WRITE_OK; // without doing checksum
+	}
+	set_subnet_parameters(SEND, 0,port);
+	cSemaphoreGive(tempsem);
+}
+
+void ScanTask(void)
+{
+	portTickType xDelayPeriod = (portTickType)5000 / portTICK_RATE_MS;
+	U8_T port = UART0;	
+	
+	init_scan_db();
+
+	while(1)	 
+	{
+		vTaskDelay(xDelayPeriod);
+//		if(port == UART0)
+//			port = UART2;
+//		else
+//			port = UART0;
+		scan_sub_nodes(port);
+		recount_sub_addr();
+		taskYIELD();
+	}
+}
+
+void ParameterOperationTask(void)
+{
+	portTickType xDelayPeriod = (portTickType)100 / portTICK_RATE_MS;
+	U8_T port = UART0;
+	static U8_T count_write = 0;
+	while(1)
+	{
+		vTaskDelay(xDelayPeriod);
+
+//		if(port == UART0)
+//			port = UART2;
+//		else
+//			port = UART0;
+		
+		get_parameters_from_nodes(port);
+
+		count_write++;
+		if(count_write > 5)	  // 0.5s 
+		{
+		   	check_write_to_nodes(port);
+			count_write = 0;
+		}
+//		if(reset_scan_db_flag)
+//		{
+//			reset_scan_db_flag = 0;
+//			clear_scan_db(port);
+//		}
+		taskYIELD();
 	}
 }
 
 
+void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
+{
+	U16_T length;
+	U16_T crc_check;
+	U8_T size;
+	U16_T delay_time;
+	U8_T tmp_sendbuf[150];
+	xSemaphoreHandle  tempsem;
+//	xQueueHandle tempque;
+	if(port == UART0)	
+	{			
+		tempsem = sem_subnet_tx_uart0;
+//		tempque = qSubSerial_uart0;
+	}
 
-#endif
+	if(buf[1] == 0x03) // read
+	{//	Lcd_Show_Data (3,5,1,0,1);	 
+		 size = tmp_sendbuf[5] * 2 + 5;
+		 delay_time = size * 5;
+	}
+	else if(buf[1] == 0x06 || buf[1] == 0x10)
+	{//	 Lcd_Show_Data (3,5,2,0,1);
+		size = 8;
+		if(buf[1] == 0x06 && buf[5] == 0x3f)   // erase flash 
+			delay_time = 500;
+		else
+			delay_time = 100;
+	}
+	else 
+		return;
+
+	if(cSemaphoreTake(tempsem, 10) == pdFALSE)
+		return ;
+
+	uart_init_send_com(port);
+
+	memcpy(tmp_sendbuf,buf,len);
+	crc_check = crc16(tmp_sendbuf, len);
+	tmp_sendbuf[len] = HIGH_BYTE(crc_check);
+	tmp_sendbuf[len + 1] = LOW_BYTE(crc_check);
+	sub_send_string(tmp_sendbuf, len + 2 ,port);
+	set_subnet_parameters(RECEIVE,size,port);	
+//	Lcd_Show_Data (3,1,1,0,1);
+	if(length = wait_subnet_response(delay_time,port))
+	{		
+	//	Lcd_Show_Data (3,1,2,0,1);
+		if(port == UART0)
+		{
+			memcpy(subnet_response_buf,sub_data_buffer,length);
+		}
+		crc_check = crc16(subnet_response_buf, length - 2);
+
+		if(crc_check == subnet_response_buf[length - 2] * 256 + subnet_response_buf[length - 1])
+		{//	Lcd_Show_Data (3,1,3,0,1);
+
+			memcpy(tmp_sendbuf,header,6);
+			memcpy(&tmp_sendbuf[6],subnet_response_buf,length - 2);	
+									
+			TCPIP_TcpSend(TcpSocket_ME, tmp_sendbuf, size + 4, TCPIP_SEND_NOT_FINAL);		
+		
+		}			
+
+	}
+//	Lcd_Show_Data (3,1,4,0,1);
+	set_subnet_parameters(SEND, 0,port);
+	cSemaphoreGive(tempsem);
+}
+
+void Response_MAIN_To_SUB(U8_T *buf, U16_T len)
+{
+	U16_T length;
+	U16_T crc_check;
+	U8_T size;
+	U16_T delay_time;
+	U8_T tmp_sendbuf[150];
+	xSemaphoreHandle  tempsem;
+		
+	tempsem = sem_subnet_tx_uart0;
+
+	if(buf[1] == 0x03) // read
+	{		 
+		 size = tmp_sendbuf[5] * 2 + 5;
+		 delay_time = size * 5;
+	}
+	else if(buf[1] == 0x06 || buf[1] == 0x10)
+	{	 
+		size = 8;
+		if(buf[1] == 0x06 && buf[5] == 0x3f)   // erase flash 
+			delay_time = 500;
+		else
+			delay_time = 100;
+	}
+	else 
+		return;
+
+	if(cSemaphoreTake(tempsem, 10) == pdFALSE)
+		return ;
+
+	uart_init_send_com(UART0);
+
+	memcpy(tmp_sendbuf,buf,len);
+	crc_check = crc16(tmp_sendbuf, len);
+	tmp_sendbuf[len] = HIGH_BYTE(crc_check);
+	tmp_sendbuf[len + 1] = LOW_BYTE(crc_check);
+	sub_send_string(tmp_sendbuf, len + 2 ,UART0);
+	set_subnet_parameters(RECEIVE,size,UART0);
+//	Lcd_Show_Data (3,1,1,0,1);	
+	if(length = wait_subnet_response(delay_time,UART0))
+	{		
+		U16_T i;
+	//	if(port == UART0)
+		{ // Lcd_Show_Data (3,1,2,0,1);
+			memcpy(subnet_response_buf,sub_data_buffer,length);
+		}
+		crc_check = crc16(subnet_response_buf, length - 2);
+
+		if(crc_check == subnet_response_buf[length - 2] * 256 + subnet_response_buf[length - 1])
+		{//	Lcd_Show_Data (3,1,3,0,1);	
+			main_init_send_com();
+			for(i = 0;i < length;i++)
+				main_send_byte(subnet_response_buf[i],CRC_NO);	
+		}			
+
+	}
+//	Lcd_Show_Data (3,1,4,0,1);
+	set_subnet_parameters(SEND, 0,UART0);
+	cSemaphoreGive(tempsem);
+}
+
+void vStartScanTask(unsigned char uxPriority)
+{
+	memset(node_write,0,sizeof(STR_NODE_OPERATE) * STACK_LEN);
+	sTaskCreate(ScanTask, (const signed portCHAR * const)"ScanTask", ScanSTACK_SIZE, NULL, uxPriority, (xTaskHandle *)&Handle_Scan);
+	sTaskCreate(ParameterOperationTask, (const signed portCHAR * const)"ParameterOperationTask", ParameterOperationSTACK_SIZE, NULL, uxPriority + 1, (xTaskHandle *)&Handle_ParameterOperation);
+}

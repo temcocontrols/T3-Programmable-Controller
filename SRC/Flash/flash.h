@@ -59,6 +59,10 @@
 //  use the last block for store datas and configure file
 #define FLASH_BLOCK			0x70000   //  default using the last page
 
+#define BASE_CODE_LEN		0x7D7F0 - 2
+#define BASE_CODE_INDEX 	0x7D7F0	  // MAX CODE INDEX IS 32, so MAX_PRGS must be less than 32
+#define BASE_CODE			0x7D810
+
 /* GLOBAL VARIABLES */
 extern U8_T CODE* PFlash;
 

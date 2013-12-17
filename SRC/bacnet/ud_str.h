@@ -6,14 +6,16 @@
 #include "types.h"
 #include "flash_schedule.h"
 
+#define FLASH_BUFFER_LENGTH    0x10000L
 
+#define  CODE_ELEMENT	400
+#define  MAX_IO_POINTS	 64
+#define MAX_OUTS	20 
+#define MAX_INS     20
+#define MAX_VARS               64
+#define MAX_CONS               48//16
 
-#define MAX_OUTS	10
-#define MAX_INS     10
-#define MAX_VARS               16//64
-#define MAX_CONS               16
-
-#define MAX_MONITORS           8
+#define MAX_MONITORS           16
 
 #define MAX_TOTALIZERS         2  /* MAX_IO_POINTS */
 
@@ -26,9 +28,9 @@
 #define MAX_INTERVALS_PER_DAY	  4
 #define MAX_AR                  4
 #define AR_DATES_SIZE          46
-#define MAX_PRGS               6//16
+#define MAX_PRGS               16
 #define MAX_TBLS                5
-#define PROGRAMS_POOL_SIZE 		0x2800  // 640 * 16
+//#define PROGRAMS_POOL_SIZE 		0x2800  // 640 * 16
 #define MAX_ALARMS             16
 #define MAX_ALARMS_SET         16
 #define MAX_ARRAYS             16
@@ -44,6 +46,14 @@
 #define MAXNETWORKPOINTS       32
 #define TABLE_BANK_LENGTH      15
 
+#define MON_BUFFER_SIZE         FLASH_BUFFER_LENGTH
+#define MAX_POINTS_IN_MONITOR   14
+#define MAX_MONITOR_POINTS      MAX_MONITORS * MAX_POINTS_IN_MONITOR
+
+#define MAX_ANALOG_SAMPLES_PER_BLOCK  140
+#define MAX_DIGITAL_SAMPLES_PER_BLOCK 112
+
+//#define NAME_SIZE 17
 
 typedef enum
 	{
@@ -92,9 +102,9 @@ typedef enum {
 		 WRITESCREEN_T3000         = 100+GRP+1,        /* write screens        */
 		 WRITEARRAY_T3000          = 100+ARRAY+1,      /* write arrays         */
 		 WRITETIMESCHEDULE_T3000   = 100+WR_TIME+1,    /* write time schedule  */
-		 WRITEANNUALSCHEDULE_T3000 = 100+AR_DATA+1,     /* write annual schedule*/
+		 WRITEANNUALSCHEDULE_T3000 = 100+AR_DATA+1,    /* write annual schedule*/
 		 WRITEPROGRAMCODE_T3000    = 100+16,           /* write program code    */
-		 WRITEINDIVIDUALPOINT_T3000 = 100+READINDIVIDUALPOINT_T3000,  /* write individual point*/
+		 WRITEINDIVIDUALPOINT_T3000 = 100+READINDIVIDUALPOINT_T3000, /* write individual point*/
 
 		 COMMAND_50                = 50,
 		 READ_COMMAND_50           = 50,
@@ -146,8 +156,10 @@ typedef enum {
 		 READFLASHSTATUS_COMMAND   = 119,
 		 READSTATUSWRITEFLASH_COMMAND = 120,
 		 RESTARTMINI_COMMAND       = 121,
-		 WRITEPRGFLASH_COMMAND     = 200,//122,
-		 OPENSCREEN_COMMAND        = 123
+		 WRITEPRGFLASH_COMMAND     = 122,
+		 OPENSCREEN_COMMAND        = 123,
+
+		 GET_PANEL_INFO			= 99,
 
 } CommandRequest;
 
@@ -166,7 +178,7 @@ typedef enum  {
 
 
 
-typedef enum { UNUSED=100,
+typedef enum { UNUSED=0,
 	OFF_ON, CLOSED_OPEN, STOP_START, DISABLED_ENABLED,
 	NORMAL_ALARM, NORMAL_HIGH, NORMAL_LOW, NO_YES,
 	COOL_HEAT, UNOCCUPIED_OCCUPIED, LOW_HIGH,
@@ -353,8 +365,8 @@ typedef struct
 	uint8_t off  ;
 	uint8_t unused	; /* (11 bits)*/
 
-//	Point_T3000 override_1;	     /* (3 bytes; point)*/
-//	Point_T3000 override_2;	     /* (3 bytes; point)*/
+	Point_T3000 override_1;	     /* (3 bytes; point)*/
+	Point_T3000 override_2;	     /* (3 bytes; point)*/
 
 } Str_weekly_routine_point; /* 21+9+2+3+3 = 38*/
 
@@ -385,7 +397,7 @@ typedef struct
 
 }	Str_annual_routine_point;   /* 21+9+2=32 bytes*/
 
-#if 1
+
 typedef struct
 {
 	int8_t description[21]; 	      	  /* (21 bytes; string)*/
@@ -398,7 +410,272 @@ typedef struct
 	uint8_t unused;   //      : 8;
 
 } Str_program_point;	  /* 21+9+2+2 = 34 bytes*/
- #endif
+
+
+typedef struct
+{
+	S8_T view_name[11];		/**/
+	U8_T on_off;						/**/
+	S32_T timerange;				/**/
+}	Views;  			/* 11+1+4=16*/
+
+typedef struct              /* 5 bytes */
+{
+	U8_T pointno_and_value;    // bit0-bit6 point_no     value bit7
+//	U8_T unused ;
+//	U8_T value;
+
+	U32_T          time;
+
+} Digital_sample;        /* 5 bytes */
+
+typedef struct
+{
+	S8_T label[9];		      	  					/* 9 bytes; string */
+
+	Point_Net 	inputs[MAX_POINTS_IN_MONITOR];	/* 70 bytes; array of Point_Net */
+	U8_T		range[MAX_POINTS_IN_MONITOR]; /* 14 bytes */
+
+	U8_T second_interval_time; 				/* 1 byte ; 0-59 */
+	U8_T minute_interval_time; 				/* 1 byte ; 0-59 */
+	U8_T hour_interval_time;   				/* 1 byte ; 0-255 */
+
+	U8_T max_time_length;      /* the length of the monitor in time units */
+
+//	Views views[MAX_VIEWS];			/* 16 x MAX_VIEWS bytes */
+
+	U8_T num_inputs  ;// :4; 	/* total number of points */
+	U8_T an_inputs ;//   :4; 	/* number of analog points */
+	U8_T unit 		;//		:2; 	/* 2 bits - minutes=0, hours=1, days=2	*/
+//	U8_T ind_views	;//	:2; 	/* number of views */
+	U8_T wrap_flag	;//	:1;		/* (1 bit ; 0=no wrap, 1=data wrapped)*/
+	U8_T status		;//		:1;		/* monitor status 0=OFF / 1=ON */
+	U8_T reset_flag	;//	:1; 	/* 1 bit; 0=no reset, 1=reset	*/
+	U8_T double_flag;//	:1; 	/* 1 bit; 0= 4 bytes data, 1= 1(2) bytes data */
+
+}	Str_monitor_point; 		/* 9+70+14+3+1+48+2 = 133 bytes */
+
+
+typedef struct
+{
+	U32_T next_sample_time;  	/* 4 bytes of time type - used only for analog points*/
+	U8_T	first_analog_block;
+	U8_T  current_analog_block;
+	U8_T  no_analog_blocks;
+	U8_T first_digital_block;
+	U8_T  current_digital_block;
+	U8_T  no_digital_blocks;
+
+  	U8_T  no_of_digital_points;
+	U8_T priority  ;//  :2; /* 1-low, 2-medium, 3-high */
+	U8_T start 	  ;//  :1; /* 1 bit	*/
+	U8_T saved	  ;//    :1; /* 1 bit	*/
+	U8_T active	 ;//   :1; /* 1 bit - 0=inactive, 1=active	*/
+	
+}	Mon_aux; 		/* 4++3+1 = 8 bytes */
+
+typedef struct              /* 645 bytes */
+{
+	Point_Net     inputs[MAX_POINTS_IN_MONITOR]; /* 70 bytes; array of Point_Net */
+
+	U8_T monitor;//	       :4; /* monitors' number */
+	U8_T no_points  ;//     :4; /* number of points in block */
+
+	U8_T second_interval_time; /* 1 U8_T ; 0-59 */
+	U8_T minute_interval_time; /* 1 U8_T ; 0-59 */
+	U8_T hour_interval_time;   /* 1 U8_T ; 0-255 */
+
+	U8_T priority	 ;//     :2; /* 0-block empty, 1-low, 2-medium, 3-high */
+	U8_T first_block  ;//   :1; /* 1 - this block is the first in the chain */
+	U8_T last_block  ;//    :1; /* 1 - this block is the last in the chain */
+	U8_T analog_digital;//  :1; /* 0 - analog, 1 - digital */
+	U8_T block_state ;//    :1; /* 0 = unused, 1 = used */
+	U8_T fast_sampling;//   :1; /* 0 = normal sampling 1 = fast sampling */
+	U8_T wrap_around ;//    :1; /* 1 - wrapped  */
+
+	U32_T          start_time;
+
+	U16_T          index;      /* pointer to the new free location in block */
+														/* equal with the number of samples in block */
+	U8_T          next_block; /* pointer to the next block in chain
+	                              255 = last block in chain */
+	U8_T          block_no;      /* position of block in chain */
+  	U8_T      last_digital_state ;//: 14;
+  	U8_T      not_used       ;//    :  2;
+
+  	union {
+	U32_T           analog[MAX_ANALOG_SAMPLES_PER_BLOCK];   /* 140*4=560 bytes */
+  	Digital_sample digital[MAX_DIGITAL_SAMPLES_PER_BLOCK]; /* 112*5=560 bytes */
+  	U8_T           raw_byte[560];
+  	U16_T           raw_int[280];
+  	} dat;
+
+}	Monitor_Block;         /* 645 bytes */
+
+
+typedef struct              /* 85 bytes */
+{
+	Point_Net     inputs[MAX_POINTS_IN_MONITOR]; /* 70 bytes; array of Point_Net */
+
+	U8_T monitor;//	       :4; /* monitors' number */
+	U8_T no_points ;//      :4; /* number of points in block */
+/*	unsigned tenths_of_seconds    : 4; /* 4 bits ; 0-15 */
+/*	unsigned second_interval_time : 6; /* 6 bits ; 0-59 */
+/*	unsigned minute_interval_time : 6; /* 6 bits ; 0-59 */
+
+	U8_T second_interval_time; /* 1 U8_T ; 0-59 */
+	U8_T minute_interval_time; /* 1 U8_T ; 0-59 */
+	U8_T hour_interval_time;   /* 1 U8_T ; 0-255 */
+
+	U8_T priority	  ;//     :2; /* 0-block empty, 1-low, 2-medium, 3-high */
+	U8_T first_block  ;//   :1; /* 1 - this block is the first in the chain */
+	U8_T last_block    ;//  :1; /* 1 - this block is the last in the chain */
+	U8_T analog_digital;//  :1; /* 0 - analog, 1 - digital */
+	U8_T block_state ;//    :1; /* 0 = unused, 1 = used */
+	U8_T fast_sampling;//   :1; /* 0 = normal sampling 1 = fast sampling */
+	U8_T wrap_around  ;//   :1; /* 1 - wrapped  */
+
+	S32_T          start_time;
+
+	U16_T          index;      /* pointer to the new free location in block */
+														/* equal with the number of samples in block */
+	U8_T          next_block; /* pointer to the next block in chain
+	                              255 = last block in chain */
+	U8_T          block_no;      /* position of block in chain */
+
+
+  U8_T      last_digital_state ;//: 14;
+  U8_T      not_used       ;//    :  2;
+/*  unsigned      index_fast         :  2;*/
+
+
+} Monitor_Block_Header;  /* 85 bytes */
+
+
+typedef struct
+{
+	U8_T grpsize;       		/* 0-6 inputs per analog monitor*/
+	U8_T number_of_mon; 		/* 0-99 monitors with this definition*/
+	U8_T length;        		/* 0-255 data elements*/
+
+
+	U8_T digital_analog ;//:1;  /* 0-analog monitor, 1-digital monitor*/
+	U8_T unused		;//	    :3;
+	U8_T two_or_4_bytes ;//:1;  /* 0=2 bytes per analog sample, 1=4 bytes*/
+	U8_T not_used	;//		  :3;
+
+	U8_T flag;
+
+} Monitor_element;		/* 3+1=4 definition used in Burke systems */
+/**/
+
+typedef struct
+{
+	S8_T label[9];		       /* point label: 9 bytes */
+
+	Point_Net point;         /* point to be monitored */
+	S32_T start_time;         /* moment the totalizer was started - sec since 1970 */
+	S32_T value_timeon;       /* analog : totalized value
+													 /* digital: total number of seconds the point was ON */
+	S32_T time_of_last_check; /* digital: time the totalizer was checked */
+
+	S32_T ratecount_OFF_ON_transitions; /* digital: number of transitions from OFF to ON since start_time */
+																		 /* analog : number of samples in totalized value */
+	S32_T value1;             /* analog: totalized value per rate */
+	S32_T count;              /* analog: number of samples within rate */
+	U8_T units;              /* (1 U8_T ; Analog_units_equate)*/
+
+	U8_T digital_analog  ;//  : 1;   /* 0-digital monitor, 1-analog monitor */
+	U8_T active         ;//   : 1;  /* 1=ACTIVE, 0=INACTIVE */
+	U8_T reset          ;//   : 1;  /* 1=RESET, 0=DON'T CARE */
+	U8_T last_state     ;//   : 1;  /* 1=ON, 0=OFF */
+	U8_T rate          ;//    : 2;
+	U8_T unused       ;//     : 2;
+
+} Str_totalizer_point;  /* 9+5+4+4+4+4+1+2=33 bytes */
+
+
+typedef struct
+{
+	Point_Net point; /* 5 bytes */
+
+	S32_T point_value;
+
+
+	U8_T auto_manual	;//     : 1;  /* 0=auto, 1=manual*/
+	U8_T digital_analog	 ;//  : 1;  /* 0=digital, 1=analog*/
+	U8_T description_label ;//: 3;  /* 0=display description, 1=display label*/
+	U8_T security	       ;//  : 2;  /* 0-3 correspond to 2-5 access level*/
+	U8_T decomisioned	  ;//   : 1;  /* 0=normal, 1=point decommissioned*/
+
+	U8_T units           ;//  : 8;
+/*		Point_info		info;  11 bytes */
+/*		***!!! - I replaced Point_info with it's content */
+
+	U8_T 	show_point	;//	   : 1;
+	U8_T 	icon_name_index ;// : 7;
+	U8_T 	nr_element    ;//   : 8;
+
+	S32_T high_limit;
+	S32_T low_limit;
+
+	U8_T 	graphic_y_coordinate;//	: 10;
+	U8_T 	off_low_color	;//				: 4;
+	U8_T 	type_icon	  	 ;//       : 2;
+	U8_T 	graphic_x_coordinate;//	: 10;
+	U8_T 	on_high_color	;//				: 4;
+	U8_T 	display_point_name;//		: 1;
+	U8_T 	default_icon	;//		    : 1;
+
+	U8_T 	text_x_coordinate  ;//   : 7; /* */
+	U8_T 	modify             ;//   : 1;
+	U8_T 	absent            ;//    : 1; /* 1 = absent 0= present */
+	U8_T 	location           ;//   : 2; /* where is located Local or Remote */
+	U8_T 	text_y_coordinate  ;//   : 5;
+
+	S8_T    bkgnd_icon;
+
+	U8_T 	xicon           ;//  : 10;
+	U8_T 	text_place		;//		: 4;
+	U8_T 	text_present	;//		: 1;
+	U8_T 	icon_present;//			: 1;
+	U8_T 	yicon          ;//   : 10;
+	U8_T 	text_size	;//		    : 2;
+	U8_T 	normal_color	;//    : 4; 
+
+}	Str_grp_element; /* 5+4+2+2+4+4+2+1+1+1+2+2 = 32 */
+
+typedef struct
+{
+	S8_T description[21];				/* (21 bytes; string)	*/
+	S8_T label[9];							/* (9 bytes; string)	*/
+	S8_T picture_file[11];			/* (11 bytes; string)	*/
+
+	U8_T update;                /* refresh time */
+	U8_T  mode     ;// :1;     /* text / graphic */
+	U8_T  xcur_grp	;//:15;
+
+	S16_T  ycur_grp;
+
+} Control_group_point;				/* (size = 46 bytes)	*/
+
+typedef struct
+{
+	U8_T 	no_elements;				/* 8 bits ; no of elements in the group	*/
+	Str_grp_element	*address; /* pointers to each group */
+
+} Aux_group_point;
+
+
+typedef struct {
+	U8_T	filter_last;	/* last value of the filter field */
+	U32_T	filter_sum;
+	U16_T	average;      /* the filtered value */
+	U16_T	last;         /* the previous sample - unfiltered */
+	S16_T 	ticks;        /* pulses counted since last cleared */
+}			In_aux;
+
+
 
 typedef struct {
 	S8_T *address;
@@ -419,7 +696,7 @@ typedef union {
 		Str_weekly_routine_point  *pwr;
 		Str_annual_routine_point  *panr;
 		Str_program_point 		  *pprg;
-	/*	Str_array_point 		  *pary;
+//		Str_array_point 		  *pary;
 		Str_monitor_point		  *pmon;
 	    Str_totalizer_point       *ptot;
 	    Monitor_Block             *pmb;
@@ -427,17 +704,17 @@ typedef union {
 		Control_group_point       *pgrp;
 		Aux_group_point           *pgaux;
 		Str_grp_element           *pgrel;
-		Alarm_point               *palrm;
-		MiniInfo2 				  *pmi2;
-		MiniCommInfo			  *pmci;
+	//	Alarm_point               *palrm;
+	//	MiniInfo2 				  *pmi2;
+	//	MiniCommInfo			  *pmci;
 		Point_Net		          *pnet;
 		Point_info                *ppinf;
-		System_Name_Number        *psnn;
-		Program_remote_points     *pprp;
-		Info_Table                *pinf;
-		REMOTE_POINTS             *prp;
-		NETWORK_POINTS            *pnp;
-		WANT_POINTS               *pwp;*/
+	//	System_Name_Number        *psnn;
+	//	Program_remote_points     *pprp;
+	//	Info_Table                *pinf;
+	//	REMOTE_POINTS             *prp;
+	//	NETWORK_POINTS            *pnp;
+	//	WANT_POINTS               *pwp;
 	 } Str_points_ptr;
 
 
@@ -447,19 +724,42 @@ typedef struct
 	 uint8_t		command;
 	 uint8_t		point_start_instance;
 	 uint8_t		point_end_instance;
-	 uint8_t		entitysize;
+	 uint16_t		entitysize;
 
 }Str_user_data_header;
 
 
+typedef	union
+{
+	uint8_t all[20];
+	struct 
+	{ 	
+	 uint16_t instance;
+	 uint8_t mac[6];
+	 uint8_t serial_num[4];
+	 uint8_t modbus_addr;
+	 uint8_t product_type;
+	 uint8_t panel_number;
+	 uint8_t noused[6];
+			
+	}reg;
+}Str_Panel_Info;
+
+
+
+#define USER_DATA_HEADER_LEN 7
+
+
+
+U16_T mGetPointWord2( U16_T dat );
+U16_T mGetPointWord( U8_T *iAddr );
+U32_T DoulbemGetPointWord( U8_T *iAddr ) ;
+U32_T DoulbemGetPointWord2( U32_T dat ) ;
 
 
 
 
-
-
-
-
+void sub_send_string(U8_T *p, U16_T length,U8_T port);
 
 
 

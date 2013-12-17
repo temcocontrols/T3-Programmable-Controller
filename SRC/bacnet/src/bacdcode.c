@@ -888,7 +888,6 @@ int encode_octet_string(
             apdu[i] = value[i];
         }
     }
-
     return len;
 }
 
@@ -913,7 +912,6 @@ int encode_application_octet_string(
             apdu_len = 0;
         }
     }
-
     return apdu_len;
 }
 
@@ -956,7 +954,6 @@ int decode_octet_string(
     if (status) {
         len = (int) len_value;
     }
-
     return len;
 }
 

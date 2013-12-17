@@ -35,7 +35,8 @@ typedef struct
 void Flash_Inital(void);
 void Flash_Write_Mass(void);
 void Flash_Read_Mass(void);
-
+void Flash_Read_Code(void);
+void Flash_Store_Code(void);
 
 extern STR_flag_flash 	far bac_flash;
 

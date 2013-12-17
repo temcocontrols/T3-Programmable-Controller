@@ -490,13 +490,14 @@ void apdu_handler(
                     Unrecognized_Service_Handler(service_request,
                         service_request_len/*, src, &service_data*/);
 				#endif
-				if (service_choice == SERVICE_CONFIRMED_READ_PROPERTY) {
-                handler_read_property(service_request,
-                    service_request_len, src, &service_data);
-	            } else if (service_choice == SERVICE_CONFIRMED_WRITE_PROPERTY) {
-	                handler_write_property(service_request,
-	                 service_request_len, src, &service_data);
-	            } else if (service_choice == SERVICE_CONFIRMED_PRIVATE_TRANSFER) {
+//				if (service_choice == SERVICE_CONFIRMED_READ_PROPERTY) {
+//                handler_read_property(service_request,
+//                    service_request_len, src, &service_data);
+//	            } else if (service_choice == SERVICE_CONFIRMED_WRITE_PROPERTY) {
+//	                handler_write_property(service_request,
+//	                 service_request_len, src, &service_data);
+//	            } else 
+				if (service_choice == SERVICE_CONFIRMED_PRIVATE_TRANSFER) {
 	                handler_private_transfer(apdu,apdu_len,src);	 // add private transfer by chelsea
 	            }else
 				{
@@ -526,16 +527,20 @@ void apdu_handler(
                             service_request_len/*, src*/);		// tbd: chelsea
                 }
 				#endif				
-				if (service_choice == SERVICE_UNCONFIRMED_WHO_IS) {
-				//	Send_WhoIs(0,127);
-				if(	protocal == BAC_MSTP)
-                	handler_who_is(service_request,
-                     service_request_len, src);
-				else if(protocal == BAC_IP)
+				if (service_choice == SERVICE_UNCONFIRMED_WHO_IS) 
+				{				
+					if(	protocal == BAC_MSTP)
+					{	  
+	                	handler_who_is(service_request,
+	                     service_request_len, src);
+						}
+					else if(protocal == BAC_IP)
+					{					
 					Send_I_Am(&Handler_Transmit_Buffer[0]);
+					}
             	}
 				// add unconfirmedPrivateTransfer handler, for TEMCO private
-				if (service_choice == SERVICE_UNCONFIRMED_PRIVATE_TRANSFER) {
+				if (service_choice == SERVICE_UNCONFIRMED_PRIVATE_TRANSFER) {//	Test[3]++;
 					handler_private_transfer(apdu,apdu_len,src);
 			
 				}

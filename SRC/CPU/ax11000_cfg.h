@@ -28,7 +28,7 @@
 #define		AX_SWRST_ENB		1 // 1:use software reset function ; 0:not use
 #define		AX_SWRBT_ENB		1 // 1:use software reboot function ; 0:not use
 #define		STOE_ENABLE			1
-#define		AX_WATCHDOG_ENB		0 // 1:involve watchdog function ; 0:not use
+#define		AX_WATCHDOG_ENB		1 // 1:involve watchdog function ; 0:not use
 
 /*-------------------------------------------------------------*/
 #define		RUNTIME_CODE_START_AT_0H		0	/*	0: runtime code start at 0h */

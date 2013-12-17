@@ -5,7 +5,7 @@
 #include	"define.h"
 
 
-U8_T  month_length[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+//U8_T  month_length[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
 U8_T data sec,min,hour,day,week,mon,year;
 

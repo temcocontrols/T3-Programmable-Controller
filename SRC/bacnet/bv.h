@@ -32,7 +32,7 @@
 #include "wp.h"
 
 #ifndef MAX_BINARY_VALUES
-#define MAX_BINARY_VALUES 10
+#define MAX_BINARY_VALUES 5
 #endif
 
 

@@ -39,7 +39,6 @@
 //uint8_t Rec_Mstp_Byte;
 //uint8_t Rec_Mstp_Err;
 
-void main_send_byte(U8_T buffer, U8_T crc);
 /* This file has been customized for use with ATMEGA168 */
 //#include "hardware.h"
 #include "timer.h"
@@ -72,7 +71,10 @@ static FIFO_BUFFER Receive_Buffer;
 void RS485_Initialize(
     void)
 {
-	UART_Init(1); 
+	if(BACnet_Port == UART0)
+		UART_Init(0); 
+	else
+		UART_Init(1); 
 	FIFO_Init(&Receive_Buffer, &Receive_Buffer_Data[0],
         (unsigned) sizeof(Receive_Buffer_Data));
 	
@@ -139,10 +141,20 @@ bool RS485_Set_Baud_Rate(
 void RS485_Transmitter_Enable(
     bool enable)
 {
-	if(enable)
-		UART1_TXEN = 1;
+	if(BACnet_Port == UART0)
+	{
+		if(enable)
+			UART0_TXEN = 1;
+		else
+			UART0_TXEN = 0;
+	}
 	else
-		UART1_TXEN = 0;
+	{
+		if(enable)
+			UART1_TXEN = 1;
+		else
+			UART1_TXEN = 0;
+	}
 }
 
 /****************************************************************************
@@ -159,7 +171,9 @@ void RS485_Turnaround_Delay(
 	/* delay after reception before trasmitting - per MS/TP spec */
 	/* wait a minimum  40 bit times since reception */
 	/* at least 1 ms for errors: rounding, clock tick */
-	turnaround_time = 4;//1 + ((Tturnaround * 1000UL) / RS485_Baud);
+	// if baud is 9600, turnaround_time is 4
+	// if baud if 19200, turnaround time is 2
+	turnaround_time = 2;//1 + ((Tturnaround * 1000UL) / RS485_Baud);
 	while (Timer_Silence() < turnaround_time) {
 	/* do nothing - wait for timer to increment */
 	};
@@ -179,12 +193,26 @@ void RS485_Send_Data(
     uint16_t nbytes)
 {       /* number of bytes of data */
     /* send all the bytes */
-    while (nbytes) {
-        SBUF1 = *buffer;
+	uint16_t count = 0;
+
+    while (nbytes) 
+	{
+        if(BACnet_Port == UART0)
+			SBUF0 = *buffer;
+		else
+			SBUF1 = *buffer;
         MSTP_Transmit_Finished = 0;
-        while (!MSTP_Transmit_Finished) {
+		count = 0;
+        while (!MSTP_Transmit_Finished && count < 2500) {
+		count++;
             /* do nothing - wait until Tx buffer is empty */
         }
+		
+		if(count >= 2500)	
+	{
+		Test[17]++;
+	}
+
         buffer++;
         nbytes--;
     }
@@ -243,18 +271,34 @@ bool RS485_DataAvailable(
 void mstp_int_handler(void)
 {
 	uint8_t data_byte;
-    if (RI1 == 1) {
-        /* we received a byte */
-		data_byte = SBUF1;
-		FIFO_Put(&Receive_Buffer, data_byte);
-		
-        RI1 = 0;
-    } else if (TI1 == 1) {
-        /* we finished trasmitting a byte */
-        MSTP_Transmit_Finished = 1;
-        TI1 = 0;
-    }
-
+	if(BACnet_Port == UART0)
+	{
+	   if (RI0 == 1) {
+	        /* we received a byte */
+			data_byte = SBUF0;
+			FIFO_Put(&Receive_Buffer, data_byte);
+			
+	        RI0 = 0;
+	    } else if (TI0 == 1) {
+	        /* we finished trasmitting a byte */
+	        MSTP_Transmit_Finished = 1;
+	        TI0 = 0;
+	    }
+	}
+	else
+	{
+	    if (RI1 == 1) {
+	        /* we received a byte */
+			data_byte = SBUF1;
+			FIFO_Put(&Receive_Buffer, data_byte);
+			
+	        RI1 = 0;
+	    } else if (TI1 == 1) {
+	        /* we finished trasmitting a byte */
+	        MSTP_Transmit_Finished = 1;
+	        TI1 = 0;
+	    }
+	}
     return;
 
 }

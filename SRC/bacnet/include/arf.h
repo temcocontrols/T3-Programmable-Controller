@@ -57,19 +57,19 @@ extern "C" {
     int arf_encode_apdu(
         uint8_t * apdu,
         uint8_t invoke_id,
-        BACNET_ATOMIC_READ_FILE_DATA * data);
+        BACNET_ATOMIC_READ_FILE_DATA * dat);
 
 /* decode the service request only */
     int arf_decode_service_request(
         uint8_t * apdu,
         unsigned apdu_len,
-        BACNET_ATOMIC_READ_FILE_DATA * data);
+        BACNET_ATOMIC_READ_FILE_DATA * dat);
 
     int arf_decode_apdu(
         uint8_t * apdu,
         unsigned apdu_len,
         uint8_t * invoke_id,
-        BACNET_ATOMIC_READ_FILE_DATA * data);
+        BACNET_ATOMIC_READ_FILE_DATA * dat);
 
 /* Atomic Read File Ack */
 
@@ -77,19 +77,19 @@ extern "C" {
     int arf_ack_encode_apdu(
         uint8_t * apdu,
         uint8_t invoke_id,
-        BACNET_ATOMIC_READ_FILE_DATA * data);
+        BACNET_ATOMIC_READ_FILE_DATA * dat);
 
 /* decode the service request only */
     int arf_ack_decode_service_request(
         uint8_t * apdu,
         unsigned apdu_len,
-        BACNET_ATOMIC_READ_FILE_DATA * data);
+        BACNET_ATOMIC_READ_FILE_DATA * dat);
 
     int arf_ack_decode_apdu(
         uint8_t * apdu,
         unsigned apdu_len,
         uint8_t * invoke_id,
-        BACNET_ATOMIC_READ_FILE_DATA * data);
+        BACNET_ATOMIC_READ_FILE_DATA * dat);
 
 #ifdef TEST
 #include "ctest.h"

@@ -161,7 +161,7 @@ static uint8_t TransmitPacketDest;
 /* not to exceed 100 milliseconds.) */
 /* At 9600 baud, 60 bit times would be about 6.25 milliseconds */
 /* const uint16_t Tframe_abort = 1 + ((1000 * 60) / 9600); */
-#define Tframe_abort 30
+#define Tframe_abort  30 // baud is 9600,Tframe_abort is 6, baud is 19200,Tframe_abort is 3, fixed by chelsea
 
 /* The maximum time a node may wait after reception of a frame that expects */
 /* a reply before sending the first octet of a reply or Reply Postponed */
@@ -171,7 +171,7 @@ static uint8_t TransmitPacketDest;
 /* we need to be able to increment without rolling over */
 #define INCREMENT_AND_LIMIT_UINT8(x) {if (x < 0xFF) x++;}
 
-
+extern unsigned char	Station_NUM;
 volatile struct mstp_port_struct_t *mstp_port ;  
 
 bool dlmstp_init(
@@ -187,7 +187,7 @@ bool dlmstp_init(
     SourceAddress = 0;    
 	InputBuffer = NULL;
 	MSTP_Flag.TransmitPacketPending = false;
-   	This_Station = 5;
+   	This_Station = Station_NUM;
 	Nmax_master = 127;
 	Nmax_info_frames = 1;
  
@@ -325,7 +325,6 @@ static void MSTP_Receive_Frame_FSM(
     static uint16_t Index = 0;
     switch (Receive_State) {
         case MSTP_RECEIVE_STATE_IDLE:
-		
             /* In the IDLE state, the node waits for the beginning of a frame. */
             if (RS485_ReceiveError()) {
                 /* EatAnError */  				
@@ -338,12 +337,10 @@ static void MSTP_Receive_Frame_FSM(
                     /* Preamble1 */
                     /* receive the remainder of the frame. */
                     Receive_State = MSTP_RECEIVE_STATE_PREAMBLE;
-					
                 }
             }
             break;
         case MSTP_RECEIVE_STATE_PREAMBLE:
-		
             /* In the PREAMBLE state, the node waits for the
                second octet of the preamble. */
             if (Timer_Silence() > Tframe_abort) {
@@ -351,8 +348,9 @@ static void MSTP_Receive_Frame_FSM(
                 /* a correct preamble has not been received */
                 /* wait for the start of a frame. */
                 Receive_State = MSTP_RECEIVE_STATE_IDLE;
-            } else if (RS485_ReceiveError()) {
-                /* Error */
+            } else if (RS485_ReceiveError()) {		
+			
+		  /* Error */
                 Timer_Silence_Reset();
                 INCREMENT_AND_LIMIT_UINT8(EventCount);
                 /* wait for the start of a frame. */
@@ -378,7 +376,6 @@ static void MSTP_Receive_Frame_FSM(
             }
             break;
         case MSTP_RECEIVE_STATE_HEADER:
-				
             /* In the HEADER state, the node waits for the fixed message header. */
             if (Timer_Silence() > Tframe_abort) {
                 /* Timeout */
@@ -479,7 +476,6 @@ static void MSTP_Receive_Frame_FSM(
             }
             break;
         case MSTP_RECEIVE_STATE_DATA:
-			
             /* In the DATA state, the node waits for the data portion of a frame. */
             if (Timer_Silence() > Tframe_abort) {
                 /* Timeout */
@@ -578,7 +574,6 @@ static bool MSTP_Master_Node_FSM(
 
     switch (Master_State) {
         case MSTP_MASTER_STATE_INITIALIZE:
-			
             /* DoneInitializing */
             /* indicate that the next station is unknown */
             Next_Station = This_Station;
@@ -595,8 +590,7 @@ static bool MSTP_Master_Node_FSM(
             break;
         case MSTP_MASTER_STATE_IDLE:
             /* In the IDLE state, the node waits for a frame. */
-		//	Test[18]= Timer_Silence();		
-            if (Timer_Silence() >= Tno_token) {
+            if (Timer_Silence() >= Tno_token) {	
                 /* LostToken */
                 /* assume that the token has been lost */
                 EventCount = 0; /* Addendum 135-2004d-8 */
@@ -682,9 +676,10 @@ static bool MSTP_Master_Node_FSM(
 			
             break;
         case MSTP_MASTER_STATE_WAIT_FOR_REPLY:
+		
             /* In the WAIT_FOR_REPLY state, the node waits for  */
             /* a reply from another node. */
-            if (Timer_Silence() >= Treply_timeout) {
+            if (Timer_Silence() >= Treply_timeout) { 
                 /* ReplyTimeout */		   
                 /* assume that the request has failed */
                 FrameCount = Nmax_info_frames;
@@ -823,7 +818,7 @@ static bool MSTP_Master_Node_FSM(
             break;
             /* The PASS_TOKEN state listens for a successor to begin using */
             /* the token that this node has just attempted to pass. */
-        case MSTP_MASTER_STATE_PASS_TOKEN:
+        case MSTP_MASTER_STATE_PASS_TOKEN:	
             if (Timer_Silence() <= Tusage_timeout) {
 	              if (EventCount > Nmin_octets) {
                     /* SawTokenUser */
@@ -865,10 +860,10 @@ static bool MSTP_Master_Node_FSM(
             /* than Tno_token, indicating that there has been no network activity */
             /* for that period of time. The timeout is continued to determine  */
             /* whether or not this node may create a token. */
-        case MSTP_MASTER_STATE_NO_TOKEN:
+        case MSTP_MASTER_STATE_NO_TOKEN:  
             my_timeout = Tno_token + (Tslot * This_Station);
             if (Timer_Silence() < my_timeout) {
-                if (EventCount > Nmin_octets) {	//	Test[22]++;
+                if (EventCount > Nmin_octets) {	
                     /* SawFrame */
                     /* Some other node exists at a lower address.  */
                     /* Enter the IDLE state to receive and process the incoming frame. */
@@ -898,8 +893,8 @@ static bool MSTP_Master_Node_FSM(
             /* In the POLL_FOR_MASTER state, the node listens for a reply to */
             /* a previously sent Poll For Master frame in order to find  */
             /* a successor node. */
-        case MSTP_MASTER_STATE_POLL_FOR_MASTER:
-            if (MSTP_Flag.ReceivedValidFrame == true) {
+        case MSTP_MASTER_STATE_POLL_FOR_MASTER:	 
+            if (MSTP_Flag.ReceivedValidFrame == true) {	
                 if ((DestinationAddress == This_Station)
                     && (FrameType == FRAME_TYPE_REPLY_TO_POLL_FOR_MASTER)) {
                     /* ReceivedReplyToPFM */
@@ -923,7 +918,7 @@ static bool MSTP_Master_Node_FSM(
                     transition_now = true;
                 }
                 MSTP_Flag.ReceivedValidFrame = false;
-            } else if ((Timer_Silence() > 20/* Tusage_timeout*/) ||
+            } else if ((Timer_Silence() > Tusage_timeout) ||
                 (MSTP_Flag.ReceivedInvalidFrame == true)) {
                 if (MSTP_Flag.SoleMaster == true) {
                     /* SoleMaster */

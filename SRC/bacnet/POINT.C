@@ -5,7 +5,7 @@
 
 #define DIG1 100
 
-
+extern U16_T far Test[50];
 
 /*
  * ----------------------------------------------------------------------------
@@ -389,7 +389,7 @@ S16_T get_point_value( Point *point, S32_T *val_ptr )
   		{
 			switch( point->point_type-1 )
 			{
-				case OUT:
+				case OUT:   Test[3] = 23;
 					sptr.pout = &outputs[point->number];
 					if(!sptr.pout->digital_analog) /* DIGITAL */
 					{
@@ -401,7 +401,7 @@ S16_T get_point_value( Point *point, S32_T *val_ptr )
 					}
 					break;
 				case IN:
-					
+					Test[3] = 24;
 					sptr.pin = &inputs[point->number];
 					if( !sptr.pin->digital_analog)
 					{
@@ -412,7 +412,7 @@ S16_T get_point_value( Point *point, S32_T *val_ptr )
 						*val_ptr = sptr.pin->value;
 					}
 					break;
-			 	case VAR:
+			 	case VAR: Test[3] = 25;
 					sptr.pvar = &vars[point->number];
 					if( !sptr.pvar->digital_analog)
 					{
@@ -423,10 +423,10 @@ S16_T get_point_value( Point *point, S32_T *val_ptr )
 						*val_ptr = sptr.pvar->value;
 					}
 					break;
-			 	case CON:
+			 	case CON:  Test[3] = 26;
 					*val_ptr = controllers[point->number].value;
 					break;
-				case WRT:
+				case WRT:	Test[3] = 27;
 					*val_ptr = weekly_routines[point->number].value?1000L:0;
 					break;
 				case AR:
@@ -443,7 +443,7 @@ S16_T get_point_value( Point *point, S32_T *val_ptr )
 				
 				case TZ:  
 					*val_ptr = totalizers[point->number].active?1000L:0;
-					break;*/
+					break; */
 				
 			}
 		return point->number;
@@ -471,9 +471,9 @@ S16_T get_point_value( Point *point, S32_T *val_ptr )
 S16_T put_point_value( Point *point, S32_T *val_ptr, S16_T aux, S16_T prog_op )
 {
  	Str_points_ptr sptr;
+	U32_T temp;
 /* write value to point	*/
-
- 	if( ( OUTPUT <= point->point_type ) &&	( point->point_type <= ARRAYS ) )
+// 	if( ( OUTPUT <= point->point_type ) &&	( point->point_type <= ARRAYS ) )
 	{
 		if( point->number < table_bank[point->point_type-1] )
 		{
@@ -481,57 +481,79 @@ S16_T put_point_value( Point *point, S32_T *val_ptr, S16_T aux, S16_T prog_op )
 		 	{
 			case OUT:
 				sptr.pout = &outputs[point->number];
-				if( !sptr.pout->auto_manual && !prog_op || sptr.pout->auto_manual && prog_op )
-				{
+				sptr.pout->value = *val_ptr;
+				if( (sptr.pout->auto_manual == 0) && (prog_op == 0) || (sptr.pout->auto_manual == 1) && (prog_op == 1) )
+				{	 
 					if( !sptr.pout->digital_analog ) 	// DIGITAL
-					{
+					{	  
 						sptr.pout->control = *val_ptr ? 1 : 0;
 					}
-					sptr.pout->value = *val_ptr;
-		
+					sptr.pout->value = DoulbemGetPointWord(*val_ptr); 					
 				}
 				break;
 		  	case IN:
 				sptr.pin = &inputs[point->number];
-				if( !sptr.pin->auto_manual && !prog_op || sptr.pin->auto_manual && prog_op )
+				if( (sptr.pin->auto_manual == 0) && (prog_op == 0) || (sptr.pin->auto_manual == 1) && (prog_op == 1) )
 				{
 					if( !sptr.pin->digital_analog )
 					{
 						 sptr.pin->control = *val_ptr ? 1 : 0;
 					}
-					sptr.pin->value = *val_ptr;
+				//	sptr.pin->value = DoulbemGetPointWord(*val_ptr);
+					temp = *val_ptr;
+					sptr.pin->value = DoulbemGetPointWord2(temp);	
 				}
 				break;
 		  	case VAR:
 				sptr.pvar = &vars[point->number];
-				if( !sptr.pvar->auto_manual && !prog_op ||sptr.pvar->auto_manual && prog_op )
-				{					
-					if( !sptr.pvar->digital_analog)
-					{
+				if( (sptr.pvar->auto_manual == 0) && (prog_op == 0) ||(sptr.pvar->auto_manual == 1) && (prog_op == 1) )
+				{	
+							
+					if(sptr.pvar->digital_analog == 0)
+					{	
 						sptr.pvar->control = *val_ptr ? 1 : 0;
-					}
-					sptr.pvar->value = *val_ptr;
+
+					} 					
+					temp = *val_ptr;
+					Test[23] = *val_ptr;
+					Test[24] = sptr.pvar->control;
+					sptr.pvar->value = DoulbemGetPointWord2(temp);				
 				}
 				break;
 		  	case CON:
 				sptr.pcon = &controllers[point->number];
-				if( !sptr.pcon->auto_manual && !prog_op || sptr.pcon->auto_manual && prog_op )		
-					sptr.pcon->value = *val_ptr;
+				if( (sptr.pcon->auto_manual == 0) && (prog_op == 0) || (sptr.pcon->auto_manual == 1) && (prog_op == 1) )
+				{		
+				//	sptr.pcon->value = *val_ptr;
+					temp = *val_ptr ? 1 : 0;
+					sptr.pcon->value = DoulbemGetPointWord(temp); 
+				}
 				break;
 		  	case WRT:
 				sptr.pwr = &weekly_routines[point->number];
-				if( !sptr.pwr->auto_manual && !prog_op || sptr.pwr->auto_manual && prog_op )		 
-					sptr.pwr->value = *val_ptr ? 1 : 0;
+				if( (sptr.pwr->auto_manual == 0) && (prog_op == 0) || (sptr.pwr->auto_manual== 1) && (prog_op == 1) )		 
+				{	
+					temp = *val_ptr ? 1 : 0;
+					sptr.pwr->value = DoulbemGetPointWord(temp); 
+				}
 				break;
 		  	case AR:
 				sptr.panr = &annual_routines[point->number];
 				if( !sptr.panr->auto_manual && !prog_op || sptr.panr->auto_manual && prog_op )		 
-					sptr.panr->value = *val_ptr ? 1 : 0;
+				{
+				//	sptr.panr->value = *val_ptr ? 1 : 0;
+					temp = *val_ptr ? 1 : 0;
+					sptr.pwr->value = DoulbemGetPointWord(temp); 
+				}
 				break;
 		  	case PRG:
 				sptr.pprg = &programs[point->number];
-				if( !sptr.pprg->auto_manual && !prog_op || sptr.pprg->auto_manual && prog_op )		 
-					sptr.pprg->on_off = *val_ptr ? 1 : 0;
+				if( (sptr.pprg->auto_manual == 0) && (prog_op == 0) || (sptr.pprg->auto_manual == 1) && (prog_op == 1) )
+				{		 
+				//	sptr.pprg->on_off = *val_ptr ? 1 : 0;
+					temp = *val_ptr ? 1 : 0;
+					sptr.pprg->on_off = DoulbemGetPointWord(temp); 
+				}
 				break;
 		 /*	case ARRAY:
 				sptr.pary = &arrays[point->number];
@@ -640,7 +662,7 @@ S16_T get_point_info( Point_info *ptr )
 	Str_points_ptr sptr;
 	S16_T absent = 1;
 	bit tempbit;
-
+	U8_T temp;
 	ptr->decomisioned = 0;
   	if( ptr->number < table_bank[ptr->point_type-1] )
   	{
@@ -723,16 +745,20 @@ S16_T get_point_info( Point_info *ptr )
 				break;
 */
 		case WRT:
+				//Test[45]++;
 				sptr.pwr = &weekly_routines[ptr->number];
 				ptr->auto_manual = sptr.pwr->auto_manual;  
 		
 				ptr->point_value = sptr.pwr->value?1000L:0;
+				Test[47] = ptr->point_value;
 				ptr->units = 1;
 				break;
 		case AR:
+				Test[46]++;
 				sptr.panr = &annual_routines[ptr->number];
 				ptr->auto_manual = sptr.panr->auto_manual; 
 				ptr->point_value = sptr.panr->value?1000L:0;
+				Test[48] = ptr->point_value;
 				ptr->units = 1;
 				break;
 		case PRG:

@@ -193,7 +193,6 @@ int bacapp_decode_data(
 #endif
 #if defined (BACAPP_REAL)
             case BACNET_APPLICATION_TAG_REAL:
-			
                 len =
                     decode_real_safe(&apdu[0], len_value_type,
                     &(value->type.Real));
@@ -1371,7 +1370,7 @@ bool bacapp_parse_application_data(
     unsigned long unsigned_long_value = 0;
     double double_value = 0.0;
     int count = 0;
-
+	Test[3]++;
     if (value && (tag_number < MAX_BACNET_APPLICATION_TAG)) {
         status = true;
         value->tag = tag_number;
@@ -1403,10 +1402,12 @@ bool bacapp_parse_application_data(
 #endif
             case BACNET_APPLICATION_TAG_OCTET_STRING:
 //#if PRINT_ENABLED       /* Apparently ain't necessarily so. */
+				Test[4]++;
                 status =
                     octetstring_init_ascii_hex(&value->type.Octet_String,
-                    argv); 			
-//#endif
+                    argv); 
+				if(status == false)	Test[5]++;			
+//#endif		
                 break;
             case BACNET_APPLICATION_TAG_CHARACTER_STRING:
                 status =
@@ -1475,7 +1476,6 @@ bool bacapp_parse_application_data(
         }
         value->next = NULL;
     }
-
     return status;
 }
 #endif
