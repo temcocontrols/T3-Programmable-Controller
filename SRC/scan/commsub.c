@@ -71,7 +71,7 @@ void Comm_Tstat_Initial_Data(void)
 //	memset(schedule_data,0,254);
 
 	for(i = 0;i < SUB_NO;i++)
-		tst_info[i].type = 0xff;
+		tst_info[i].type = 0;//0xff;
 
 	memset(map_id_port,0,254 * sizeof(STR_MAP_ID_PORT));
 

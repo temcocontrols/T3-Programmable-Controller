@@ -394,23 +394,18 @@ void dealwith_conflict_id(U8_T port)
 		if(db_occupy[occupy_id / 8] & (1 << (occupy_id % 8)))
 		{
 			idle_id = get_idle_id();
-			Test[20]++;
-			Test[19] = idle_id;
 			if(idle_id == 0xff) break;
 			status = send_scan_cmd(occupy_id, occupy_id,port); // get the seperate sn
 			
 			if((status == UNIQUE_ID) || (status == UNIQUE_ID_FROM_MULTIPLE))
 			{				
-				Test[21]++;
 
 				if(occupy_id == current_db.id)
 					db_occupy[occupy_id / 8] &= ~(1 << (occupy_id % 8));
-				Test[22] = current_db.id;
 				check_id_in_database(current_db.id, current_db.sn,port);
 				// if still occupy in the database
 				if(db_occupy[current_db.id / 8] & (1 << (current_db.id % 8)))
 				{
-					Test[23]++;
 					// assign idle id with sn to this occupy device.
 					if(assignment_id_with_sn(current_db.id, idle_id, current_db.sn,port)== ASSIGN_ID)
 					{
@@ -423,16 +418,12 @@ void dealwith_conflict_id(U8_T port)
 						map_id_port[db_ctr - 1].port = port + 1;
 
 						db_ctr++;
-						Test[24]++;
 						scan_db_changed = TRUE;
 					}
-					else
-						Test[26]++;
 				}
 
 				if(status == UNIQUE_ID_FROM_MULTIPLE)
 				{	
-					Test[25]++;
 					continue;
 				}
 			}
@@ -585,7 +576,7 @@ void get_parameters(uint8 index, uint8 *p,uint8 reg)
 {
 	U16_T crc_check = crc16(p, 5); // crc16
 	if((HIGH_BYTE(crc_check) == p[5]) && (LOW_BYTE(crc_check) == p[6]))
-	{
+	{	
 		switch(reg)
 		{  
 			case TST_PRODUCT_MODEL:  
@@ -593,7 +584,7 @@ void get_parameters(uint8 index, uint8 *p,uint8 reg)
 					tst_info[index].type = TSTAT_6;
 				else if(p[4] == 1 || p[4] == 2 ||p[4] == 3 ||p[4] == 4 ||p[4] == 12||p[4] == 17)
 				{	
-					tst_info[index].type = TSTAT_5A;				
+					tst_info[index].type = TSTAT_5A; 									
 				}
 				else if(p[4] == 16 || p[4] == 19)
 					tst_info[index].type = TSTAT_5E;
@@ -682,14 +673,13 @@ void get_parameters_from_nodes(U8_T port)
 	}
 
 	if(type == 0xff)  // 0xff initial type
-	{		
+	{
 		if(sub_reg == READ_PRODUCT_MODLE)
 			type = 0;
 		else
 			return;
 	}	
-
-	if(cSemaphoreTake(tempsem, 5) == pdFALSE)	
+	if(cSemaphoreTake(tempsem, 10) == pdFALSE)	
 		return ;
 
 	uart_init_send_com(port);
@@ -707,7 +697,7 @@ void get_parameters_from_nodes(U8_T port)
 
 	sub_send_string(buf, 8,port);
 	set_subnet_parameters(RECEIVE, 7,port);
-	if(length = wait_subnet_response(10,port))
+	if(length = wait_subnet_response(100,port))
 	{
 		if(port == UART0) 
 		{
@@ -735,7 +725,7 @@ void get_parameters_from_nodes(U8_T port)
 
 	set_subnet_parameters(SEND, 0, port);
 	cSemaphoreGive(tempsem);
-//		return;
+		return;
 }
 
 void write_parameters_to_nodes(uint8 index, uint16 reg, uint16 value)
@@ -826,7 +816,6 @@ void check_write_to_nodes(U8_T port)
 	// send successful if receive the reply
 	if(length = wait_subnet_response(100,port))
 	{	
-		Test[43]++;
 		node_write[i].flag = WRITE_OK; // without doing checksum
 	}
 	set_subnet_parameters(SEND, 0,port);
@@ -849,7 +838,7 @@ void ScanTask(void)
 //			port = UART0;
 		scan_sub_nodes(port);
 		recount_sub_addr();
-		taskYIELD();
+//		taskYIELD();
 	}
 }
 
@@ -880,7 +869,7 @@ void ParameterOperationTask(void)
 //			reset_scan_db_flag = 0;
 //			clear_scan_db(port);
 //		}
-		taskYIELD();
+//		taskYIELD();
 	}
 }
 
@@ -901,17 +890,22 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 	}
 
 	if(buf[1] == 0x03) // read
-	{//	Lcd_Show_Data (3,5,1,0,1);	 
-		 size = tmp_sendbuf[5] * 2 + 5;
-		 delay_time = size * 5;
+	{	 
+		 size = buf[5] * 2 + 5;
+		 delay_time = size * 2;
 	}
 	else if(buf[1] == 0x06 || buf[1] == 0x10)
-	{//	 Lcd_Show_Data (3,5,2,0,1);
+	{
 		size = 8;
 		if(buf[1] == 0x06 && buf[5] == 0x3f)   // erase flash 
-			delay_time = 500;
+			delay_time = 1000;
 		else
-			delay_time = 100;
+			delay_time = 200;
+	}
+	else if(buf[1] == 0x19 )   // scan
+	{
+		size = 12;
+		delay_time = 100;
 	}
 	else 
 		return;
@@ -920,17 +914,40 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 		return ;
 
 	uart_init_send_com(port);
-
+	Test[29]++;
 	memcpy(tmp_sendbuf,buf,len);
 	crc_check = crc16(tmp_sendbuf, len);
 	tmp_sendbuf[len] = HIGH_BYTE(crc_check);
 	tmp_sendbuf[len + 1] = LOW_BYTE(crc_check);
 	sub_send_string(tmp_sendbuf, len + 2 ,port);
 	set_subnet_parameters(RECEIVE,size,port);	
-//	Lcd_Show_Data (3,1,1,0,1);
-	if(length = wait_subnet_response(delay_time,port))
+	if(buf[1] == 0x19)	  // scan cmd
+	{ 	
+		U16_T i;
+		for(i = 0; i < delay_time; i++)
+		{
+			if(port == UART0)
+				if(sub_rece_count > 8)   continue;
+
+			vTaskDelay(1);
+		}
+		if(port == UART0)
+		{			
+			length = sub_rece_count;
+			memcpy(subnet_response_buf,sub_data_buffer,sub_rece_count);
+		}
+
+		if(length >= 9)
+		{ 
+			memcpy(tmp_sendbuf,header,6);
+			memcpy(&tmp_sendbuf[6],subnet_response_buf,length - 2);	
+			TCPIP_TcpSend(TcpSocket_ME, tmp_sendbuf, length + 4, TCPIP_SEND_NOT_FINAL); 
+		}
+	}
+	else if(length = wait_subnet_response(delay_time,port))
 	{		
-	//	Lcd_Show_Data (3,1,2,0,1);
+		Test[30]++;
+
 		if(port == UART0)
 		{
 			memcpy(subnet_response_buf,sub_data_buffer,length);
@@ -938,17 +955,15 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 		crc_check = crc16(subnet_response_buf, length - 2);
 
 		if(crc_check == subnet_response_buf[length - 2] * 256 + subnet_response_buf[length - 1])
-		{//	Lcd_Show_Data (3,1,3,0,1);
-
+		{	Test[31]++;
 			memcpy(tmp_sendbuf,header,6);
 			memcpy(&tmp_sendbuf[6],subnet_response_buf,length - 2);	
 									
 			TCPIP_TcpSend(TcpSocket_ME, tmp_sendbuf, size + 4, TCPIP_SEND_NOT_FINAL);		
-		
 		}			
 
 	}
-//	Lcd_Show_Data (3,1,4,0,1);
+	Test[32]++;
 	set_subnet_parameters(SEND, 0,port);
 	cSemaphoreGive(tempsem);
 }
@@ -977,7 +992,12 @@ void Response_MAIN_To_SUB(U8_T *buf, U16_T len)
 		else
 			delay_time = 100;
 	}
-	else 
+	else if(buf[1] == 0x19)
+	{	 Test[18]++;
+		size = 8;
+		delay_time = 100;
+	}
+	else
 		return;
 
 	if(cSemaphoreTake(tempsem, 10) == pdFALSE)
@@ -993,16 +1013,18 @@ void Response_MAIN_To_SUB(U8_T *buf, U16_T len)
 	set_subnet_parameters(RECEIVE,size,UART0);
 //	Lcd_Show_Data (3,1,1,0,1);	
 	if(length = wait_subnet_response(delay_time,UART0))
-	{		
+	{	
 		U16_T i;
 	//	if(port == UART0)
 		{ // Lcd_Show_Data (3,1,2,0,1);
 			memcpy(subnet_response_buf,sub_data_buffer,length);
 		}
+		Test[17]++;	
 		crc_check = crc16(subnet_response_buf, length - 2);
 
 		if(crc_check == subnet_response_buf[length - 2] * 256 + subnet_response_buf[length - 1])
 		{//	Lcd_Show_Data (3,1,3,0,1);	
+		Test[16]++;
 			main_init_send_com();
 			for(i = 0;i < length;i++)
 				main_send_byte(subnet_response_buf[i],CRC_NO);	

@@ -515,8 +515,6 @@ S16_T put_point_value( Point *point, S32_T *val_ptr, S16_T aux, S16_T prog_op )
 
 					} 					
 					temp = *val_ptr;
-					Test[23] = *val_ptr;
-					Test[24] = sptr.pvar->control;
 					sptr.pvar->value = DoulbemGetPointWord2(temp);				
 				}
 				break;
@@ -754,11 +752,11 @@ S16_T get_point_info( Point_info *ptr )
 				ptr->units = 1;
 				break;
 		case AR:
-				Test[46]++;
+			//	Test[46]++;
 				sptr.panr = &annual_routines[ptr->number];
 				ptr->auto_manual = sptr.panr->auto_manual; 
 				ptr->point_value = sptr.panr->value?1000L:0;
-				Test[48] = ptr->point_value;
+			//	Test[48] = ptr->point_value;
 				ptr->units = 1;
 				break;
 		case PRG:

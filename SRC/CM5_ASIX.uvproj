@@ -1152,6 +1152,16 @@
               <FileType>1</FileType>
               <FilePath>.\bacnet\src\whois.c</FilePath>
             </File>
+            <File>
+              <FileName>h_wp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\h_wp.c</FilePath>
+            </File>
+            <File>
+              <FileName>h_rp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\h_rp.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

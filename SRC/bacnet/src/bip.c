@@ -46,7 +46,7 @@
 //#if PRINT_ENABLED
 #include <stdio.h>      /* for standard i/o, like printing */
 //#endif
-
+#include "main.h"
 
 
 
@@ -61,7 +61,7 @@
 
 //int socklen_t;
 
-
+xSemaphoreHandle sembip;
 
 /** @file bip.c  Configuration and Operations for BACnet/IP */
 
@@ -78,7 +78,7 @@ static struct in_addr far BIP_Broadcast_Address;
  * @param sock_fd [in] Handle for the BACnet/IP socket.
  */
 
-typedef struct _GUDPMC_CONN
+typedef struct _BIP_CONN
 {
 	U8_T	State;
 	U8_T	UdpSocket;
@@ -99,11 +99,11 @@ U8_T bip_NewConn(U32_T XDATA* pip, U16_T remotePort, U8_T socket)
 	// BIP_MAX_CONNS 1,only 1 
 	for (i = 0; i < BIP_MAX_CONNS; i++)
 	{
-			bip_Conns[i].State = BIP_STATE_CONNECTED;
-			bip_Conns[i].UdpSocket = socket;
-			bip_set_socket(bip_Conns[i].UdpSocket);
+		bip_Conns[i].State = BIP_STATE_CONNECTED;
+		bip_Conns[i].UdpSocket = socket;
+		bip_set_socket(bip_Conns[i].UdpSocket);
 
-			return i;
+		return i;
 	}
 
 	return BIP_STATE_CONNECTED;
@@ -131,30 +131,27 @@ void sub_send_string(U8_T *p, U16_T length,U8_T port);
 void BIP_Receive_Handler(U8_T XDATA* pData, U16_T length, U8_T id)
 {	
 	U16_T j;	
-//	Test[14]++;
 	flag_bip_active = 1;
-//	if (id != 0) 		return;
-//	if(pData[20] == 0x67 && pData[21] == 0x00 && pData[22] == 0x03)
-//	{  
-//		char teststr[] = "\r\n 0: \r\n";
-//		sub_send_string(teststr,10,0); 
-//		sub_send_string(pData,length,0);
-//		Test[11]++;
-//
-//	}
+	if(cSemaphoreTake(sembip, 50) == pdFALSE)
+		return ;
+
+//	while(strncmp(bip_Data,pData,length)) // avoid bip_data error
+	{ 	
+	//	char teststr[] = "\r\n 1: \r\n";
+
+	Test[12]++;
 	memcpy(bip_Data,pData,length);
-	bip_len = length;
-//	Test[11]++;
-//	if(bip_Data[20] == 0x67 && bip_Data[21] == 0x00 && bip_Data[22] == 0x03)
-//	{	
-//	char teststr[] = "\r\n 1: \r\n";
-//	sub_send_string(teststr,10,0); 
+////	sub_send_string(teststr,10,0); 
+//	if(Test[49] == 1000)
 //	sub_send_string(bip_Data,bip_len,0);
-//	if(length != 182)	Test[10] = length;
-//	Test[12]++;
-//	}
+
+	bip_len = length;
+	}
+
+	cSemaphoreGive(sembip);
+
 }
-extern	U8_T xdata IP_Addr[4];
+//extern	U8_T xdata IP_Addr[4];
 void bip_Init(U16_T localPort)
 {
 	U8_T	i;
@@ -164,9 +161,11 @@ void bip_Init(U16_T localPort)
 
 	bip_InterAppId = TCPIP_Bind(bip_NewConn, bip_Event, BIP_Receive_Handler);
 	
-	bip_set_addr(((U32_T)IP_Addr[0] << 24) + ((U32_T)IP_Addr[1] << 16) + (U16_T)(IP_Addr[2] << 8) + IP_Addr[3]);
+//	bip_set_addr(((U32_T)IP_Addr[0] << 24) + ((U32_T)IP_Addr[1] << 16) + (U16_T)(IP_Addr[2] << 8) + IP_Addr[3]);
 	/* unicast packet */
 	TCPIP_UdpListen(localPort, bip_InterAppId);
+
+	vSemaphoreCreateBinary(sembip);
 } /* End of GUDPBC_Init() */
 
 void bip_set_socket(
@@ -299,7 +298,19 @@ int bip_send_pdu(
         (uint16_t) (pdu_len + 4 /*inclusive */ ));
     memcpy(&mtu[mtu_len], pdu, pdu_len);
     mtu_len += pdu_len;
- 	TCPIP_UdpSend(BIP_Socket/*bip_Conns[0].UdpSocket*/, 0, 0, mtu, mtu_len);
+	Test[37] = flag_old_seocket + 10;
+	if(flag_old_seocket == 0)
+		TCPIP_UdpSend(bip_Conns[0].UdpSocket, 0, 0, mtu, mtu_len);
+	else
+		TCPIP_UdpSend(newsocket, 0, 0, mtu, mtu_len);
+//	if(newsocket != 0)
+//	{
+//		TCPIP_UdpSend(newsocket, 0, 0, mtu, mtu_len);
+//	}
+//	else
+//	{
+//	 	TCPIP_UdpSend(bip_Conns[0].UdpSocket, 0, 0, mtu, mtu_len);
+//	}
 	Test[13]++;
     return bytes_sent;	 
 }
@@ -365,8 +376,13 @@ uint16_t bip_receive(
 //	sub_send_string(teststr,10,0); 
 //	sub_send_string(bip_Data,bip_len,0);
 //	}
+	if(cSemaphoreTake(sembip, 50) == pdFALSE)
+		return ;
+
 	received_bytes = bip_len;
     bip_Data = pdu;
+
+
 //	if(pdu[20] == 0x67 && pdu[21] == 0x00 && pdu[22] == 0x03)
 //	{				  	
 //		char teststr[] = "\r\n 2: \r\n";
@@ -374,19 +390,22 @@ uint16_t bip_receive(
 //		sub_send_string(pdu,bip_len,0);
 //	}
     /* See if there is a problem */
-    if (received_bytes < 0) {  
+    if (received_bytes < 0) {  	cSemaphoreGive(sembip);
+
         return 0;
     }
 
     /* no problem, just no bytes */
     if (received_bytes == 0)
-	{	 
+	{	 	cSemaphoreGive(sembip);
+
         return 0;
 		}
 	received_bytes = 0;
     /* the signature of a BACnet/IP packet */
     if (pdu[0] != BVLL_TYPE_BACNET_IP)
-	{ 
+	{ 	 	cSemaphoreGive(sembip);
+
 	    return 0;
 	}
 
@@ -395,6 +414,8 @@ uint16_t bip_receive(
 #if PRINT_ENABLED
         fprintf(stderr, "BIP: BVLC discarded!\n");
 #endif
+			cSemaphoreGive(sembip);
+
         return 0;
     }
     function = bvlc_get_function_code();        /* aka, pdu[1] */
@@ -480,10 +501,13 @@ uint16_t bip_receive(
             }
         }
     }
+
+	cSemaphoreGive(sembip);
+
     return pdu_len;
 }
 
-extern Byte			               	Station_NUM;
+extern Byte	Station_NUM;
 
 void bip_get_my_address(
     BACNET_ADDRESS * my_address)

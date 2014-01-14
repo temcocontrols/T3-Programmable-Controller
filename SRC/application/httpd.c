@@ -35,6 +35,7 @@
 #include "tcpip.h"
 #include "mstimer.h"
 #include "uart.h"
+#include "main.h"
 
 
 #if STOE_TRANSPARENT
@@ -54,6 +55,8 @@
 #include "commsub.h"
 
 //U8_T far  Para[5670];
+U8_T	TcpIp_to_sub = 0;
+U8_T count_resume_scan = 0;
 
 #if 1
 /* NAMING CONSTANT DECLARATIONS */
@@ -213,26 +216,6 @@ void HTTP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
 {
 	HTTP_SERVER_CONN XDATA*	pHttpConn = &HTTP_Connects[conn_id];
 	U8_T i;
-/*	U8_T XDATA				str_post[] = {"POST"};
-	U8_T					command, status, fileId, index, fileStatus;
-	U8_T XDATA*			pFName;
-	U8_T XDATA*			pFNameExt;
-	U8_T CODE*				pSour;
-	U8_T XDATA*			pExpanSour;
-	U16_T					data_len;
-*/
- /*  	U16_T far ReCount;
-    U16_T far SeCount; 
-    U32_T far StartAdd;  
-    U8_T  far RealNum;
-    U16_T far Sin_Add;
-	U16_T far RegNum;
-	U32_T far i;
-	U32_T far loop;
-	U8_T  far NTFlag=0;*/
-
-//	flag_transimit_from_tcpip = 0; 
-								
 
 	if( (pData[0] == 0xee) && (pData[1] == 0x10) &&
 		(pData[2] == 0x00) && (pData[3] == 0x00) &&
@@ -247,7 +230,7 @@ void HTTP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
 	else 
 	{
 	
-	   	if((pData[UIP_HEAD] ==  Modbus_address)||(pData[UIP_HEAD] == 0xff))//Address of NetControl 
+	   	if((pData[UIP_HEAD] == Modbus_address)||((pData[UIP_HEAD] == 0xff) && (pData[UIP_HEAD + 1] != 0x19)))//Address of NetControl 
 		{	
 			responseCmd(TCP_IP,pData,pHttpConn);
 	   	}			
@@ -267,8 +250,9 @@ void HTTP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
 //					 port = UART2;
 //				}
 //			}
-			
-			if((pData[UIP_HEAD] == 0x00) || ((pData[UIP_HEAD + 1] != READ_VARIABLES) && (pData[UIP_HEAD + 1] != WRITE_VARIABLES) && (pData[UIP_HEAD + 1] != MULTIPLE_WRITE)))
+			Test[27]++;
+			if((pData[UIP_HEAD] == 0x00) || ((pData[UIP_HEAD + 1] != READ_VARIABLES) && (pData[UIP_HEAD + 1] != WRITE_VARIABLES) 
+			&& (pData[UIP_HEAD + 1] != MULTIPLE_WRITE)) && (pData[UIP_HEAD + 1] != 0x19))
 				return;
 			if(((pData[UIP_HEAD + 4] << 8) | pData[UIP_HEAD + 5]) > 0x80)
 				return;
@@ -277,30 +261,31 @@ void HTTP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
 			if((pData[UIP_HEAD + 1] == MULTIPLE_WRITE) && ((length - UIP_HEAD) != (pData[UIP_HEAD + 6] + 7)))
 				return;
 
-//			vTaskPrioritySet(xHandleTcp,5);
-//			vTaskSuspend(Handle_Scan); 
-//			vTaskSuspend(Handle_ParameterOperation);
+			TcpIp_to_sub = 1;
+			count_resume_scan = 0;
+
+			vTaskSuspend(Handle_Scan); 
+			vTaskSuspend(Handle_ParameterOperation);
+	//		vTaskSuspend(Handle_MainSerial);
+			vTaskSuspend(Handle_UpdateOutput); 
+			vTaskSuspend(xHandleMSTP); 
+			vTaskSuspend(xHandleCommon);
+			vTaskSuspend(xHandleBacCon);
 		//	uart_init_send_com(sub_source_port);
 			TcpSocket_ME = pHttpConn->TcpSocket;
 //			
-			if(pData[UIP_HEAD + 1] == 0x03)
 			Set_transaction_ID(header, ((U16_T)pData[0] << 8) | pData[1], 2 * pData[UIP_HEAD + 5] + 3);
-			else
-			Set_transaction_ID(header, ((U16_T)pData[0] << 8) | pData[1], UIP_HEAD + 3);
-////			i = 3;
-//			while(i--)
-//			{
-//				forward_to_slave(pData + UIP_HEAD, length - UIP_HEAD,sub_source_port);
-//	//			if(wait_sub_response(20) == TRUE)
-//	//				break;
-//			}
-			
 			// response TCPIP
-			
+			Test[28]++;
 			Response_TCPIP_To_SUB(pData + UIP_HEAD,length - UIP_HEAD,UART0,header);
+
 //			vTaskResume(Handle_Scan); 
 //			vTaskResume(Handle_ParameterOperation);
-//			vTaskPrioritySet(xHandleTcp,2);	
+//			vTaskResume(Handle_MainSerial);
+			vTaskResume(Handle_UpdateOutput); 
+			vTaskResume(xHandleMSTP); 
+			vTaskResume(xHandleCommon);
+			vTaskResume(xHandleBacCon);
 		
 		}
 	}

@@ -29,6 +29,9 @@
 #include "bacdef.h"
 #include "bacenum.h"
 
+#define WRITE_PROPERTY
+
+
 typedef struct _confirmed_service_data {
     bool segmented_message;
     bool more_follows;

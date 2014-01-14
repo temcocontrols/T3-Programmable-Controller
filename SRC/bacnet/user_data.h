@@ -33,6 +33,9 @@ extern S16_T                          MAX_MONITOR_BLOCKS;
 extern U8_T           far              free_mon_blocks;
 
 extern Byte			               	Station_NUM;
+extern U8_T 	client_ip[4];
+extern U8_T newsocket;
+extern U8_T flag_old_seocket;
 
 //extern Alarm_point 		    far				 alarms[MAX_ALARMS];
 //extern U8_T 			    far							 ind_alarms;

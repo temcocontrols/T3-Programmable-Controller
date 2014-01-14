@@ -32,7 +32,7 @@
 #include "wp.h"
 
 #ifndef MAX_ANALOG_VALUES
-#define MAX_ANALOG_VALUES  4      // changed by chelsea
+#define MAX_ANALOG_VALUES  10      // changed by chelsea
 #endif
 
 #ifdef __cplusplus

@@ -228,7 +228,6 @@ void Key_Process(void) reentrant
 	      	if(by_Dat == K_SELECT || by_Dat == K_SEL_PRO||by_Dat == K_PROGRAM ||by_Dat == K_UP_SEL || by_Dat == K_DOWN_SEL )
 	      	{
 	        	by_Out = by_Dat + 0x80;
-				Test[41]++;
 	      	}
 	   	}
 		/* K_RESET hold 5s */
@@ -237,7 +236,6 @@ void Key_Process(void) reentrant
 			if(by_Dat == K_UP_DOWN)
 	      	{
 	        	by_Out = by_Dat + 0x80;
-				Test[42]++;
 	      	}
 	   	}
 		 #endif

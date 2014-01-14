@@ -133,10 +133,10 @@ int encode_bacnet_real(
     apdu[2] = my_data.byte[2];
     apdu[3] = my_data.byte[3];
 #else*/
-    apdu[0] = my_data.byte[3];
-    apdu[1] = my_data.byte[2];
-    apdu[2] = my_data.byte[1];
-    apdu[3] = my_data.byte[0];
+    apdu[0] = my_data.byte[0];
+    apdu[1] = my_data.byte[1];
+    apdu[2] = my_data.byte[2];
+    apdu[3] = my_data.byte[3];
 //#endif
 
     return 4;

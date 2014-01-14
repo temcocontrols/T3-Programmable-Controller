@@ -81,6 +81,8 @@
 #include "user_data.h"
 
 
+extern U8_T	TcpIp_to_sub;
+extern U8_T count_resume_scan;
 
 
 
@@ -149,6 +151,7 @@ extern xTaskHandle xdata Handle_SampleDI;
 extern xTaskHandle xdata Handle_UpdateDI;
 extern xTaskHandle xdata xHandleMSTP;  
 extern xTaskHandle xdata xHandleBacCon;
+extern xTaskHandle xdata Handle_MainSerial;
 
 
 extern U16_T far Test[50];

@@ -31,7 +31,7 @@ bit read_pic( char channel)
 	if (GET_ACK())
 	{	 
 		sI2C_stop();
-		Test[38]++;
+//		Test[38]++;
 		return 0;
 	}
 	DELAY_Us(10); 
@@ -46,7 +46,7 @@ bit read_pic( char channel)
 	if (data_buf[1] == /*checksum*/250)
 	{
 		//if(protocal <= TCP_IP)
-		  Test[39]++;
+	//	  Test[39]++;
 		
 		
 			AI_Value[channel] = Filter(channel,data_buf[0]);//Filter(channel,data_buf[0] / 3);

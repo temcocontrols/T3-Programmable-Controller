@@ -77,10 +77,7 @@ void Read_ALL_Data(void)
 	E2prom_Read_Byte(EEP_INSTANCE_LOW,&temp[0]);
 	E2prom_Read_Byte(EEP_INSTANCE_HIGH,&temp[1]);
 
-	Instance = temp[1] * 256 + temp[0];
-
-	
-		
+	Instance = temp[1] * 256 + temp[0];		
 
 	E2prom_Read_Byte(EEP_UPDTE_STATUS,& update_status);
 	E2prom_Read_Byte(EEP_BASE_ADDRESS,& BASE_ADRESS);
@@ -204,10 +201,10 @@ void set_default_parameters(void)
 //	E2prom_Write_Byte(EEP_HARDWARE_REV, 4);	
 	E2prom_Write_Byte(EEP_UNIT, 0);
 //	E2prom_Write_Byte(EEP_SERIALNUMBER_WRITE_FLAG, 0);
-	E2prom_Write_Byte(EEP_PROTOCAL, 1/*TCP_IP*/);
+	E2prom_Write_Byte(EEP_PROTOCAL, 3/*TCP_IP*/);
     E2prom_Write_Byte(EEP_TCP_TYPE,0);
 
-	E2prom_Write_Byte(EEP_IP, 174);
+	E2prom_Write_Byte(EEP_IP, 173);
 	E2prom_Write_Byte(EEP_IP + 1, 0);
 	E2prom_Write_Byte(EEP_IP + 2, 168);
 	E2prom_Write_Byte(EEP_IP + 3, 192);
@@ -251,8 +248,13 @@ void set_default_parameters(void)
 	E2prom_Write_Byte(EEP_PORT_LOW,6001);
 	E2prom_Write_Byte(EEP_PORT_HIGH,6001 >> 8);
 
+	E2prom_Write_Byte(EEP_INSTANCE_LOW,1000);
+	E2prom_Write_Byte(EEP_INSTANCE_HIGH,1000 >> 8);
+
+
 	E2prom_Write_Byte(EEP_DIS_TEMP_NUM,1);
 	E2prom_Write_Byte(EEP_DIS_TEMP_INTERVAL,5);
+
 	for(i = 0;i < 10;i++)
 		E2prom_Write_Byte(EEP_DIS_TEMP_SEQ_FIRST + i,0); 
    	memset(WR_Roution,0,sizeof(STR_WR) * MAX_WR1);
@@ -277,115 +279,86 @@ void Output_Count_Priority_Task(void);
 extern U16_T far old_output,new_output;
 extern bit flag_bip_active;	 	
 U8_T flag_lcd_pic = 0;
+void Display_IP(void);
 
+extern char time[];
 void Common_task(void) reentrant
 {
 	static U8_T count = 0;
-//	static U8_T relay_value = 0;
 	char text[20];
+
+//	static U8_T relay_value = 0;
 	static U16_T refresh_flash_timer = 0;
 	static U16_T count_bip_active = 0;
 	portTickType xDelayPeriod = ( portTickType ) 500 / portTICK_RATE_MS;
 	for (;;)
 	{
 		vTaskDelay(xDelayPeriod);
-		if(protocal == BAC_IP)
+		if(TcpIp_to_sub)  // resum scan task
 		{
-			if(flag_bip_active)
-			{					
-				flag_bip_active = 0;
-				count_bip_active = 0;			
-			}
-	
-			if(!flag_bip_active)
+			if(count_resume_scan < 10)
 			{
-			   	count_bip_active++;
-				if(count_bip_active > 50)   // inactive over 20s, reset eth
-				{
-					ETH_Init();
-				    bip_Init(0xbac0);
-				    UpdateIpSettings(0);
-					HTTP_Init();
-				    ETH_Start();
-					count_bip_active = 0;
-					Test[2]++;
-	
-				}
+			   	count_resume_scan++;
 			}
-		}
-		Updata_Clock();	
+			else
+			{
+				Test[35]++;
+				TcpIp_to_sub = 0;
+				vTaskResume(Handle_Scan); 
+				vTaskResume(Handle_ParameterOperation);
+			}
+		} 
+//		if(protocal == BAC_IP)
+//		{
+//			if(flag_bip_active)
+//			{					
+//				flag_bip_active = 0;
+//				count_bip_active = 0;			
+//			}
+//	
+//			if(!flag_bip_active)
+//			{
+//			   	count_bip_active++;
+//				if(count_bip_active > 50)   // inactive over 20s, reset eth
+//				{
+////					ETH_Init();
+////				    bip_Init(0xbac0);
+////				    UpdateIpSettings(0);
+////					HTTP_Init();
+////				    ETH_Start();
+//					count_bip_active = 0;
+//					Test[2]++;
+//	
+//				}
+//			}
+//		}
+	Updata_Clock();	
+	get_time_text();
+	sprintf(text, "%s", time);
+	Lcd_Show_String(4, 0, text, NORMAL, 21); 
 
 		count++; 
 		if(count == 50)
 		{	
-		   Lcd_Initial(); 			   
-           count = 0;
-
-//		   		sprintf(text, "IP:   %u.%u.%u.%u", (uint16)IP_Addr[0], (uint16)IP_Addr[1], (uint16)IP_Addr[2], (uint16)IP_Addr[3]);
-//				Lcd_Show_String(0, 0, text, NORMAL, 21);
-//				
-//				// subnet mask address		
-//				sprintf(text, "MASK: %u.%u.%u.%u", (uint16)SUBNET[0], (uint16)SUBNET[1], (uint16)SUBNET[2], (uint16)SUBNET[3]);
-//				Lcd_Show_String(1, 0, text, NORMAL, 21);
-//				// tcp port
-//				sprintf(text, "GATE: %u.%u.%u.%u", (uint16)GETWAY[0], (uint16)GETWAY[1], (uint16)GETWAY[2], (uint16)GETWAY[3]);
-//				Lcd_Show_String(2, 0, text, NORMAL, 21);
-//				// tcp port
-//				sprintf(text, "PORT: %u", (uint16)HTTP_SERVER_PORT);
-//				Lcd_Show_String(3, 0, text, NORMAL, 21);
-//				// MAC address
-//				sprintf(text, "MAC:%02X:%02X:%02X:%02X:%02X:%02X", (uint16)Mac_Addr[0], (uint16)Mac_Addr[1], (uint16)Mac_Addr[2], (uint16)Mac_Addr[3], (uint16)Mac_Addr[4], (uint16)Mac_Addr[5]);
-//				Lcd_Show_String(4, 0, text, NORMAL, 21); 	   	
+		   Lcd_Initial(); 
+		   Display_IP();			   
+           count = 0; 	   	
 		}
-//		else 
-//		if(protocal > TCP_IP)
-//		{
-//			if(flag_lcd_pic == 0)
-//			{
-//				flag_lcd_pic = 1;
-//	//		// ip address
-//
-//
-//			 }
-//			 else if(flag_lcd_pic == 1)
-//			 {					
-//			 	Update_AI();
-//
-//			 	Test[2] = 100;
-//				flag_lcd_pic = 0;
-//
-//			 }
-//		}
-//		Lcd_Show_Data (4,1,count,0,1); 
-//	//	Lcd_Show_Data (4,1,Test[0],0,1);  		
-//		Lcd_Show_Data (4,5,Test[1],0,1);
-//		Lcd_Show_Data (4,9,Test[2],0,1);  		
-//		Lcd_Show_Data (4,13,Test[3],0,1);
-//		Lcd_Show_Data (4,17,Test[4],0,1); 
-//		Lcd_Show_Data (3,1,Test[5],0,1);  		
-//		Lcd_Show_Data (3,5,Test[6],0,1);
-//		Lcd_Show_Data (3,9,Test[7],0,1);  		
-//		Lcd_Show_Data (3,13,Test[8],0,1);
-//		Lcd_Show_Data (3,17,Test[9],0,1); 
-//		Lcd_Show_Data (2,1,Test[10],0,1);
-//		Lcd_Show_Data (2,5,Test[11],0,1);
-//		Lcd_Show_Data (2,9,Test[12],0,1);
-//		Lcd_Show_Data (2,13,Test[13],0,1);
-//		Lcd_Show_Data (2,17,Test[14],0,1);
+		Update_AI();
 		#if 1
 		//if(protocal <= TCP_IP)
 		{
 			if(ChangeFlash == 1)
-			{  
+			{  	
 				ChangeFlash = 0;
 				refresh_flash_timer = 20;			
 			}
 	
 			if(refresh_flash_timer)
-			{
+			{	
 				refresh_flash_timer--;
 				if(refresh_flash_timer == 0)
-				{
+				{	
 					WriteFlash = 1;
 					RELAY1_8 = (U8_T)new_output;
 					DELAY_Us(5);
@@ -405,7 +378,7 @@ void Common_task(void) reentrant
 						RELAY_10 = 0;
 					else 
 						RELAY_10 = 1;  				
-	
+					Test[48]++;
 					Flash_Write_Mass();	
 					WriteFlash = 0;
 				}
@@ -601,7 +574,7 @@ void main( void )
 	memset(ID_Config,'\0',sizeof(UN_ID) * MAX_ID);
 	Comm_Tstat_Initial_Data();
 //	calculate_ID_table();
-	Lcd_Show_Data (4,1,1,0,1);	
+//	Lcd_Show_Data (4,1,1,0,1);	
 	// read pic version
 	loop = 0;
 #if (RUNTIME_CODE_START_ADDRESS == RUNTIME_CODE_START_AT_24kH)
@@ -655,21 +628,23 @@ void main( void )
 			Flash_Read_Mass();	
 		}  
 	}
-	initial_input_value(); 
+	Display_IP(); 
+	initial_input_value(); 			
+
 	sTaskCreate(TCPIP_Task,"TCPIP_task",Tcpip_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, (xTaskHandle *)&xHandleTcp);
-	sTaskCreate(Common_task,"Common_task",Common_STACK_SIZE, NULL, tskIDLE_PRIORITY + 10, (xTaskHandle *)&xHandleCommon);
+	sTaskCreate(Common_task,"Common_task",Common_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3, (xTaskHandle *)&xHandleCommon);
 	if(protocal <= TCP_IP)
-	{	 
-		sTaskCreate(Schedule_task,"schedule_task",Schedule_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, (xTaskHandle *)&xHandleSchedule);
+	{	 	
 		vStartMainSerialTasks(tskIDLE_PRIORITY + 9);
+		sTaskCreate(Schedule_task,"schedule_task",Schedule_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, (xTaskHandle *)&xHandleSchedule);
 		sTaskCreate( Sampel_DI_Task, "SampleDItask", SampleDISTACK_SIZE, NULL, tskIDLE_PRIORITY + 5, &Handle_SampleDI ); 
 		sTaskCreate( Update_DI_Task, "UpdateDItask", UpdateDISTACK_SIZE, NULL, tskIDLE_PRIORITY + 3, &Handle_UpdateDI ); 
 
 	}  		
-	vStartDisplayTasks(tskIDLE_PRIORITY + 3); 		
-	vStartScanTask(tskIDLE_PRIORITY + 4); 	
+//	vStartDisplayTasks(tskIDLE_PRIORITY + 3); 		
+	vStartScanTask(tskIDLE_PRIORITY + 2); 	
 	vStartUpdateOutputTasks(tskIDLE_PRIORITY + 5); 
-	vStartKeyTasks(tskIDLE_PRIORITY + 7); 
+//	vStartKeyTasks(tskIDLE_PRIORITY + 7); 
 
 	if(protocal > TCP_IP)
 	{ 

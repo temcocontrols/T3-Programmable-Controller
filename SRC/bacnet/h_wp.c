@@ -42,6 +42,7 @@
 #include "bv.h"
 
 
+#ifdef READ_WRITE_PROPERTY
 
 /* too big to reside on stack frame for PIC */
 static BACNET_WRITE_PROPERTY_DATA far wp_data;
@@ -140,3 +141,5 @@ void handler_write_property(
     return;
 }
 
+
+#endif

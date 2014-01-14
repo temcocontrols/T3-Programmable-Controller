@@ -584,6 +584,7 @@ void modbus_int_handler(void)
 
 		if(main_rece_count == 1)
 		{
+			
 			main_rece_size = 8;
 			main_serial_receive_timeout_count = 2;//SERIAL_RECEIVE_TIMEOUT;
 		}
@@ -593,6 +594,10 @@ void modbus_int_handler(void)
 			{
 				main_rece_size = DATABUFLEN_SCAN;
 				main_serial_receive_timeout_count = 2;//SERIAL_RECEIVE_TIMEOUT;	
+			}
+			else if(main_data_buffer[1] == CHECKONLINE)
+			{
+			  	main_rece_size = 6;
 			}
 		}
 		else if(main_rece_count == 7)
@@ -656,7 +661,7 @@ void main_dealwithData(void)
 			if (checkData(address))
 			{			
 				
-				if(main_data_buffer[0] ==  Modbus_address || main_data_buffer[0] == 255)
+				if(main_data_buffer[0] == Modbus_address || ((main_data_buffer[0] == 255) && (main_data_buffer[1] != 0x19)))
 				{
 					main_init_send_com();
 		
@@ -665,7 +670,8 @@ void main_dealwithData(void)
 					main_responseData(address);
 				}				
 				else
-				{  			   
+				{  	
+					Test[19]++;		   
 					Response_MAIN_To_SUB(main_data_buffer,main_rece_size - 2);
 
 				} 
@@ -710,11 +716,11 @@ U8_T checkData(U8_T address)
 //		return FALSE;
 
 	if(main_data_buffer[1] == CHECKONLINE)
-	{
+	{ 	Test[15]++;
 		crc_val = crc16(main_data_buffer, 4);
 		if(crc_val != (main_data_buffer[4] << 8) + main_data_buffer[5])
 			return FALSE;
-
+		Test[16]++;
 		minaddr = (main_data_buffer[2] >= main_data_buffer[3]) ? main_data_buffer[3] : main_data_buffer[2];	
 		maxaddr = (main_data_buffer[2] >= main_data_buffer[3]) ? main_data_buffer[2] : main_data_buffer[3];	
 		if( address < minaddr ||  address > maxaddr)
@@ -1220,7 +1226,7 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 			else if(StartAdd + loop >= MODBUS_TIMER_ADDRESS && StartAdd + loop < MODBUS_TIMER_ADDRESS + 8)
 			{	 
 				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  RTC.all[StartAdd + loop - MODBUS_TIMER_ADDRESS];
+				sendbuf[HeadLen + 3 + loop * 2 + 1] =  RTC.all[8-(StartAdd + loop - MODBUS_TIMER_ADDRESS)];
 			}			
 			else if( StartAdd + loop >= MODBUS_WR_DESCRIP_FIRST && StartAdd + loop < MODBUS_WR_DESCRIP_LAST)
 			{
@@ -1856,6 +1862,10 @@ void responseCmd(U8_T type,U8_T* pData,HTTP_SERVER_CONN * pHttpConn)
 				tst_info[StartAdd - MODBUS_NIGHT_COOL_SP_FIRST].night_cool_sp = pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8);
 			}
 			
+		}
+		else if(StartAdd >= MODBUS_TEST && StartAdd <= MODBUS_TEST_50)
+		{
+			Test[StartAdd - MODBUS_TEST] = pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4]<<8);
 		}
 		
 	}

@@ -78,7 +78,9 @@ S16_T                          	MAX_MONITOR_BLOCKS = FLASH_BUFFER_LENGTH / sizeo
 
 Byte			               	Station_NUM;
 
-
+U8_T client_ip[4];
+U8_T newsocket = 0;
+U8_T flag_old_seocket = 0;
 
 U8_T far *prog;
 S32_T far stack[20];
