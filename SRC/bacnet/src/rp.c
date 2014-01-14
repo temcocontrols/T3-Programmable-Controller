@@ -39,6 +39,9 @@
 
 /** @file rp.c  Encode/Decode Read Property and RP ACKs */
 
+#ifdef READ_WRITE_PROPERTY
+
+
 #if BACNET_SVC_RP_A
 /* encode service */
 int rp_encode_apdu(
@@ -451,3 +454,5 @@ int main(
 }
 #endif /* TEST_READ_PROPERTY */
 #endif /* TEST */
+
+#endif

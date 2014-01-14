@@ -887,7 +887,7 @@ void stop_scrolling(void)
 	scrolling_flag = FALSE;
 }
 
-char time[] = "2012-09-19 17:16";
+char time[] = "2012-09-19 17:16:10";
 void get_time_text(void)
 {
 
@@ -903,6 +903,8 @@ void get_time_text(void)
 	time[12] =  RTC.Clk.hour % 10 + '0';
 	time[14] =  RTC.Clk.min / 10 + '0';
 	time[15] =  RTC.Clk.min % 10 + '0';
+	time[17] =  RTC.Clk.sec / 10 + '0';
+	time[18] =  RTC.Clk.sec % 10 + '0';
 
 }
 

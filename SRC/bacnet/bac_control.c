@@ -150,12 +150,10 @@ void control_output(void)
 			
 			if(DoulbemGetPointWord2(outputs[loop + 10].value) >= 512)
 			{
-				Test[40]++;
 				SendSchedualData(loop,1);
 			}
 			else
 			{		
-				Test[41]++;
 				SendSchedualData(loop,0);
 			}
 		}

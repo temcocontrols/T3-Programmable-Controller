@@ -447,6 +447,8 @@ static bool apdu_unconfirmed_dcc_disabled(
  * @param apdu [in] The apdu portion of the request, to be processed.
  * @param apdu_len [in] The total (remaining) length of the apdu.
  */
+ extern U8_T flag_old_seocket;
+
 void apdu_handler(
     BACNET_ADDRESS * src,
     uint8_t * apdu,     /* APDU data */
@@ -490,16 +492,19 @@ void apdu_handler(
                     Unrecognized_Service_Handler(service_request,
                         service_request_len/*, src, &service_data*/);
 				#endif
-//				if (service_choice == SERVICE_CONFIRMED_READ_PROPERTY) {
-//                handler_read_property(service_request,
-//                    service_request_len, src, &service_data);
-//	            } else if (service_choice == SERVICE_CONFIRMED_WRITE_PROPERTY) {
-//	                handler_write_property(service_request,
-//	                 service_request_len, src, &service_data);
-//	            } else 
+				#ifdef READ_WRITE_PROPERTY
+				if (service_choice == SERVICE_CONFIRMED_READ_PROPERTY) {
+                handler_read_property(service_request,
+                    service_request_len, src, &service_data);
+	            } else if (service_choice == SERVICE_CONFIRMED_WRITE_PROPERTY) {
+	                handler_write_property(service_request,
+	                 service_request_len, src, &service_data);
+	            } else 
+				#endif
 				if (service_choice == SERVICE_CONFIRMED_PRIVATE_TRANSFER) {
 	                handler_private_transfer(apdu,apdu_len,src);	 // add private transfer by chelsea
-	            }else
+	            }
+				else
 				{
 	               handler_unrecognized_service(service_request,
 	                   service_request_len, src, &service_data);
@@ -537,6 +542,7 @@ void apdu_handler(
 					else if(protocal == BAC_IP)
 					{					
 					Send_I_Am(&Handler_Transmit_Buffer[0]);
+					flag_old_seocket = 0;
 					}
             	}
 				// add unconfirmedPrivateTransfer handler, for TEMCO private

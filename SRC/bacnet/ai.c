@@ -33,6 +33,8 @@
 #include "bacenum.h"
 #include "config.h"
 
+#ifdef READ_WRITE_PROPERTY
+
 /* Analog Input = Photocell */
 #define MAX_ANALOG_INPUTS 9
 #if (MAX_ANALOG_INPUTS > 9)
@@ -163,3 +165,5 @@ int Analog_Input_Encode_Property_APDU(
 
     return apdu_len;
 }
+
+#endif

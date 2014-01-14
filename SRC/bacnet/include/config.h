@@ -81,7 +81,7 @@ extern unsigned int far Test[50];	  // for test added by chelsea
     /* #define MAX_APDU 50 */
     /* #define MAX_APDU 1476 */
 #if defined(BACDL_BIP)
-#define MAX_APDU 1476
+#define MAX_APDU 500//1476
 /* #define MAX_APDU 128 enable this IP for testing readrange so you get the More Follows flag set */
 #elif defined (BACDL_ETHERNET)
 #define MAX_APDU 1476
@@ -89,6 +89,9 @@ extern unsigned int far Test[50];	  // for test added by chelsea
 #define MAX_APDU 480
 #endif
 #endif
+
+//#define READ_WRITE_PROPERTY 1
+
 
 extern unsigned char far Temp_Buf[MAX_APDU];	    // add it by chelsea
 

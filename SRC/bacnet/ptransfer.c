@@ -48,7 +48,6 @@
 #include "define.h"
 //#include "lcd.h"
 #include "clock.h"
-#include "tcpip.h"
 
 /** @file ptransfer.c  Encode/Decode Private Transfer data */
 /* 
@@ -109,6 +108,7 @@ void handler_private_transfer(
 	{
 		decode_octet_string(&rec_data.serviceParameters[iLen], len_value_type,&Temp_CS);
 	}
+
 	private_data.vendorID =  rec_data.vendorID;
 	private_data.serviceNumber = rec_data.serviceNumber;
 
@@ -131,8 +131,16 @@ void handler_private_transfer(
 		 Graphi_data->comm_arg.monupdate.size = DoulbemGetPointWord2(Graphi_data->comm_arg.monupdate.size);
 		 Graphi_data->comm_arg.monupdate.most_recent_time = DoulbemGetPointWord2(Graphi_data->comm_arg.monupdate.most_recent_time);
 		 Graphi_data->comm_arg.monupdate.oldest_time = DoulbemGetPointWord2(Graphi_data->comm_arg.monupdate.oldest_time);
-   
+
+	
+
+
+
 		 Graphi_data->special = Temp_CS.value[17];	  // 0 - scan  1 - send monitor frame 
+
+//		 Test[40] = Graphi_data->command;
+//		 Test[41] = Graphi_data->index;
+//		 Test[42] = Graphi_data->sample_type;
 
 	}
 	else
@@ -151,9 +159,12 @@ void handler_private_transfer(
 	{
 		if(command ==  WRITEPRGFLASH_COMMAND)   // other commad
 		{
-			//Flash_Write_Mass();
-			ChangeFlash = 1;
-		} 
+			Flash_Write_Mass();
+		}
+		if(command == GET_PANEL_INFO)   // other commad
+		{
+			ptr = (char *)(Panel_Info.all);	
+		}
 		else
 		{
 		// TBD: add more write command
@@ -208,8 +219,6 @@ void handler_private_transfer(
 	//			case WRITEGROUPELEMENTS_T3000:
 	//				ptr = (char *)(&group_data[private_header.point_start_instance]);
 					break;
-				case NEW_UDP_PORT:
-					ptr = (char *)(&client_ip[0]);
 				default:
 					break;	
 					
@@ -218,25 +227,14 @@ void handler_private_transfer(
 			{
 				if(private_header.total_length  == private_header.entitysize * (private_header.point_end_instance - private_header.point_start_instance + 1) + header_len)
 				{	// check is length is correct 
-					if(command == WRITEVARIABLE_T3000)
-					{
-						if(private_header.point_start_instance == 0)
-						{
-//						char teststr[] = "\r\n 4: \r\n";
-//						sub_send_string(teststr,10,UART0);
-//						sub_send_string(Temp_CS.value,private_header.total_length,UART0);
-						}
-						
-					}
 				   	memcpy(ptr,&Temp_CS.value[header_len],private_header.total_length - header_len);
 					if(command == WRITEPROGRAMCODE_T3000)
 					{
 					//	U8_T j = 0;
 						for(j = private_header.point_start_instance;j <= private_header.point_end_instance;j++)
 						{  						
-							programs[j].bytes = mGetPointWord2(prg_code[j][1]* 256 + prg_code[j][0]);
+							programs[j].bytes = prg_code[j][1]+ prg_code[j][0] * 256;
 						}
-
 						/* recount code lenght once update program code */
 	
 						Code_total_length = 0;
@@ -260,30 +258,6 @@ void handler_private_transfer(
 						Set_Clock(PCF_WEEK,RTC.Clk.week);
 						Set_Clock(PCF_MON,RTC.Clk.mon);
 						Set_Clock(PCF_YEAR,RTC.Clk.year - 2000);
-					}
-					else if(command == NEW_UDP_PORT)
-					{	
-						U8_T tempsocket = 0;
-						static U32_T old_ip;	
-						if(old_ip != ((U32_T)client_ip[3] << 24) + ((U32_T)client_ip[2] << 16) + (U16_T)(client_ip[1] << 8) + client_ip[0])
-						{	Test[37]++;
-							tempsocket = TCPIP_UdpNew(2, 3, ((U32_T)client_ip[3] << 24) + ((U32_T)client_ip[2] << 16) + (U16_T)(client_ip[1] << 8) + client_ip[0], 0, 47808);
-							if(tempsocket != 255)
-							{
-							   	newsocket = tempsocket;
-								old_ip = ((U32_T)client_ip[3] << 24) + ((U32_T)client_ip[2] << 16) + (U16_T)(client_ip[1] << 8) + client_ip[0];					
-								flag_old_seocket = 1;
-								Test[38]++;
-							}
-							else
-							{
-								Test[39]++;
-							}
-						}
-						Test[40] = newsocket;
-
-						
-
 					}
 				}
 			}
@@ -339,8 +313,8 @@ void handler_private_transfer(
 			case READPROGRAMCODE_T3000:	
 				for(j = private_header.point_start_instance;j <= private_header.point_end_instance;j++)
 				{  // SWAP hi byte and low byte
-					prg_code[j][0] = (U8_T)(programs[j].bytes >> 8);
-					prg_code[j][1] = (U8_T)(programs[j].bytes);
+					prg_code[j][0] = (U8_T)programs[j].bytes;
+					prg_code[j][1] = (U8_T)(programs[j].bytes >> 8);
 				}
 				ptr = (char *)prg_code[private_header.point_start_instance];
 				break;
@@ -382,11 +356,6 @@ void handler_private_transfer(
 				UpdateMonitor(Graphi_data);
 				ptr = (char *)(Graphi_data->asdu);
 				break;
-			case GET_PANEL_INFO:   // other commad
-		
-				ptr = (char *)(Panel_Info.all);	
-				flag_old_seocket = 0;
-				break;
 			default:
 				break;
 		}
@@ -401,21 +370,23 @@ void handler_private_transfer(
 		}	
 
 		status = bacapp_parse_application_data(BACNET_APPLICATION_TAG_OCTET_STRING,	temp, &data_value);
-		if(status == false)	Test[1]++;
+		status = true;
+	
 	} 
  
     if(status == true)
 	{	
-	   	memset(temp,0,480);
-		
+	   	memset(temp,0,480);	
+
 	    private_data_len =
 	        bacapp_encode_application_data(&temp[0],&data_value);
-		
+
 	    private_data.serviceParameters = &temp[0];
 	    private_data.serviceParametersLen = private_data_len; 		
 
 	    len = uptransfer_encode_apdu(&apdu[0], &private_data);
 	}
+	
 	Send_UnconfirmedPrivateTransfer(src,&private_data);
 
     return;

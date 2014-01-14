@@ -37,6 +37,10 @@
 #include "bacdef.h"
 #include "wp.h"
 
+
+#ifdef READ_WRITE_PROPERTY
+
+
 /** @file wp.c  Encode/Decode BACnet Write Property APDUs  */
 #if BACNET_SVC_WP_A
 /* encode service */
@@ -386,3 +390,6 @@ int main(
 }
 #endif /* TEST_WRITE_PROPERTY */
 #endif /* TEST */
+
+
+#endif

@@ -460,7 +460,31 @@ void Display_Save_Value(unsigned char sub,unsigned char index)
 
 }
 
+extern char time[];
 
+void Display_IP(void)
+{  	
+	char text[20];
+
+	sprintf(text, "IP:   %u.%u.%u.%u", (uint16)IP_Addr[0], (uint16)IP_Addr[1], (uint16)IP_Addr[2], (uint16)IP_Addr[3]);
+	Lcd_Show_String(0, 0, text, NORMAL, 21);
+	
+	// subnet mask address		
+	sprintf(text, "MASK: %u.%u.%u.%u", (uint16)SUBNET[0], (uint16)SUBNET[1], (uint16)SUBNET[2], (uint16)SUBNET[3]);
+	Lcd_Show_String(1, 0, text, NORMAL, 21);
+	// tcp port
+	sprintf(text, "GATE: %u.%u.%u.%u", (uint16)GETWAY[0], (uint16)GETWAY[1], (uint16)GETWAY[2], (uint16)GETWAY[3]);
+	Lcd_Show_String(2, 0, text, NORMAL, 21);
+	// tcp port
+	sprintf(text, "PORT: %u", (uint16)HTTP_SERVER_PORT);
+	Lcd_Show_String(3, 0, text, NORMAL, 21);
+	// MAC address
+//				sprintf(text, "MAC:%02X:%02X:%02X:%02X:%02X:%02X", (uint16)Mac_Addr[0], (uint16)Mac_Addr[1], (uint16)Mac_Addr[2], (uint16)Mac_Addr[3], (uint16)Mac_Addr[4], (uint16)Mac_Addr[5]);
+//				Lcd_Show_String(4, 0, text, NORMAL, 21); 
+//	get_time_text();
+//	sprintf(text, "%s", time);
+//	Lcd_Show_String(4, 0, text, NORMAL, 21); 
+}
 void Display_Idle(U8_T index)
 {
 	static char pre_status = 0;

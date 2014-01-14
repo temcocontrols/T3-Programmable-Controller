@@ -58,7 +58,7 @@
 typedef enum
 	{
 		OUT=0, IN, VAR, CON, WRT, AR, PRG, TBL, TZ, AMON, GRP, ARRAY, ALARMM,
-		UNIT, USER_NAME, ALARM_SET, WR_TIME, AR_DATA
+		UNIT, USER_NAME, ALARM_SET, WR_TIME, AR_DATA,
 	}	Point_type_equate;
 
 typedef enum { 
@@ -160,6 +160,7 @@ typedef enum {
 		 OPENSCREEN_COMMAND        = 123,
 
 		 GET_PANEL_INFO			= 99,
+		 NEW_UDP_PORT	= 199,
 
 } CommandRequest;
 

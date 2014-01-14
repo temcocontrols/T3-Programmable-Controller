@@ -36,6 +36,10 @@
 #include "wp.h"
 #include "bv.h"
 
+#ifdef READ_WRITE_PROPERTY
+
+
+
 #if (MAX_BINARY_VALUES > 10)
 #error Modify the Binary_Value_Name to handle multiple digits
 #endif
@@ -327,3 +331,5 @@ int main(
 }
 #endif /* TEST_BINARY_VALUE */
 #endif /* TEST */
+
+#endif

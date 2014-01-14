@@ -46,9 +46,8 @@
 // for temoc private application
 #include "user_data.h"
 #include "define.h"
-//#include "lcd.h"
+#include "lcd.h"
 #include "clock.h"
-#include "tcpip.h"
 
 /** @file ptransfer.c  Encode/Decode Private Transfer data */
 /* 
@@ -60,9 +59,11 @@
 uint8_t invoke_id;
 uint16_t transfer_len;
 extern U8_T far ChangeFlash;
-uint8_t header_len;
 
-
+//void ReadMonitor(void)
+//{} 
+//void UpdateMonitor(void)
+//{}
 
 void handler_private_transfer( 	
 	uint8_t * apdu,
@@ -86,7 +87,8 @@ void handler_private_transfer(
     int bytes_sent = 0;
 	bool status = false;
 	uint8_t temp[480] = {0};
-	uint8_t command = 0;
+	Mon_Data *PTRtable;
+
 
 	U8_T j;
 
@@ -95,6 +97,7 @@ void handler_private_transfer(
 	 uint8_t tag_number;
 	 uint32_t len_value_type;
 //   decode ptransfer
+
 	len = ptransfer_decode_apdu(&apdu[0], apdu_len, &invoke_id, &rec_data);
 	
 	iLen = 0;
@@ -109,55 +112,43 @@ void handler_private_transfer(
 	{
 		decode_octet_string(&rec_data.serviceParameters[iLen], len_value_type,&Temp_CS);
 	}
+
 	private_data.vendorID =  rec_data.vendorID;
 	private_data.serviceNumber = rec_data.serviceNumber;
 
    //bacapp_decode_application_data(rec_data.serviceParameters,
    //    rec_data.serviceParametersLen, &rec_data_value);	
-	 command = Temp_CS.value[2];;
+	
 
-	if( command  == READMONITORDATA_T3000 || command  == UPDATEMEMMONITOR_T3000)
+	private_header.total_length = Temp_CS.value[1] * 256 + Temp_CS.value[0];
+	private_header.command = Temp_CS.value[2];
+	private_header.point_start_instance = Temp_CS.value[3];
+	private_header.point_end_instance = Temp_CS.value[4];
+	private_header.entitysize = Temp_CS.value[6] * 256 + Temp_CS.value[5];
+//    encode  ptransfer	
+// 0- 100 read
+// 100 - 200 write
+// 200 other
+//	if(private_header.command > 200)   // other commad
+//	{
+//		switch(private_header.command)
+//		{
+//			case WRITEPRGFLASH_COMMAND:
+//				ChangeFlash = 1;
+//			break;
+//		}
+//	}
+	if(private_header.command > 100)   // write command
 	{
-		 header_len = 18;
-
-		 Graphi_data->command = Temp_CS.value[2];
-		 Graphi_data->index = Temp_CS.value[3];	  // monitor table index
-		 Graphi_data->sample_type = Temp_CS.value[4];
-
-		 memcpy(Graphi_data->comm_arg.string,&Temp_CS.value[5],4);  // size oldest_time most_recent_time
-		 memcpy(Graphi_data->comm_arg.string + 4,&Temp_CS.value[9],4);
-		 memcpy(Graphi_data->comm_arg.string + 8,&Temp_CS.value[13],4);
-
-		 Graphi_data->comm_arg.monupdate.size = DoulbemGetPointWord2(Graphi_data->comm_arg.monupdate.size);
-		 Graphi_data->comm_arg.monupdate.most_recent_time = DoulbemGetPointWord2(Graphi_data->comm_arg.monupdate.most_recent_time);
-		 Graphi_data->comm_arg.monupdate.oldest_time = DoulbemGetPointWord2(Graphi_data->comm_arg.monupdate.oldest_time);
-   
-		 Graphi_data->special = Temp_CS.value[17];	  // 0 - scan  1 - send monitor frame 
-
-	}
-	else
-	{
-		private_header.total_length = Temp_CS.value[1] * 256 + Temp_CS.value[0];
-		private_header.command = Temp_CS.value[2];
-		private_header.point_start_instance = Temp_CS.value[3];
-		private_header.point_end_instance = Temp_CS.value[4];
-		private_header.entitysize = Temp_CS.value[6] * 256 + Temp_CS.value[5];
-
-		header_len = USER_DATA_HEADER_LEN;			 
-
-	}
-
-	if(command > 100)   // write command
-	{
-		if(command ==  WRITEPRGFLASH_COMMAND)   // other commad
+		if(private_header.command ==  WRITEPRGFLASH_COMMAND)   // other commad
 		{
-			//Flash_Write_Mass();
-			ChangeFlash = 1;
-		} 
+			Test[49] = 100;
+			Flash_Write_Mass();
+		}
 		else
 		{
 		// TBD: add more write command
-			switch(command)
+			switch(private_header.command)
 			{
 				case WRITEINPUT_T3000:
 					ptr = (char *)(&inputs[private_header.point_start_instance]);				
@@ -208,35 +199,22 @@ void handler_private_transfer(
 	//			case WRITEGROUPELEMENTS_T3000:
 	//				ptr = (char *)(&group_data[private_header.point_start_instance]);
 					break;
-				case NEW_UDP_PORT:
-					ptr = (char *)(&client_ip[0]);
 				default:
 					break;	
 					
 			} 
 			if(ptr != NULL)	
 			{
-				if(private_header.total_length  == private_header.entitysize * (private_header.point_end_instance - private_header.point_start_instance + 1) + header_len)
+				if(private_header.total_length  == private_header.entitysize * (private_header.point_end_instance - private_header.point_start_instance + 1) + USER_DATA_HEADER_LEN)
 				{	// check is length is correct 
-					if(command == WRITEVARIABLE_T3000)
-					{
-						if(private_header.point_start_instance == 0)
-						{
-//						char teststr[] = "\r\n 4: \r\n";
-//						sub_send_string(teststr,10,UART0);
-//						sub_send_string(Temp_CS.value,private_header.total_length,UART0);
-						}
-						
-					}
-				   	memcpy(ptr,&Temp_CS.value[header_len],private_header.total_length - header_len);
-					if(command == WRITEPROGRAMCODE_T3000)
+				   	memcpy(ptr,&Temp_CS.value[USER_DATA_HEADER_LEN],private_header.total_length - USER_DATA_HEADER_LEN);
+					if(private_header.command == WRITEPROGRAMCODE_T3000)
 					{
 					//	U8_T j = 0;
 						for(j = private_header.point_start_instance;j <= private_header.point_end_instance;j++)
 						{  						
-							programs[j].bytes = mGetPointWord2(prg_code[j][1]* 256 + prg_code[j][0]);
+							programs[j].bytes = prg_code[j][1]+ prg_code[j][0] * 256;
 						}
-
 						/* recount code lenght once update program code */
 	
 						Code_total_length = 0;
@@ -245,11 +223,86 @@ void handler_private_transfer(
 							Code_total_length += mGetPointWord2(programs[j].bytes);
 						}
 					}
-					else if(command == WRITEMONITOR_T3000)
+					else if(private_header.command == WRITEMONITOR_T3000)
 					{ 
-						dealwithMonitor(private_header);
+						U8_T command;
+						for( j = private_header.point_start_instance; j < private_header.point_end_instance + 1; j++)
+						{	 
+							command = 0;
+						/* compare the old definition with the new one except for the label */
+							if( memcmp( &backup_monitors[j].inputs[0], &monitors[j].inputs[0], sizeof( Point_Net ) * MAX_POINTS_IN_MONITOR) )
+							{
+							/* compare sample rate */
+								
+								if( memcmp( (void*)&backup_monitors[j].second_interval_time,
+											(void*)&monitors[j].second_interval_time, 3 ) )
+	
+								{ /* different sample rate */
+								
+									if( monitors[j].an_inputs )
+										command |= 0x01;  /* need a new analog block */
+									/* compare number of digital points */
+									if( ( monitors[j].num_inputs - monitors[j].an_inputs ) !=
+											( backup_monitors[j].num_inputs - backup_monitors[j].an_inputs ) )
+										command |= 0x02;  /* need a new digital block */
+									else
+									{
+										/* compare digital points' definition */
+										if( memcmp( (void*)(backup_monitors[j].inputs + backup_monitors[j].an_inputs),
+												(void*)(monitors[j].inputs + monitors[j].an_inputs),
+											( backup_monitors[j].num_inputs - backup_monitors[j].an_inputs ) *
+												sizeof( Point_Net ) ) )
+											command |= 0x02;  /* need a new digital block */
+									}
+								}
+								else /* same sample rate */
+								{	
+									/* compare number of analog points */
+									if( backup_monitors[j].an_inputs == monitors[j].an_inputs )
+									{	  
+										/* compare analog points' definition */
+										if( memcmp( (void*)(backup_monitors[j].inputs),
+													(void*)(monitors[j].inputs),
+											( backup_monitors[j].an_inputs ) * sizeof( Point_Net ) ) )
+											command |= 0x01;  /* need a new analog block */
+									}
+									else
+									{
+										command |= 0x01;  /* need a new analog block */
+									}
+									/* compare number of digital points */
+									if( ( backup_monitors[j].num_inputs - backup_monitors[j].an_inputs ) !=
+											( monitors[j].num_inputs - monitors[j].an_inputs ) )
+									{	
+										command |= 0x02;  /* need a new digital block */
+									}
+									else
+									{	 
+										/* compare digital points' definition */
+										if( memcmp( (void*)(backup_monitors[j].inputs + backup_monitors[j].an_inputs),
+												(void*)(monitors[j].inputs+monitors[j].an_inputs),
+											( backup_monitors[j].num_inputs - backup_monitors[j].an_inputs ) *
+												sizeof( Point_Net ) ) )
+											command |= 0x02;  /* need a new digital block */
+									}
+								}
+							}			
+			
+						//	no_points = ( ptr.pmon - monitors );/* / sizeof(Str_monitor_point);*/
+			
+							if( command & 0x01 ) /* get a new analog block */
+							{
+								get_new_analog_block( j, 1, &monitors[j] );
+							}
+							if( command & 0x02 ) /* get a new digital block */
+							{	 
+								get_new_digital_block( j, 1, &monitors[j] );
+							}
+						}
+						memcpy(&backup_monitors[private_header.point_start_instance],&backup_monitors[private_header.point_start_instance], private_header.entitysize);  // record moinitor data
+
 					}
-					else if(command == RESTARTMINI_COMMAND)
+					else if(private_header.command == RESTARTMINI_COMMAND)
 					{ 
 						Set_Clock(0,0);
 						Set_Clock(1,0);
@@ -261,62 +314,26 @@ void handler_private_transfer(
 						Set_Clock(PCF_MON,RTC.Clk.mon);
 						Set_Clock(PCF_YEAR,RTC.Clk.year - 2000);
 					}
-					else if(command == NEW_UDP_PORT)
-					{	
-						U8_T tempsocket = 0;
-						static U32_T old_ip;	
-						if(old_ip != ((U32_T)client_ip[3] << 24) + ((U32_T)client_ip[2] << 16) + (U16_T)(client_ip[1] << 8) + client_ip[0])
-						{	Test[37]++;
-							tempsocket = TCPIP_UdpNew(2, 3, ((U32_T)client_ip[3] << 24) + ((U32_T)client_ip[2] << 16) + (U16_T)(client_ip[1] << 8) + client_ip[0], 0, 47808);
-							if(tempsocket != 255)
-							{
-							   	newsocket = tempsocket;
-								old_ip = ((U32_T)client_ip[3] << 24) + ((U32_T)client_ip[2] << 16) + (U16_T)(client_ip[1] << 8) + client_ip[0];					
-								flag_old_seocket = 1;
-								Test[38]++;
-							}
-							else
-							{
-								Test[39]++;
-							}
-						}
-						Test[40] = newsocket;
-
-						
-
-					}
 				}
 			}
 		}
 	}
 	else  // read
-	{	 
-		if( Temp_CS.value[2]  == READMONITORDATA_T3000 || Temp_CS.value[2]  == UPDATEMEMMONITOR_T3000)
+	{
+		transfer_len = private_header.entitysize * (private_header.point_end_instance - private_header.point_start_instance + 1);
+		
+		if(transfer_len >= 0)
 		{
-			temp[0] = 0;
-			temp[1] = 0;
-			temp[2] = Graphi_data->command;
-			temp[3] = Graphi_data->index;
-			temp[4] = Graphi_data->sample_type;
-			memcpy(&temp[5],Graphi_data->comm_arg.string,12);
-			temp[17] = Graphi_data->special;
-		}
-		else
-		{
-			transfer_len = private_header.entitysize * (private_header.point_end_instance - private_header.point_start_instance + 1);
-			if(transfer_len >= 0)
-			{
-				temp[0] = (uint8_t)(transfer_len >> 8);
-				temp[1] = (uint8_t)transfer_len;
-				temp[2] = private_header.command;
-				temp[3] = private_header.point_start_instance;
-				temp[4] = private_header.point_end_instance;
-				temp[5] = (uint8_t)private_header.entitysize ; 
-				temp[6] = (uint8_t)(private_header.entitysize >> 8); 	  
-			}
+			temp[0] = (uint8_t)(transfer_len >> 8);
+			temp[1] = (uint8_t)transfer_len;
+			temp[2] = private_header.command;
+			temp[3] = private_header.point_start_instance;
+			temp[4] = private_header.point_end_instance;
+			temp[5] = (uint8_t)private_header.entitysize ; 
+			temp[6] = (uint8_t)(private_header.entitysize >> 8); 	  
 		}
 
-		switch(command)
+		switch(private_header.command)
 		{
 			case READOUTPUT_T3000:
 				ptr = (char *)(&outputs[private_header.point_start_instance]);
@@ -339,8 +356,8 @@ void handler_private_transfer(
 			case READPROGRAMCODE_T3000:	
 				for(j = private_header.point_start_instance;j <= private_header.point_end_instance;j++)
 				{  // SWAP hi byte and low byte
-					prg_code[j][0] = (U8_T)(programs[j].bytes >> 8);
-					prg_code[j][1] = (U8_T)(programs[j].bytes);
+					prg_code[j][0] = (U8_T)programs[j].bytes;
+					prg_code[j][1] = (U8_T)(programs[j].bytes >> 8);
 				}
 				ptr = (char *)prg_code[private_header.point_start_instance];
 				break;
@@ -356,7 +373,7 @@ void handler_private_transfer(
 				ptr = (char *)(RTC.all);
 				break;
 			case READCONTROLLER_T3000:
-				
+			
 				ptr = (char *)(&controllers[private_header.point_start_instance]);
 				for( j=0; j<MAX_CONS; j++ )
 				{
@@ -375,17 +392,11 @@ void handler_private_transfer(
 				ptr = (char *)(&group_data[private_header.point_start_instance]);
 				break;	 		
 			case READMONITORDATA_T3000:
-				ReadMonitor(Graphi_data);				
-				ptr = (char *)(Graphi_data->asdu);
+			//	ptr = (char *)(&mon_block[private_header.point_start_instance]);
+				UpdateMonitor(PTRtable);
 				break;			
-			case UPDATEMEMMONITOR_T3000:
-				UpdateMonitor(Graphi_data);
-				ptr = (char *)(Graphi_data->asdu);
-				break;
-			case GET_PANEL_INFO:   // other commad
-		
-				ptr = (char *)(Panel_Info.all);	
-				flag_old_seocket = 0;
+			case UPDATEMEMMONITOR_T3000:			
+				ReadMonitor(PTRtable);
 				break;
 			default:
 				break;
@@ -393,29 +404,111 @@ void handler_private_transfer(
 
 		
 
-		memcpy(&temp[header_len],ptr,transfer_len);
-			
-		if(command == READMONITOR_T3000)
+		memcpy(&temp[USER_DATA_HEADER_LEN],ptr,transfer_len);
+		if(private_header.command == UPDATEMEMMONITOR_T3000)
+		{
+		   	if(private_header.point_start_instance == 0)
+			{
+				
+			}
+		}		
+		if(private_header.command == READMONITOR_T3000)
 		{	
-			dealwithMonitor(private_header);	
+			U8_T command = 0;
+			for( j = private_header.point_start_instance; j < private_header.point_end_instance + 1; j++)
+			{	 
+				command = 0;
+				/* compare the old definition with the new one except for the label */
+				if( memcmp( &backup_monitors[j].inputs[0], &monitors[j].inputs[0], sizeof( Point_Net ) * MAX_POINTS_IN_MONITOR) )
+				{
+				/* compare sample rate */
+					
+					if( memcmp( (void*)&backup_monitors[j].second_interval_time,
+								(void*)&monitors[j].second_interval_time, 3 ) )
+
+					{ /* different sample rate */
+						if( monitors[j].an_inputs )
+							command |= 0x01;  /* need a new analog block */
+						/* compare number of digital points */
+						if( ( monitors[j].num_inputs - monitors[j].an_inputs ) !=
+								( backup_monitors[j].num_inputs - backup_monitors[j].an_inputs ) )
+							command |= 0x02;  /* need a new digital block */
+						else
+						{
+							/* compare digital points' definition */
+							if( memcmp( (void*)(backup_monitors[j].inputs + backup_monitors[j].an_inputs),
+									(void*)(monitors[j].inputs + monitors[j].an_inputs),
+								( backup_monitors[j].num_inputs - backup_monitors[j].an_inputs ) *
+									sizeof( Point_Net ) ) )
+								command |= 0x02;  /* need a new digital block */
+						}
+					}
+					else /* same sample rate */
+					{	
+						/* compare number of analog points */
+						if( backup_monitors[j].an_inputs == monitors[j].an_inputs )
+						{	
+							/* compare analog points' definition */
+							if( memcmp( (void*)(backup_monitors[j].inputs),
+										(void*)(monitors[j].inputs),
+								( backup_monitors[j].an_inputs ) * sizeof( Point_Net ) ) )
+								command |= 0x01;  /* need a new analog block */
+						}
+						else
+						{
+							command |= 0x01;  /* need a new analog block */
+						}
+						/* compare number of digital points */
+						if( ( backup_monitors[j].num_inputs - backup_monitors[j].an_inputs ) !=
+								( monitors[j].num_inputs - monitors[j].an_inputs ) )
+						{
+							command |= 0x02;  /* need a new digital block */
+						}
+						else
+						{
+							/* compare digital points' definition */
+							if( memcmp( (void*)(backup_monitors[j].inputs + backup_monitors[j].an_inputs),
+									(void*)(monitors[j].inputs+monitors[j].an_inputs),
+								( backup_monitors[j].num_inputs - backup_monitors[j].an_inputs ) *
+									sizeof( Point_Net ) ) )
+								command |= 0x02;  /* need a new digital block */
+						}
+					}
+				}			
+
+			//	no_points = ( ptr.pmon - monitors );/* / sizeof(Str_monitor_point);*/
+
+				if( command & 0x01 ) /* get a new analog block */
+				{
+					get_new_analog_block( j, 1, &monitors[j] );
+				}
+				if( command & 0x02 ) /* get a new digital block */
+				{	
+					get_new_digital_block( j, 1, &monitors[j] );
+				}
+			}	 
+			for(j = private_header.point_start_instance;j <= private_header.point_end_instance;j++)
+			 	memcpy(&backup_monitors[j],&temp[USER_DATA_HEADER_LEN + private_header.entitysize * (j - private_header.point_start_instance)], private_header.entitysize);  // record moinitor data
 		}	
 
 		status = bacapp_parse_application_data(BACNET_APPLICATION_TAG_OCTET_STRING,	temp, &data_value);
-		if(status == false)	Test[1]++;
+		status = true;
+	
 	} 
  
     if(status == true)
 	{	
-	   	memset(temp,0,480);
-		
+	   	memset(temp,0,480);	
+
 	    private_data_len =
 	        bacapp_encode_application_data(&temp[0],&data_value);
-		
+
 	    private_data.serviceParameters = &temp[0];
 	    private_data.serviceParametersLen = private_data_len; 		
 
 	    len = uptransfer_encode_apdu(&apdu[0], &private_data);
 	}
+	
 	Send_UnconfirmedPrivateTransfer(src,&private_data);
 
     return;

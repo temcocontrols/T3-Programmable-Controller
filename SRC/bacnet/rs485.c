@@ -148,13 +148,13 @@ void RS485_Transmitter_Enable(
 		else
 			UART0_TXEN = 0;
 	}
-	else
-	{
-		if(enable)
-			UART1_TXEN = 1;
-		else
-			UART1_TXEN = 0;
-	}
+//	else
+//	{
+//		if(enable)
+//			UART1_TXEN = 1;
+//		else
+//			UART1_TXEN = 0;
+//	}
 }
 
 /****************************************************************************

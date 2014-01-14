@@ -42,7 +42,7 @@
 #include "bv.h"
 //#include "handlers.h"
 
-
+#ifdef READ_WRITE_PROPERTY
 
 /* Encodes the property APDU and returns the length,
    or sets the error, and returns -1 */
@@ -171,3 +171,5 @@ void handler_read_property(
 
     return;
 }
+
+#endif

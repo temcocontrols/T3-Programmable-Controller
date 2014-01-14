@@ -815,7 +815,7 @@ static int bvlc_send_bdt(
 
     mtu_len = (uint16_t) bvlc_encode_read_bdt_ack(&mtu[0], sizeof(mtu));
     if (mtu_len) {
-        bvlc_send_mpdu(dest, &mtu[0], mtu_len);	  Test[47]++;
+        bvlc_send_mpdu(dest, &mtu[0], mtu_len);	  
     }
 
     return mtu_len;
