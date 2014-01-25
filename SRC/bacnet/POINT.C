@@ -125,7 +125,7 @@ U16_T search_point( U8_T *type, U8_T *number, S8_T *buff, Search_type order )
 	else
 		return length;
 }
-
+#endif
 
 /*
  * ----------------------------------------------------------------------------
@@ -136,92 +136,94 @@ U16_T search_point( U8_T *type, U8_T *number, S8_T *buff, Search_type order )
  * Note: this function is called in SERVER.C(server_data())
  * ----------------------------------------------------------------------------
  */
-void update_alarm_tbl(Alarm_point *block, S16_T max_points_bank )
-{
-	S16_T i,j;
+void update_alarm_tbl(Alarm_point *block, int max_points_bank )
+{ 
+	int i,j;
 	Alarm_point *bl;
 	Str_points_ptr ptr;
-	S8_T alarmtask;
+	char alarmtask;
 	
 	alarmtask=0;
 	ptr.palrm = &alarms[0];
 	for( j=0; j<MAX_ALARMS; j++, ptr.palrm++)
  	{
-		if(	GetByteBit(ptr.palrm->flag1,alarm_alarm,1)/*ptr.palrm->alarm*/ )
+		if(	ptr.palrm->alarm )
 		{
-			if( GetByteBit(ptr.palrm->flag4,alarm_change_flag,2)/*ptr.palrm->change_flag*/ ) continue;
-			 /*ptr.palrm->change_flag = 2;*/
-			SetByteBit(&ptr.palrm->flag4,2,alarm_change_flag,2);
+		 	if( ptr.palrm->change_flag ) 
+				continue;
+			ptr.palrm->change_flag = 2;
 			bl = block;
 			for( i=0; i<max_points_bank;i++, bl++ )
-			{
-				if(GetByteBit(bl->flag1,alarm_alarm,1)	/*bl->alarm */)
+		 	{
+				if(	bl->alarm )
 				{
 				 	if( ptr.palrm->no == bl->no ) break;
 				}
-			}
-			if( i>=max_points_bank )
-			{
-				SetByteBit(&ptr.palrm->flag4,0,alarm_change_flag,2);//ptr.palrm->change_flag=0;
+		 	}
+		 	if( i>=max_points_bank )
+		 	{
+				ptr.palrm->change_flag=0;
 				continue;
-			}
-			if(GetByteBit(bl->flag1,alarm_ddelete,1)/* bl->ddelete*/ )
-			{
-				if( !GetByteBit(ptr.palrm->flag1,alarm_restored,1)/*ptr.palrm->restored*/ && !GetByteBit(ptr.palrm->flag1,alarm_acknowledged,1)/*ptr.palrm->acknowledged*/ )
+		 	}
+		 	if( bl->ddelete )
+		 	{
+				if( (ptr.palrm->restored == 0) && (ptr.palrm->acknowledged == 0) )
 				{
 					if(!ind_alarms--) ind_alarms=0;
 				}
-				SetByteBit(&ptr.palrm->flag1,0,alarm_alarm,1);//ptr.palrm->alarm        = 0;
-				SetByteBit(&ptr.palrm->flag4,0,alarm_change_flag,2);//ptr.palrm->change_flag  = 0;
-				SetByteBit(&ptr.palrm->flag1,0,alarm_restored,1);//ptr.palrm->restored     = 0;
-				SetByteBit(&ptr.palrm->flag1,0,alarm_acknowledged,1);//ptr.palrm->acknowledged = 0;
-				SetByteBit(&ptr.palrm->flag1,1,alarm_ddelete,1);//ptr.palrm->ddelete      = 1;
-				SetByteBit(&ptr.palrm->flag4,0,alarm_original,1);//ptr.palrm->original     = 0;
-				if(ptr.palrm->alarm_panel == Station_NUM)
+				ptr.palrm->alarm        = 0;
+				ptr.palrm->change_flag  = 0;
+				ptr.palrm->restored     = 0;
+				ptr.palrm->acknowledged = 0;
+				ptr.palrm->ddelete      = 1;
+				ptr.palrm->original     = 0;
+				if(ptr.palrm->alarm_panel==Station_NUM)
 				{
-					SetByteBit(&ptr.palrm->flag4,0,alarm_where_state1,1);//ptr.palrm->where_state1 = 0;
-					SetByteBit(&ptr.palrm->flag4,0,alarm_where_state2,1);//ptr.palrm->where_state2 = 0;
-					SetByteBit(&ptr.palrm->flag4,0,alarm_where_state3,1);//ptr.palrm->where_state3 = 0;
-					SetByteBit(&ptr.palrm->flag4,0,alarm_where_state4,1);//ptr.palrm->where_state4 = 0;
-					SetByteBit(&ptr.palrm->flag4,0,alarm_where_state5,1);//ptr.palrm->where_state5 = 0;
+					ptr.palrm->where_state1 = 0;
+					ptr.palrm->where_state2 = 0;
+					ptr.palrm->where_state3 = 0;
+					ptr.palrm->where_state4 = 0;
+					ptr.palrm->where_state5 = 0;
 				}
 				alarmtask |= 0x02;
 				continue;
-			}
-			if(GetByteBit(bl->flag1,alarm_acknowledged,1)/* bl->acknowledged*/ )
-			{
-				if( !GetByteBit(ptr.palrm->flag1,alarm_acknowledged,1)/*ptr.palrm->acknowledged*/ )
+		 	}
+		 	if( bl->acknowledged )
+		 	{
+				if( (ptr.palrm->acknowledged == 0) )
 				{
-					if( !GetByteBit(ptr.palrm->flag1,alarm_restored,1)/*ptr.palrm->restored*/ )
+					if( (ptr.palrm->restored == 0) )
 					{
 						if(!ind_alarms--) ind_alarms=0;
 					}
-					SetByteBit(&ptr.palrm->flag1,1,alarm_acknowledged,1);//ptr.palrm->acknowledged = 1;
-					SetByteBit(&ptr.palrm->flag4,0,alarm_original,1);//ptr.palrm->original     = 0;
+					ptr.palrm->acknowledged = 1;
+					ptr.palrm->original     = 0;
 					if(ptr.palrm->alarm_panel==Station_NUM)
 					{
-						SetByteBit(&ptr.palrm->flag4,0,alarm_where_state1,1);//ptr.palrm->where_state1 = 0;
-						SetByteBit(&ptr.palrm->flag4,0,alarm_where_state2,1);//ptr.palrm->where_state2 = 0;
-						SetByteBit(&ptr.palrm->flag4,0,alarm_where_state3,1);//ptr.palrm->where_state3 = 0;
-						SetByteBit(&ptr.palrm->flag4,0,alarm_where_state4,1);//ptr.palrm->where_state4 = 0;
-						SetByteBit(&ptr.palrm->flag4,0,alarm_where_state5,1);//ptr.palrm->where_state5 = 0;
+						ptr.palrm->where_state1 = 0;
+						ptr.palrm->where_state2 = 0;
+						ptr.palrm->where_state3 = 0;
+						ptr.palrm->where_state4 = 0;
+						ptr.palrm->where_state5 = 0;
 					}
 					alarmtask |= 0x01;
 				}
-			}
-			SetByteBit(&ptr.palrm->flag4,0,alarm_change_flag,2);//ptr.palrm->change_flag=0;
+		 	}
+		 	ptr.palrm->change_flag=0;
 		}
  	}
 	if( alarmtask )
 	{
-		 new_alarm_flag |= 0x01;
-		 if( alarmtask & 0x02 )
-	     new_alarm_flag |= 0x02;
+		new_alarm_flag |= 0x01;
+		if( alarmtask & 0x02 )
+			new_alarm_flag |= 0x02;
 	}
+
 }
 
 
 
+#if 0
 /*
  * ----------------------------------------------------------------------------
  * Function Name: find_remote_point
@@ -748,7 +750,6 @@ S16_T get_point_info( Point_info *ptr )
 				ptr->auto_manual = sptr.pwr->auto_manual;  
 		
 				ptr->point_value = sptr.pwr->value?1000L:0;
-				Test[47] = ptr->point_value;
 				ptr->units = 1;
 				break;
 		case AR:
@@ -1057,3 +1058,5 @@ S16_T	writepropertyauto( BACnetObjectIdentifier *obj, S16_T auto_manual )
 }
 
 #endif
+
+

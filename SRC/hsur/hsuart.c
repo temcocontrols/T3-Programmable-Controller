@@ -105,15 +105,15 @@
 
 /* STATIC VARIABLE DECLARATIONS */
 
- U8_T	far 	hsurRxBuffer[UR2_MAX_RX_SIZE];
-static U8_T	far 	hsurTxBuffer[UR2_MAX_TX_SIZE];
+U8_T far hsurRxBuffer[UR2_MAX_RX_SIZE];
+U8_T	far 	hsurTxBuffer[UR2_MAX_TX_SIZE];
 static U16_T far 	hsurRxBufNum = 0;
 static U16_T far 	hsurTxBufNum = 0;
 static U8_T	 far 	hsurRxTrigLvl = 0;
- U16_T	far hsurRxCount = 0;
-static S16_T far 	hsurTxCount = 0;
-static U16_T far 	hsurGetPtr = 0;
-static U16_T far 	hsurPutPtr = 0;
+U16_T	far hsurRxCount = 0;
+U16_T far 	hsurTxCount = 0;
+U16_T far 	hsurGetPtr = 0;
+U16_T far 	hsurPutPtr = 0;
 static U8_T	 far 	hsurFlowCtrl = 0;
 static U8_T	 far 	hsurFlowOn = 0;
 static U8_T	 far 	hsurTxTransmit = 0;
@@ -133,6 +133,9 @@ static U8_T	 far 	hsurAppFlowOn = 0;
 static U8_T     far  hsurFlowCtrlXoff = FALSE;
 static U8_T    far  hsurFlowCtrlXon = FALSE;
 static U8_T	 far 	hsurFlowCtrlHwCTSon = FALSE;
+
+U8_T far uart2_timeout = UART2_TIMEOUT;
+
 
 
 /* LOCAL SUBPROGRAM DECLARATIONS */
@@ -163,37 +166,31 @@ static void hsur_ReadLsr(void)
 	{
 		// Overrun Error
 		hsurErrorCount ++;
-//		P3 = BIT0;
 	}
 	if (hsurLineStatusValue & UR2_PE)
 	{
 		// Parity Error
 		hsurErrorCount ++;
-//		P3 = BIT1;
 	}
 	if (hsurLineStatusValue & UR2_FE)
 	{
-		// Framing Error
-		hsurErrorCount ++;
-//		P3 = BIT2;
+		// Framing Error   
+		hsurErrorCount ++;	
 	}
 	if (hsurLineStatusValue & UR2_BI)
 	{
 		// Break Interrupt Occured
 		hsurErrorCount ++;
-//		P3 = BIT3;
 	}
 	if (hsurLineStatusValue & UR2_FRAME_ERR)
 	{
 		// Mixing Error
-		hsurErrorCount ++;
-//		P3 = BIT4;
+		hsurErrorCount ++;	
 	}
 
 	if (hsurErrorCount)
 	{
 		UR2_FCR |= UR2_RXFIFO_RST;
-
 		if (hsurErrorCount >=30)
 		{
 			hsurErrTimeStop = xTickCount;
@@ -254,10 +251,12 @@ static void hsur_RcvrTrig(void)
 {
 	U8_T	c;
 	U16_T	i;
+	
 
 	if (hsurRxCount >= UR2_MAX_RX_SIZE - hsurRxTrigLvl) // buffer full
+	{
 		return;
-
+	}
 	if (hsurFlowCtrl == UR2_FLOW_CTRL_SW)
 	{
 		for (i=0 ; i<hsurRxTrigLvl ; i++)
@@ -272,11 +271,9 @@ static void hsur_RcvrTrig(void)
 			}
 			else
 			{
-				hsurRxBuffer[hsurRxBufNum] = c;
-				hsurRxBufNum ++;
-				hsurRxCount ++;
-				if (hsurRxBufNum == UR2_MAX_RX_SIZE)
-					hsurRxBufNum = 0;
+				hsurRxBuffer[hsurRxCount++] = c;
+				if(hsurRxCount == UR2_MAX_RX_SIZE)
+					hsurRxCount = 0;
 			}
 	   	}
 	}
@@ -284,11 +281,9 @@ static void hsur_RcvrTrig(void)
 	{
 		for (i=0 ; i<hsurRxTrigLvl ; i++)
 		{
-			hsurRxBuffer[hsurRxBufNum] = UR2_RBR;
-			hsurRxBufNum ++;
-			hsurRxCount ++;
-			if (hsurRxBufNum == UR2_MAX_RX_SIZE)
-				hsurRxBufNum = 0;	
+			hsurRxBuffer[hsurRxCount++] = UR2_RBR;
+			if (hsurRxCount == UR2_MAX_RX_SIZE)
+				hsurRxCount = 0;	
 		}
 	}
 	else
@@ -298,11 +293,9 @@ static void hsur_RcvrTrig(void)
 			c = UR2_RBR;
 			if (c != ASCII_XOFF && c != ASCII_XON)
 			{
-				hsurRxBuffer[hsurRxBufNum] = c;
-				hsurRxBufNum ++;
-				hsurRxCount ++;
-				if (hsurRxBufNum == UR2_MAX_RX_SIZE)
-					hsurRxBufNum = 0;
+				hsurRxBuffer[hsurRxCount++] = c;
+				if (hsurRxCount == UR2_MAX_RX_SIZE)
+					hsurRxCount = 0;
 			}
 			else
 			{
@@ -317,7 +310,6 @@ static void hsur_RcvrTrig(void)
 	if (hsurFlowCtrl != UR2_FLOW_CTRL_NO)
 	{
 		HSUR_RxBufFlowControl();
-
 		if (hsurFlowOn == FALSE)
 		{
 			if (hsurRxCount >= UR2_FLOW_HI_WATERMARK) // check software buffer status
@@ -363,14 +355,12 @@ static void hsur_Rcvr(void)
 				}
 				else
 				{
-					hsurRxBuffer[hsurRxBufNum] = UR2_RBR;
-					hsurRxBufNum ++;
-					hsurRxCount ++;
-					if (hsurRxBufNum == UR2_MAX_RX_SIZE)
-						hsurRxBufNum = 0;
-
-					if (hsurRxCount >= UR2_MAX_RX_SIZE) // buffer full
-						break;;
+					hsurRxBuffer[hsurRxCount++] = UR2_RBR;
+					if (hsurRxCount == UR2_MAX_RX_SIZE)
+					{
+						hsurRxCount = 0;
+						break;
+					}
 				}
 		 	}
 			else
@@ -386,23 +376,22 @@ static void hsur_Rcvr(void)
 	
 			if (lineStatus & UR2_DR)
 			{
-				hsurRxBuffer[hsurRxBufNum] = UR2_RBR;
-				hsurRxBufNum ++;
-				hsurRxCount ++;
-				if (hsurRxBufNum == UR2_MAX_RX_SIZE)
-					hsurRxBufNum = 0;
-
-				if (hsurRxCount >= UR2_MAX_RX_SIZE) // buffer full
+				hsurRxBuffer[hsurRxCount++] = UR2_RBR;
+				if (hsurRxCount == UR2_MAX_RX_SIZE)
+				{
+					hsurRxCount = 0;
 					break;
+				}
 		  	}
-			else				
+			else
+			{	
 				break;
+			}
 		}		
 	}
 	else 
 	{
 		U8_T	c = 0;
-
 		while (1)
 		{
 			lineStatus = UR2_LSR;
@@ -414,14 +403,12 @@ static void hsur_Rcvr(void)
 
 				if (c != ASCII_XOFF && c != ASCII_XON)
 				{
-					hsurRxBuffer[hsurRxBufNum] = c;
-					hsurRxBufNum ++;
-					hsurRxCount ++;
-					if (hsurRxBufNum == UR2_MAX_RX_SIZE)
-						hsurRxBufNum = 0;
-
-					if (hsurRxCount >= UR2_MAX_RX_SIZE) // buffer full
+					hsurRxBuffer[hsurRxCount++] = c;
+					if (hsurRxCount == UR2_MAX_RX_SIZE)
+					{
+						hsurRxCount = 0;
 						break;
+					}
 				}
 				else
 				{
@@ -470,7 +457,7 @@ static void hsur_Xmit(void)
 			}
 		
 			if (hsurTxCount <= 0)
-			{		
+			{	
 				UR2_IER &= ~UR2_THRI_ENB;
 				return;
 			}
@@ -563,30 +550,31 @@ static void hsur_ReadMsr(void)
  * Note    : None.
  *--------------------------------------------------------------------------------
  */
-void HSUR_Func(void)
+void HSUR_Func(void)  
 {
-	U8_T	far intrStatus = 0;
+	U8_T far intrStatus = 0;
 
 	intrStatus = UR2_IIR & 0x0F;
-
 	if (intrStatus == UR2_RLS_INTR)
 	{
-		hsur_ReadLsr();
+		hsur_ReadLsr();	
 	}
 	else if (intrStatus == UR2_RD_TRIG_INTR)
 	{
 		UR2_IER &= ~UR2_RDI_ENB;
-		hsur_RcvrTrig();
+		hsur_RcvrTrig(); 	
+		uart2_timeout = UART2_TIMEOUT;
 		UR2_IER |= UR2_RDI_ENB;
 	}
 	else if (intrStatus == UR2_RD_TI_INTR)
 	{
 		UR2_IER &= ~UR2_RDI_ENB;
-		hsur_Rcvr();
+		hsur_Rcvr();	 	
+		uart2_timeout = UART2_TIMEOUT;
 		UR2_IER |= UR2_RDI_ENB;
 	}
 	else if (intrStatus == UR2_THRE_INTR)
-	{
+	{	  
 		if (hsurFlowCtrl != UR2_FLOW_CTRL_SW )
 		{
 			hsur_Xmit();
@@ -749,7 +737,7 @@ S8_T HSUR_PutChar(S8_T ch)
 
 		if (hsurFlowCtrl == UR2_FLOW_CTRL_SW)
 		{
-			tIdleStart =xTickCount;
+			tIdleStart = xTickCount;
 			while (hsurTxTransmit == 0)
 			{
 				tIdleStop =xTickCount;
@@ -770,9 +758,7 @@ S8_T HSUR_PutChar(S8_T ch)
 			}
 	
 			HSUR_TxBufFlowControl();
-			EA = 0;
 			hsurTxTransmit = 0;
-			EA = 1;
 		}
 	}
 	else
@@ -844,7 +830,7 @@ void HSUR_InitValue(void)
 //			P3 = 0xAA;
 			break;
 	}
-
+ 
 } /* End of UART_Init */
 
 /*
@@ -861,7 +847,7 @@ void HSUR_InitValue(void)
 //S16_T HSUR_GetCharNb(void)
 S8_T HSUR_GetCharNb(void)
 {
-	S8_T	far ch = 0;
+	S8_T far ch = 0;
 
 	UR2_IER &= ~UR2_RDI_ENB;
  

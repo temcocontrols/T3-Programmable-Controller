@@ -2,6 +2,7 @@
 #define	COMMSUB_H
 
 #include "types.h"
+#include "scan.h"
 /*
 typedef struct
 {
@@ -34,8 +35,9 @@ typedef  struct
 	U8_T night_heat_sp;
 	U8_T night_cool_sp;
 	U8_T over_ride;
-	U8_T serial_number[4];
-	U8_T address;
+//	U8_T serial_number[4];
+//	U8_T address; 
+	SCAN_DB tst_db;
 	U8_T type;
 }TST_INFO;
 
@@ -45,51 +47,28 @@ typedef struct
 	U8_T port;
 }STR_MAP_ID_PORT;
 
-extern TST_INFO far tst_info[SUB_NO];
-extern STR_MAP_ID_PORT far map_id_port[254];
+extern TST_INFO tst_info[SUB_NO];
+extern STR_MAP_ID_PORT far map_id_port[SUB_NO];
 
 extern U8_T far tst_addr_index[2];
 extern U8_T far tst_reg_index[2];
 
 extern U8_T data by_tstat_index;
 
-
-extern S8_T far uart0_sub_addr[8];
-extern S8_T far uart2_sub_addr[8];
+extern U8_T far sub_addr[SUB_NO];
+extern U8_T far uart0_sub_addr[SUB_NO];
+extern U8_T far uart1_sub_addr[SUB_NO];
+extern U8_T far uart2_sub_addr[SUB_NO];
 extern U8_T far sub_no;
 extern U8_T far uart0_sub_no;
+extern U8_T far uart1_sub_no;
 extern U8_T far uart2_sub_no;
-//extern U16_T far tstat_temperature[8];
-//extern U16_T far tstat_mode[8];
-//extern U16_T far tstat_setpoint[8];
-//extern U16_T far tstat_cool_setpoint[8];
-//extern U16_T far tstat_heat_setpoint[8];
-//extern U8_T far tstat_occupied; // occupied is 1 bit, 8 BIT is CHAR
-//extern U8_T far tstat_output_state[8];
-//extern U8_T far tstat_night_heat_db[8];
-//extern U8_T far tstat_night_cool_db[8];
-//extern U8_T far tstat_night_heat_sp[8];
-//extern U8_T far tstat_night_cool_sp[8];
-//extern U8_T far tstat_product_model[8];
-//extern U8_T far tstat_over_ride[8];
-//extern U8_T far tstat_serial_number[8][4];
-//extern U8_T far tstat_address[8];  
-//extern U8_T far tstat_type[8];
-
-extern U8_T far WRT_Tst_Reg;
-extern U8_T far  WRT_Tst_ID;
-
-extern U8_T scan_status;
-extern U16_T uart0_scan_index;
-extern U16_T uart2_scan_index; 
 
 
-#define Tst_reg_num 18	 // tstat important register
 
-extern const U16_T Tst_Register[Tst_reg_num][3];
 
 enum{ 
-TST_PRODUCT_MODEL ,
+TST_PRODUCT_MODEL = 0,
 TST_OCCUPIED,
 TST_COOL_SETPOINT ,
 TST_HEAT_SETPOINT,
@@ -101,13 +80,20 @@ TST_NIGHT_HEAT_DB ,
 TST_NIGHT_COOL_DB ,
 TST_NIGHT_HEAT_SP,
 TST_NIGHT_COOL_SP,
-TST_ADDRESS,
-TST_OVER_RIDE,
+TST_REG_END,
+
+TST_ADDRESS = TST_REG_END,
+//TST_OVER_RIDE,
+TST_PORT,
 TST_SERIAL_NUM_0,
 TST_SERIAL_NUM_1,
 TST_SERIAL_NUM_2,
 TST_SERIAL_NUM_3,
 };
+
+#define Tst_reg_num 18
+//#define Tst_reg_num TST_REG_END	 // tstat important register
+extern const U16_T Tst_Register[Tst_reg_num][3];
 
 
 #define TSTAT_5A  	0
@@ -169,28 +155,28 @@ TST_SERIAL_NUM_3,
 
 enum
 {	
-	READ_PRODUCT_MODLE = 0,	 	
-	READ_OCCUPIED_STATE,
+	READ_PRODUCT_MODLE = 0,	
+	READ_ROOM_SETPOINT,
+
 	READ_COOLING_SETPOINT,
 	READ_HEATTING_SETPOINT,	
-	READ_ROOM_SETPOINT,	
 	READ_TEMPERAUTE,
 	READ_MODE_OPERATION,
 	READ_OUTPUT_STATE,
+	READ_OCCUPIED_STATE,
 	READ_NIGHT_COOL_DB,
 	READ_NIGHT_HEAT_DB,
 	READ_NIGHT_HEAT_SP,
 	READ_NIGHT_COOL_SP,
 //	READ_PRODUCT_MODLE,
-	READ_OVER_RIDE,	
-	READ_ADDRESS, 			// read 
-
+	READ_OVER_RIDE,
 	READ_SERIAL_NUMBER_0,
 	READ_SERIAL_NUMBER_1,
 	READ_SERIAL_NUMBER_2,
 	READ_SERIAL_NUMBER_3,
 
 	READ_WALL_SETPOINT,
+	READ_ADDRESS, 			// read 
 	
 
 	WRITE_ROOM_SETPOINT,	

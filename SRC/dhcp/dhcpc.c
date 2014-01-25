@@ -37,7 +37,9 @@
 #include "dhcpc.h"
 #include <string.h>
 #include "uart.h"
-#include <stdio.h>
+#if (UART0_ENABLE)
+  #include <stdio.h>
+#endif
 
 /* NAMING CONSTANT DECLARATIONS */
 #define DHCPC_MESSAGE_NOT_FOR_ME	0
@@ -62,7 +64,6 @@ void dhcp_OptionsAppend(U8_T optCode, U8_T optLen, U8_T *optContent);
 U8_T dhcp_ReceiveMessage(void);
 void dhcp_OptionCheck(void);
 
-extern U16_T far Test[50];
 /*
  *--------------------------------------------------------------------------------
  * void Function(void)

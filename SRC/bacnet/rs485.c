@@ -71,10 +71,10 @@ static FIFO_BUFFER Receive_Buffer;
 void RS485_Initialize(
     void)
 {
-	if(BACnet_Port == UART0)
-		UART_Init(0); 
-	else
-		UART_Init(1); 
+//	if(BACnet_Port == UART0)
+//		UART_Init(0); 
+//	else
+//		UART_Init(1); 
 	FIFO_Init(&Receive_Buffer, &Receive_Buffer_Data[0],
         (unsigned) sizeof(Receive_Buffer_Data));
 	
@@ -141,20 +141,10 @@ bool RS485_Set_Baud_Rate(
 void RS485_Transmitter_Enable(
     bool enable)
 {
-	if(BACnet_Port == UART0)
-	{
-		if(enable)
-			UART0_TXEN = 1;
-		else
-			UART0_TXEN = 0;
-	}
-//	else
-//	{
-//		if(enable)
-//			UART1_TXEN = 1;
-//		else
-//			UART1_TXEN = 0;
-//	}
+	if(enable)
+		SUB1_TXEN = 1;
+	else
+		SUB1_TXEN = 0;
 }
 
 /****************************************************************************
@@ -197,21 +187,14 @@ void RS485_Send_Data(
 
     while (nbytes) 
 	{
-        if(BACnet_Port == UART0)
-			SBUF0 = *buffer;
-		else
-			SBUF1 = *buffer;
+		SUB1_UART_SBUF = *buffer;
+
         MSTP_Transmit_Finished = 0;
 		count = 0;
         while (!MSTP_Transmit_Finished && count < 2500) {
 		count++;
             /* do nothing - wait until Tx buffer is empty */
         }
-		
-		if(count >= 2500)	
-	{
-		Test[17]++;
-	}
 
         buffer++;
         nbytes--;
@@ -270,35 +253,19 @@ bool RS485_DataAvailable(
 
 void mstp_int_handler(void)
 {
-	uint8_t data_byte;
-	if(BACnet_Port == UART0)
-	{
-	   if (RI0 == 1) {
-	        /* we received a byte */
-			data_byte = SBUF0;
-			FIFO_Put(&Receive_Buffer, data_byte);
-			
-	        RI0 = 0;
-	    } else if (TI0 == 1) {
-	        /* we finished trasmitting a byte */
-	        MSTP_Transmit_Finished = 1;
-	        TI0 = 0;
-	    }
-	}
-	else
-	{
-	    if (RI1 == 1) {
-	        /* we received a byte */
-			data_byte = SBUF1;
-			FIFO_Put(&Receive_Buffer, data_byte);
-			
-	        RI1 = 0;
-	    } else if (TI1 == 1) {
-	        /* we finished trasmitting a byte */
-	        MSTP_Transmit_Finished = 1;
-	        TI1 = 0;
-	    }
-	}
+   uint8_t data_byte;
+
+   if (SUB1_UART_RI == 1) {
+        /* we received a byte */
+		data_byte = SUB1_UART_SBUF;
+		FIFO_Put(&Receive_Buffer, data_byte);
+		
+        SUB1_UART_RI = 0;
+    } else if (SUB1_UART_TI == 1) {
+        /* we finished trasmitting a byte */
+        MSTP_Transmit_Finished = 1;
+        SUB1_UART_TI = 0;
+    }
     return;
 
 }

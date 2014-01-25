@@ -10,6 +10,7 @@ Group (DMA)
 Group (MSTIMER)
 Group (UART)
 Group (main)
+Group (SPI)
 Group (Application)
 Group (Modbus)
 Group (I2C)
@@ -20,11 +21,12 @@ Group (tcpip)
 Group (management)
 Group (dhcp)
 Group (pppoe)
+Group (Bacnet)
+Group (output)
+Group (commTop)
 Group (flash)
-Group (display)
-Group (key)
-Group (input)
-Group (schedule)
+Group (zigbee)
+Group (sntpc)
 
 File 1,1,<..\SRC\FreeRTOSSource\list.c><list.c> 0x0 
 File 1,1,<..\SRC\FreeRTOSSource\queue.c><queue.c> 0x0 
@@ -50,38 +52,49 @@ File 6,5,<..\SRC\UART\uart_cfg.h><uart_cfg.h> 0x0
 File 6,1,<..\SRC\UART\uart.c><uart.c> 0x0 
 File 6,1,<.\hsur\hsuart.c><hsuart.c> 0x0 
 File 7,1,<..\SRC\main\main.c><main.c> 0x0 
-File 7,1,<.\main\tcpip_task.c><tcpip_task.c> 0x0 
-File 8,1,<.\application\httpd.c><httpd.c> 0x0 
-File 8,1,<.\ADAPTER\adapter.c><adapter.c> 0x0 
-File 9,1,<.\Modbus\serialnew.c><serialnew.c> 0x0 
-File 9,1,<.\Modbus\commsub.c><commsub.c> 0x0 
-File 10,1,<.\I2C\i2capi.c><i2capi.c> 0x0 
-File 10,1,<.\I2C\clock.c><clock.c> 0x0 
-File 10,1,<.\I2C\E2prom.c><E2prom.c> 0x0 
-File 10,1,<.\I2C\i2c.c><i2c.c> 0x0 
-File 11,1,<.\PCA\pca.c><pca.c> 0x0 
-File 12,1,<.\Buffer\buffer.c><buffer.c> 0x0 
-File 13,1,<.\ethernet\mac.c><mac.c> 0x0 
-File 13,1,<.\ethernet\phy.c><phy.c> 0x0 
-File 13,1,<.\ethernet\stoe.c><stoe.c> 0x0 
-File 14,1,<.\tcpip\uip.c><uip.c> 0x0 
-File 14,1,<.\tcpip\uip_arch.c><uip_arch.c> 0x0 
-File 14,1,<.\tcpip\uip_arp.c><uip_arp.c> 0x0 
-File 14,4,<.\tcpip\tcpip.LIB><tcpip.LIB> 0x506CF498 
-File 15,1,<.\management\gconfig.c><gconfig.c> 0x0 
-File 15,1,<.\management\gudpbc.c><gudpbc.c> 0x0 
-File 16,1,<.\dhcp\dhcpc.c><dhcpc.c> 0x0 
-File 17,1,<.\pppoe\pppoe.c><pppoe.c> 0x0 
-File 18,1,<.\Flash\flash.c><flash.c> 0x0 
-File 18,1,<.\Flash\flash_schedule.c><flash_schedule.c> 0x0 
-File 19,1,<.\display\Display.c><Display.c> 0x0 
-File 19,1,<.\display\font.c><font.c> 0x0 
-File 19,1,<.\display\LCD.c><LCD.c> 0x0 
-File 20,1,<.\key\key.c><key.c> 0x0 
-File 21,1,<.\Modbus\Input.c><Input.c> 0x0 
-File 21,1,<.\Modbus\sI2C.c><sI2C.c> 0x0 
-File 21,1,<.\Modbus\pic.c><pic.c> 0x0 
-File 22,1,<.\schedule\schedule.c><schedule.c> 0x0 
+File 8,1,<.\SPI\spi.c><spi.c> 0x0 
+File 8,1,<.\SPI\spiapi.c><spiapi.c> 0x0 
+File 9,1,<.\application\httpd.c><httpd.c> 0x0 
+File 9,1,<.\web\filesys.c><filesys.c> 0x0 
+File 9,1,<.\web\web_fun.c><web_fun.c> 0x0 
+File 9,1,<.\ADAPTER\adapter.c><adapter.c> 0x0 
+File 10,1,<.\Modbus\serialnew.c><serialnew.c> 0x0 
+File 11,1,<.\I2C\i2capi.c><i2capi.c> 0x0 
+File 11,1,<.\I2C\clock.c><clock.c> 0x0 
+File 11,1,<.\I2C\E2prom.c><E2prom.c> 0x0 
+File 11,1,<.\I2C\i2c.c><i2c.c> 0x0 
+File 12,1,<.\PCA\pca.c><pca.c> 0x0 
+File 13,1,<.\Buffer\buffer.c><buffer.c> 0x0 
+File 14,1,<.\ethernet\mac.c><mac.c> 0x0 
+File 14,1,<.\ethernet\phy.c><phy.c> 0x0 
+File 14,1,<.\ethernet\stoe.c><stoe.c> 0x0 
+File 15,1,<.\tcpip\uip.c><uip.c> 0x0 
+File 15,1,<.\tcpip\uip_arch.c><uip_arch.c> 0x0 
+File 15,1,<.\tcpip\uip_arp.c><uip_arp.c> 0x0 
+File 15,4,<.\tcpip\tcpip.LIB><tcpip.LIB> 0x48853796 
+File 16,1,<.\management\gconfig.c><gconfig.c> 0x0 
+File 16,1,<.\management\gudpbc.c><gudpbc.c> 0x0 
+File 17,1,<.\dhcp\dhcpc.c><dhcpc.c> 0x0 
+File 18,1,<.\pppoe\pppoe.c><pppoe.c> 0x0 
+File 19,1,<.\MINI_262\VIRT.C><VIRT.C> 0x0 
+File 19,1,<.\MINI_262\APPLAYER.C><APPLAYER.C> 0x0 
+File 19,1,<.\MINI_262\CONST.C><CONST.C> 0x0 
+File 19,1,<.\MINI_262\CONTROL.C><CONTROL.C> 0x0 
+File 19,1,<.\MINI_262\DATA.C><DATA.C> 0x0 
+File 19,1,<.\MINI_262\MONITOR.C><MONITOR.C> 0x0 
+File 19,1,<.\MINI_262\MSTP.C><MSTP.C> 0x0 
+File 19,1,<.\MINI_262\NETLAYER.C><NETLAYER.C> 0x0 
+File 19,1,<.\MINI_262\POINT.C><POINT.C> 0x0 
+File 19,1,<.\MINI_262\PTP.C><PTP.C> 0x0 
+File 19,1,<.\MINI_262\SERVER.C><SERVER.C> 0x0 
+File 19,1,<.\MINI_262\int.c><int.c> 0x0 
+File 19,1,<.\MINI_262\bacnetflag.c><bacnetflag.c> 0x0 
+File 20,1,<.\Modbus\Output.c><Output.c> 0x0 
+File 20,1,<.\Modbus\range.c><range.c> 0x0 
+File 20,1,<.\Modbus\pic.c><pic.c> 0x0 
+File 21,1,<.\Modbus\comm.c><comm.c> 0x0 
+File 22,1,<.\Flash\flash.c><flash.c> 0x0 
+File 24,1,<.\SNTP\sntpc.c><sntpc.c> 0x0 
 
 
 Options 1,0,0  // Target 'FREERTOS'
@@ -116,7 +129,7 @@ Options 1,0,0  // Target 'FREERTOS'
  MG32K=0
  TGMORE=1
  RunUsr 0 1 <.\BUILD\hex2bin -s 0000 .\BUILD\ax11000.hex>
- RunUsr 1 1 <.\BUILD\makeruntime.exe .\BUILD\ax11000.bin .\binfile\cm5_asix.bin>
+ RunUsr 1 1 <.\BUILD\makeruntime.exe .\BUILD\ax11000.bin .\binfile\mini_24k.bin>
  BrunUsr 0 0 <>
  BrunUsr 1 0 <>
  SVCSID <>
@@ -141,7 +154,7 @@ Options 1,0,0  // Target 'FREERTOS'
  C51MSC ()
  C51DEF (KEIL_AX11000)
  C51UDF ()
- INCC5 (..\SRC\FreeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\UART\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\SRC\GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;..\SRC\dhcp\;..\SRC\pppoe\;..\SRC\MINI_262\;..\SRC\flash;..\SRC\SNTP;..\SRC\display;..\SRC\key;..\SRC\schedule)
+ INCC5 (..\SRC\FreeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\UART\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\SRC\GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;..\SRC\dhcp\;..\SRC\pppoe\;..\SRC\MINI_262\;..\SRC\flash;..\SRC\SNTP)
  AX51FL=4
  AX51MSC ()
  AX51SET ()

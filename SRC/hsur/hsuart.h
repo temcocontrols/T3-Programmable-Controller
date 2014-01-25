@@ -97,8 +97,8 @@
 //#include	"printd.h"
 
 /* NAMING CONSTANT DECLARATIONS */
-#define	UR2_MAX_RX_SIZE				512
-#define	UR2_MAX_TX_SIZE				512
+#define	UR2_MAX_RX_SIZE				512//512
+#define	UR2_MAX_TX_SIZE				512//512
 
 #define	UR2_SLEEP					0
 #define	UR2_WAKEUP_ENB				BIT4
@@ -158,18 +158,20 @@
 
 
 /* MACRO DECLARATIONS */
-
+#define	UART2_TIMEOUT	25
 
 /* TYPE DECLARATIONS */
 
 
 /* GLOBAL VARIABLES */
-#if DEBUG_DISPLAY_DIAG
-extern U32_T	hsurXonCounter;
-extern U32_T	hsurXoffCounter;
-#endif
 
-
+extern U8_T far uart2_timeout;
+extern U16_T far hsurRxCount;
+extern U8_T far hsurRxBuffer[UR2_MAX_RX_SIZE];
+extern U16_T far hsurTxCount;
+extern U8_T far hsurTxBuffer[UR2_MAX_TX_SIZE];
+extern U16_T far 	hsurGetPtr;
+extern U16_T far 	hsurPutPtr;
 /* EXPORTED SUBPROGRAM SPECIFICATIONS */
 void	HSUR_Func(void);
 void	HSUR_Setup(U16_T divisor, U8_T lCtrl, U8_T intEnb, U8_T fCtrl, U8_T mCtrl);

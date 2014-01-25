@@ -32,7 +32,7 @@
 #include	"types.h"
 #include	"interrupt.h"
 #include	"ax11000.h"
-
+#include "main.h"
 
 /* STATIC VARIABLE DECLARATIONS */
 static U8_T		globeInt = 0;
@@ -63,10 +63,21 @@ void AX11000_Init(void)
 {
 	EA = 0; // turn off globe interrupt
 
-	P0 = 0x00;
+#if defined(MINI)
+	P0 = 0xFF;
+	P1 = 0x00;
+	P2 = 0xFF;
+	P3 = 0x00;
+#endif
+
+#if defined(CM5)
+   	P0 = 0x00;
 	P1 = 0xFF;
 	P2 = 0x00;
 	P3 = 0x00;
+
+
+#endif
 
 	/* Check program wait-state and data memory wait-state */
 	if (CSREPR & PMS)

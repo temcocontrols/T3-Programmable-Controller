@@ -36,11 +36,13 @@ Monitor_Block		far			*mon_block;
 char 				far         mon_data_buf[10000] _at_ 0x30000;
 Mon_Data 			far 		*Graphi_data;
 char 				far			Garphi_data_buf[sizeof(Mon_Data)]  _at_ 0x41100;
-//Alarm_point 		    far				 alarms[MAX_ALARMS];
-//U8_T 			    far							 ind_alarms;
-//Alarm_set_point 	far    			 alarms_set[MAX_ALARMS_SET];
-//U8_T 			    far							 ind_alarms_set;
-//Units_element		    far				 units[MAX_UNITS];
+Alarm_point 		far			alarms[MAX_ALARMS];
+U8_T 			    far			ind_alarms;
+Alarm_set_point 	far    		alarms_set[MAX_ALARMS_SET];
+U8_T 			    far							 ind_alarms_set;
+U16_T                alarm_id;
+char                         new_alarm_flag;
+//Units_element		    far				 units[MAX_UNIT];
 //Password_struct 	    far			 passwords;
 
 Str_program_point	    far			programs[MAX_PRGS]  _at_ 0x24000;
@@ -78,9 +80,8 @@ S16_T                          	MAX_MONITOR_BLOCKS = FLASH_BUFFER_LENGTH / sizeo
 
 Byte			               	Station_NUM;
 
-U8_T client_ip[4];
+U8_T 	client_ip[4];
 U8_T newsocket = 0;
-U8_T flag_old_seocket = 0;
 
 U8_T far *prog;
 S32_T far stack[20];
@@ -90,6 +91,11 @@ U32_T far cond;
 S32_T far v, value;
 S32_T far op1,op2;
 S32_T far n,*pn;
+char message[ALARM_MESSAGE_SIZE+26+10];
+unsigned char alarm_flag;
+char alarm_at_all;
+char ind_alarm_panel;
+char alarm_panel[5];
 
 
 extern STR_flag_flash 	far bac_flash;
@@ -110,7 +116,7 @@ U8_T far table_bank[TABLE_BANK_LENGTH] =
 	 MAX_GRPS,      /*GRP*/
 	 MAX_ARRAYS,    /*AY*/
 	 MAX_ALARMS,
-	 MAX_UNITS,
+	 MAX_UNIT,
 	 MAX_PASSW
 };
 #endif
@@ -189,7 +195,7 @@ void init_info_table( void )
 				inf->address = (S8_T *)arrays;
 				inf->size = sizeof( Str_array_point );
 				inf->max_points = MAX_ARRAYS;
-				break;
+				break;	*/
 			case ALARMM:          // 12
 				inf->address = (S8_T *)alarms;
 				inf->size = sizeof( Alarm_point );
@@ -200,10 +206,10 @@ void init_info_table( void )
 				inf->size = sizeof( Alarm_set_point );
 				inf->max_points = MAX_ALARMS_SET;
 				break;
-			case UNIT:
+		/*	case UNIT:
 				inf->address = (S8_T *)units;
 				inf->size = sizeof( Units_element );
-				inf->max_points = MAX_UNITS;
+				inf->max_points = MAX_UNIT;
 				break;										  
 			case USER_NAME:
 				inf->address = (S8_T *)&passwords;
@@ -231,8 +237,8 @@ void init_panel(void)
 {
 	uint16_t i,j;
 	Str_points_ptr ptr;
-//	ind_alarms = 0;
-//	ind_alarms_set = 0;
+	ind_alarms_set = 0;
+	ind_alarms = 0;
 
   	memset(inputs, '\0', MAX_INS *sizeof(Str_in_point) );
 	ptr.pin = inputs;
@@ -346,7 +352,7 @@ void init_panel(void)
 
 //	memset(arrays,'\0',MAX_ARRAYS*sizeof(Str_array_point));
 //	memset(arrays_data,'\0',MAX_ARRAYS*sizeof(S32_T *));
-//	memset(units,'\0',MAX_UNITS*sizeof(Units_element));
+//	memset(units,'\0',MAX_UNIT*sizeof(Units_element));
 
 
 	memset( monitors,'\0',MAX_MONITORS*sizeof(Str_monitor_point));		
@@ -365,11 +371,19 @@ void init_panel(void)
 	Graphi_data = Garphi_data_buf;
 	memset( Graphi_data,'\0',sizeof(Mon_Data));
 		
-//	memset(alarms,'\0',MAX_ALARMS*sizeof(Alarm_point));
-//	memset(alarms_set,'\0',MAX_ALARMS_SET*sizeof(Alarm_set_point));
+	memset(alarms,0,MAX_ALARMS * sizeof(Alarm_point));
+	ptr.palrm = alarms;
+	for( i=0; i<MAX_ALARMS; i++, ptr.palrm++ )
+	{
+		ptr.palrm->alarm = 0;
+		ptr.palrm->ddelete = 0;
+	}
+	memset(alarms_set,'\0',MAX_ALARMS_SET*sizeof(Alarm_set_point));
 	Updata_Clock();
 	update_timers();
 
+	memset(input_raw,0,64);
+	memset(output_raw,0,48);
 	init_info_table();
 }
 

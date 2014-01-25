@@ -3,7 +3,7 @@
 
 STR_WR far	WR_Roution[MAX_WR1];
 STR_AR far AR_Roution[MAX_AR1];
-UN_ID  far ID_Config[MAX_ID];
+UN_ID  far ID_Config[MAX_ID1];
 
 U8_T far scheduel_id;
 
@@ -66,7 +66,7 @@ sbit  		ID_STATE2			= ID_FLAG^4 ;
 
 unsigned int CRC16(unsigned char *puchMsg, unsigned char usDataLen);
 void SendRelayDataToSub(unsigned char num, unsigned char *data_buffer);
-extern xSemaphoreHandle sem_subnet_tx_uart0;
+
 
 void SetBit(unsigned char bit_number,unsigned char *byte)
 {
@@ -93,6 +93,8 @@ bit GetBit(unsigned char bit_number,unsigned char *value)
 	return (bit)(*(value + octet_index) & mask);
 }
 
+
+
 void SendSchedualData(unsigned char number,bit flag)
 {
 	union {
@@ -112,8 +114,9 @@ void SendSchedualData(unsigned char number,bit flag)
 	else
 	{	
 		output_value = 0;
-	}	
-	write_parameters_to_nodes(sub_addr[number],184,output_value);
+	}
+	write_parameters_to_nodes(number,184,output_value);
+	Test[42] = sub_addr[number];
  
 	if(success ==255 && receive_success == 0)
 	{
@@ -385,7 +388,6 @@ void CheckWeeklyRoutines(void)
 		
 		WR_FLAG = WR_Roution[i].UN.Desc.flag;
 
-
 		j = WR_Roution[i].UN.Desc.holiday2;	
 	
 		if(j > 0 && j <= MAX_AR1)
@@ -487,6 +489,7 @@ void CheckWeeklyRoutines(void)
 			{
 				if( j % 2) /* current time is  off time*/
 				{
+					Test[26]++;
 					if(GetBit(i,wr_state_index) == 1)
 					{	
 						ClearBit( i & 0x07 , &wr_state_index[ i >> 3 ] );
@@ -543,7 +546,7 @@ void CheckIdRoutines(void)
 	bit temp_bit;
 	bit wr1_valid;
 	bit wr2_valid;
-//	for(i = 0;i < MAX_ID;i++)
+//	for(i = 0;i < MAX_ID1;i++)
 	static char j = 0;
 	
 	//for(j = 0;j < sub_no + switch_sub_no;j++)
@@ -633,7 +636,7 @@ void CheckIdRoutines(void)
 					else if(cycle_minutes_timeout == 1)
 					{
 						SendSchedualData(scheduel_id,wr1_value | wr2_value);  
-						if(i == MAX_ID - 1)
+						if(i == MAX_ID1 - 1)
 						cycle_minutes_timeout = 0;
 					}
 			#endif
@@ -658,7 +661,7 @@ void CheckIdRoutines(void)
 					{
 					//	test0 = 9;
 						SendSchedualData(scheduel_id,ID_OUTPUT);
-						if(i == MAX_ID -1)
+						if(i == MAX_ID1 -1)
 						cycle_minutes_timeout = 0;
 					}
 					#endif
@@ -667,7 +670,7 @@ void CheckIdRoutines(void)
 		}//check if the correspond ID has been used
 	}//for 
 
-	if(j < sub_no + switch_sub_no)
+	if(j < sub_no)
 	{
 		j++;
 	}
@@ -687,12 +690,12 @@ void Schedule_task(void) reentrant
 	for (;;)
 	{ 	
 		vTaskDelay(xDelayPeriod);
+		Test[2]++;	
 
-		if(sub_no == 0) continue; 
-
-
+		if(sub_no == 0) continue;
+				
 			
-		if(!flag_transimit_from_serial)	 
+		//if(!flag_transimit_from_serial)	 
 		{
 /* implement CaculateTime rution  per 500ms */
 		CaculateTime();

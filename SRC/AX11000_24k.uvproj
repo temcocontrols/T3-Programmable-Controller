@@ -73,7 +73,7 @@
             <RunUserProg1>1</RunUserProg1>
             <RunUserProg2>1</RunUserProg2>
             <UserProg1Name>.\BUILD\hex2bin -s 0000 .\BUILD\ax11000.hex</UserProg1Name>
-            <UserProg2Name>.\BUILD\makeruntime.exe .\BUILD\ax11000.bin .\binfile\cm5_asix.bin</UserProg2Name>
+            <UserProg2Name>.\BUILD\makeruntime.exe .\BUILD\ax11000.bin .\binfile\mini_24k.bin</UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
           </AfterMake>
@@ -136,7 +136,7 @@
             <RestoreToolbox>0</RestoreToolbox>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
-          <TargetSelection>0</TargetSelection>
+          <TargetSelection>-1</TargetSelection>
           <SimDlls>
             <CpuDll></CpuDll>
             <CpuDllArguments></CpuDllArguments>
@@ -238,7 +238,7 @@
               <Ocr1>
                 <Type>0</Type>
                 <StartAddress>0x0</StartAddress>
-                <Size>0x80000</Size>
+                <Size>0x7ffff</Size>
               </Ocr1>
               <Ocr2>
                 <Type>0</Type>
@@ -294,7 +294,7 @@
               <MiscControls></MiscControls>
               <Define>KEIL_AX11000</Define>
               <Undefine></Undefine>
-              <IncludePath>..\SRC\FreeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\UART\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\main;..\SRC\SD_Card\;..\SRC\GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;..\SRC\dhcp\;..\SRC\pppoe\;..\SRC\flash;..\SRC\SNTP;..\SRC\display;..\SRC\key;..\SRC\schedule;..\SRC\program;..\SRC\Scan</IncludePath>
+              <IncludePath>..\SRC\FreeRTOSSource\include\;..\SRC\FreeRTOSSource\portable\Keil\AX11000;..\SRC\CPU\;..\SRC\MS_TIMER\;..\SRC\SW_DMA\;..\SRC\UART\;..\SRC\ETHERNET\;..\SRC\APPLICATION\;..\SRC\ETHERNET\;..\SRC\tcpip\;..\SRC\ADAPTER;..\SRC\SD_Card\;..\SRC\GSM\;..\SRC\Web\;..\SRC\SPI\;..\SRC\I2C\;..\SRC\PCA\;..\SRC\Modbus\;..\SRC\buffer\;..\SRC\hsur\;..\SRC\management\;..\SRC\dhcp\;..\SRC\pppoe\;..\SRC\MINI_262\;..\SRC\flash;..\SRC\SNTP;..\SRC\display;..\SRC\key;..\SRC\schedule;..\src\bacnet\;..\src\bacnet\include;..\src\bacnet\handler;..\src\bacnet\object;..\src\scan;..\src\usb;..\src\common;..\src\CM5;..\src\MINI</IncludePath>
             </VariousControls>
           </C51>
           <Ax51>
@@ -668,49 +668,44 @@
           <GroupName>UART</GroupName>
           <Files>
             <File>
+              <FileName>uart_cfg.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\SRC\UART\uart_cfg.h</FilePath>
+            </File>
+            <File>
               <FileName>uart.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\SRC\UART\uart.c</FilePath>
             </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>main</GroupName>
-          <Files>
             <File>
-              <FileName>main.c</FileName>
+              <FileName>hsuart.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\SRC\main\main.c</FilePath>
-            </File>
-            <File>
-              <FileName>tcpip_task.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\main\tcpip_task.c</FilePath>
+              <FilePath>.\hsur\hsuart.c</FilePath>
             </File>
           </Files>
         </Group>
         <Group>
-          <GroupName>Application</GroupName>
+          <GroupName>SPI</GroupName>
           <Files>
             <File>
-              <FileName>httpd.c</FileName>
+              <FileName>spi.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\application\httpd.c</FilePath>
+              <FilePath>.\SPI\spi.c</FilePath>
             </File>
+            <File>
+              <FileName>spiapi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\SPI\spiapi.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Adapter</GroupName>
+          <Files>
             <File>
               <FileName>adapter.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\ADAPTER\adapter.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>Modbus</GroupName>
-          <Files>
-            <File>
-              <FileName>serialnew.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Modbus\serialnew.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -820,16 +815,6 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>dhcp</GroupName>
-          <Files>
-            <File>
-              <FileName>dhcpc.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\dhcp\dhcpc.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
           <GroupName>pppoe</GroupName>
           <Files>
             <File>
@@ -840,12 +825,267 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>output</GroupName>
+          <GroupName>dhcp</GroupName>
           <Files>
             <File>
-              <FileName>Output.c</FileName>
+              <FileName>dhcpc.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Modbus\Output.c</FilePath>
+              <FilePath>.\dhcp\dhcpc.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Bacnet</GroupName>
+          <Files>
+            <File>
+              <FileName>bacdcode.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bacdcode.c</FilePath>
+            </File>
+            <File>
+              <FileName>bacreal.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bacreal.c</FilePath>
+            </File>
+            <File>
+              <FileName>bacint.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bacint.c</FilePath>
+            </File>
+            <File>
+              <FileName>bacstr.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bacstr.c</FilePath>
+            </File>
+            <File>
+              <FileName>mstptext.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\mstptext.c</FilePath>
+            </File>
+            <File>
+              <FileName>bacaddr.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bacaddr.c</FilePath>
+            </File>
+            <File>
+              <FileName>bacprop.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bacprop.c</FilePath>
+            </File>
+            <File>
+              <FileName>bacpropstates.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bacpropstates.c</FilePath>
+            </File>
+            <File>
+              <FileName>datalink.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\datalink.c</FilePath>
+            </File>
+            <File>
+              <FileName>datetime.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\datetime.c</FilePath>
+            </File>
+            <File>
+              <FileName>dcc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\dcc.c</FilePath>
+            </File>
+            <File>
+              <FileName>indtext.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\indtext.c</FilePath>
+            </File>
+            <File>
+              <FileName>crc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\crc.c</FilePath>
+            </File>
+            <File>
+              <FileName>bacerror.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bacerror.c</FilePath>
+            </File>
+            <File>
+              <FileName>h_npdu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\handler\h_npdu.c</FilePath>
+            </File>
+            <File>
+              <FileName>device.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\device.c</FilePath>
+            </File>
+            <File>
+              <FileName>ai.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\ai.c</FilePath>
+            </File>
+            <File>
+              <FileName>av.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\av.c</FilePath>
+            </File>
+            <File>
+              <FileName>bv.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\bv.c</FilePath>
+            </File>
+            <File>
+              <FileName>h_whois.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\h_whois.c</FilePath>
+            </File>
+            <File>
+              <FileName>npdu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\npdu.c</FilePath>
+            </File>
+            <File>
+              <FileName>txbuf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\handler\txbuf.c</FilePath>
+            </File>
+            <File>
+              <FileName>dlmstp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\dlmstp.c</FilePath>
+            </File>
+            <File>
+              <FileName>rs485.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\rs485.c</FilePath>
+            </File>
+            <File>
+              <FileName>timer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\timer.c</FilePath>
+            </File>
+            <File>
+              <FileName>s_iam.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\handler\s_iam.c</FilePath>
+            </File>
+            <File>
+              <FileName>s_whois.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\handler\s_whois.c</FilePath>
+            </File>
+            <File>
+              <FileName>h_iam.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\handler\h_iam.c</FilePath>
+            </File>
+            <File>
+              <FileName>iam.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\iam.c</FilePath>
+            </File>
+            <File>
+              <FileName>abort.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\abort.c</FilePath>
+            </File>
+            <File>
+              <FileName>rp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\rp.c</FilePath>
+            </File>
+            <File>
+              <FileName>noserv.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\handler\noserv.c</FilePath>
+            </File>
+            <File>
+              <FileName>reject.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\reject.c</FilePath>
+            </File>
+            <File>
+              <FileName>fifo.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\fifo.c</FilePath>
+            </File>
+            <File>
+              <FileName>whois.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\whois.c</FilePath>
+            </File>
+            <File>
+              <FileName>apdu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\apdu.c</FilePath>
+            </File>
+            <File>
+              <FileName>wp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\wp.c</FilePath>
+            </File>
+            <File>
+              <FileName>ptransfer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\ptransfer.c</FilePath>
+            </File>
+            <File>
+              <FileName>s_upt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\handler\s_upt.c</FilePath>
+            </File>
+            <File>
+              <FileName>user_data.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\user_data.c</FilePath>
+            </File>
+            <File>
+              <FileName>decode.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\decode.c</FilePath>
+            </File>
+            <File>
+              <FileName>POINT.C</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\POINT.C</FilePath>
+            </File>
+            <File>
+              <FileName>bvlc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bvlc.c</FilePath>
+            </File>
+            <File>
+              <FileName>bip.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bip.c</FilePath>
+            </File>
+            <File>
+              <FileName>bacapp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\src\bacapp.c</FilePath>
+            </File>
+            <File>
+              <FileName>bac_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\bac_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>MONITOR.C</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\MONITOR.C</FilePath>
+            </File>
+            <File>
+              <FileName>h_rp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\h_rp.c</FilePath>
+            </File>
+            <File>
+              <FileName>h_wp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\h_wp.c</FilePath>
+            </File>
+            <File>
+              <FileName>alarm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\bacnet\alarm.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -856,11 +1096,6 @@
               <FileName>flash.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Flash\flash.c</FilePath>
-            </File>
-            <File>
-              <FileName>flash_schedule.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Flash\flash_schedule.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -878,11 +1113,6 @@
           <GroupName>display</GroupName>
           <Files>
             <File>
-              <FileName>LCD.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\display\LCD.c</FilePath>
-            </File>
-            <File>
               <FileName>Display.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\display\Display.c</FilePath>
@@ -891,6 +1121,11 @@
               <FileName>font.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\display\font.c</FilePath>
+            </File>
+            <File>
+              <FileName>LCD.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\display\LCD.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -905,57 +1140,107 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>input</GroupName>
-          <Files>
-            <File>
-              <FileName>pic.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Modbus\pic.c</FilePath>
-            </File>
-            <File>
-              <FileName>Input.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Modbus\Input.c</FilePath>
-            </File>
-            <File>
-              <FileName>sI2C.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Modbus\sI2C.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>schedule</GroupName>
-          <Files>
-            <File>
-              <FileName>schedule.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\schedule\schedule.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>program</GroupName>
-          <Files>
-            <File>
-              <FileName>decode.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\program\decode.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>CommToTst</GroupName>
+          <GroupName>comm_to_tstat</GroupName>
           <Files>
             <File>
               <FileName>commsub.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Modbus\commsub.c</FilePath>
+              <FilePath>.\scan\commsub.c</FilePath>
             </File>
             <File>
               <FileName>scan.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\scan\scan.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>usb</GroupName>
+          <Files>
+            <File>
+              <FileName>ch375_COM.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\usb\ch375_COM.c</FilePath>
+            </File>
+            <File>
+              <FileName>descriptor_COM.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\usb\descriptor_COM.c</FilePath>
+            </File>
+            <File>
+              <FileName>usb.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\usb\usb.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>CM5</GroupName>
+          <Files>
+            <File>
+              <FileName>Input.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\CM5\Input.c</FilePath>
+            </File>
+            <File>
+              <FileName>sI2C.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\CM5\sI2C.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>MINI</GroupName>
+          <Files>
+            <File>
+              <FileName>comm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\MINI\comm.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>common_app</GroupName>
+          <Files>
+            <File>
+              <FileName>flash_schedule.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Flash\flash_schedule.c</FilePath>
+            </File>
+            <File>
+              <FileName>tcpip_task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\common\tcpip_task.c</FilePath>
+            </File>
+            <File>
+              <FileName>main.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\common\main.c</FilePath>
+            </File>
+            <File>
+              <FileName>Output.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\common\Output.c</FilePath>
+            </File>
+            <File>
+              <FileName>pic.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\common\pic.c</FilePath>
+            </File>
+            <File>
+              <FileName>range.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\common\range.c</FilePath>
+            </File>
+            <File>
+              <FileName>modbustcp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\common\modbustcp.c</FilePath>
+            </File>
+            <File>
+              <FileName>modbus.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\common\modbus.c</FilePath>
             </File>
           </Files>
         </Group>

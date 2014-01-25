@@ -13,14 +13,13 @@
 /* INCLUDE FILE DECLARATIONS */
 #include "adapter.h"
 
-#if 1
+#if 0
 #include "sntpc.h"
 #include "tcpip.h"
 #include "uart.h"
 #include "mstimer.h"
 //#include "printd.h"
 #include <stdio.h>
-#include "../modbus/define.h"
 
 /* NAMING CONSTANT DECLARATIONS */
 
@@ -38,6 +37,7 @@ static U8_T sntpc_InterAppId;
 static U8_T	sntp_Buf[48];
 static U8_T sntp_Retry = 0;
 
+//extern U8_T  far Para[5670]; 
 
 /* LOCAL SUBPROGRAM DECLARATIONS */
 
@@ -92,11 +92,15 @@ void SNTPC_Event(U8_T id, U8_T event)
  */
 void SNTPC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 {
-	U8_T i = 0;
-	S8_T signhour, signmin;
-	U8_T hour, min;
+	U8_T	i = 0;
+	S8_T	signhour, signmin;
+	U8_T	hour, min;
 
-	if(id != 0)
+//	printd("UDP received!\n\r");
+
+    
+
+	if (id != 0)
 		return;
 	length = length;
 
@@ -158,14 +162,25 @@ void SNTPC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 	t.MM = i;
 	t.YY += 1900;
 
-//Evan commented.
-//	Modbus.Time.Clk.century = t.YY / 100;
-//	Modbus.Time.Clk.year = t.YY % 100;
-//	Modbus.Time.Clk.mon = t.MM;
-//	Modbus.Time.Clk.day = t.DD;
-//	Modbus.Time.Clk.hour = t.HH;
-//	Modbus.Time.Clk.min = t.MI;
-//	Modbus.Time.Clk.sec = t.SS;
+
+	//	printd("\r\n %d/%.2bd/%.2d  %.2bd:%.2bd:%.2bd \r\n",t.YY,t.MM
+		//													,t.DD,t.HH
+			//												,t.MI,t.SS);
+//printd("\r\n %d/%2bd/%2d  %2bd:%2bd:%2bd \r\n",t.YY,t.MM
+										//					,t.DD,t.HH
+/*											//				,t.MI,t.SS);
+Para[200*2]=t.YY/100;
+Para[200*2+1]=t.YY%100;
+Para[200*2+2]=t.MM;
+Para[200*2+3]=t.DD;
+Para[200*2+4]=t.HH;
+Para[200*2+5]=t.MI;
+Para[200*2+6]=t.SS;
+*/
+  //  Para[43]=1;
+//	TCPIP_UdpClose(sntpc_Conns.UdpSocket);
+//	sntpc_Conns.State = SNTP_STATE_GET_DONE;
+   // sntpc_Conns.State = SNTP_STATE_WAIT; 
 
 } /* End of SNTPC_Receive() */
 
@@ -184,8 +199,8 @@ U8_T* SNTP_GetTime(void)
 		return NULL;
 
 	sntpc_Conns.State = SNTP_STATE_INITIAL;
-	sprintf (sntp_Buf, "%d/%.2bd/%.2bd %.2bd:%.2bd:%.2bd",
-		t.YY, t.MM, (U8_T)t.DD, t.HH, t.MI, t.SS);
+//	sprintf (sntp_Buf, "%d/%.2bd/%.2bd %.2bd:%.2bd:%.2bd",
+//		t.YY, t.MM, (U8_T)t.DD, t.HH, t.MI, t.SS);
 	sntp_Buf[20] = 0;
 
 	return sntp_Buf;
@@ -247,7 +262,6 @@ U8_T SNTPC_Start(S16_T gmt, U32_T timesrIP)
 	timetickinfo = (U16_T)SWTIMER_Tick();
 	sntp_Retry = 0;
 //	printd("sntp start...\n\r");
-	return SNTP_STATE_WAIT;
 } /* End of SNTPC_Start() */
 
 /*
@@ -316,4 +330,3 @@ void SNTPC_Debug(void)
 
 
 /* End of sntpc.c */
-

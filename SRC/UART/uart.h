@@ -34,9 +34,11 @@
 #ifndef __UART_H__
 #define __UART_H__
 
-#include "types.h"
+#include	"uart_cfg.h"
 
-void	UART_Init(U8_T port);
+
+/* EXPORTED SUBPROGRAM SPECIFICATIONS */
+void	UART_Init(unsigned char port);
 
 #endif /* End of __UART_H__ */
 

@@ -33,6 +33,8 @@
 #include "address.h"
 #include "handlers.h"
 
+
+#if 0
 /** @file h_iam.c  Handles I-Am requests. */
 
 /** Handler for I-Am responses.
@@ -106,3 +108,5 @@ void handler_i_am_bind(
 
     return;
 }
+
+#endif

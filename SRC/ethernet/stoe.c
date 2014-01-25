@@ -28,7 +28,6 @@
 #include "delay.h"
 #include "interrupt.h"
 #include <intrins.h>
-extern U16_T far Test[50];
 
 /* GLOBAL VARIABLES DECLARATIONS */
 LOCAL_STATION XDATA* PNetStation = {0};
@@ -415,17 +414,16 @@ U8_T STOE_GetInterruptFlag(void)
  * Note:
  * ----------------------------------------------------------------------------
  */
+ extern U16_T far Test[50];
 void STOE_ProcessInterrupt(void)
 {
 	U8_T XDATA	temp;
 	U8_T		isr = EA;
-
 	while (stoe_InterruptStatus)
 	{
 		EA = isr;
-
 		if (stoe_InterruptStatus & RCV_PACKET)
-		{
+		{	
 			while (PBDP->RFP < PAGES_OF_RCV)
 				stoe_RcvHandle();
 		}
@@ -434,6 +432,7 @@ void STOE_ProcessInterrupt(void)
 //			printf ("\rRX Packet Buffer Ring is Full.\n\r");
 			temp = RESUME_PKT_RCV;
 			stoe_WriteReg(STOE_L4_CMD_REG, &temp, 1);
+			
 		}
 
 		isr = EA;
@@ -460,6 +459,10 @@ void STOE_ProcessInterrupt(void)
  * Note:
  * ----------------------------------------------------------------------------
  */
+extern bit flag_EthPort;
+extern U8_T etr_heartbeat;
+extern U16_T far Test[50];
+
 void STOE_ProcessInterrupt(void)
 {
 	static U8_T XDATA	int_status;
@@ -471,14 +474,16 @@ void STOE_ProcessInterrupt(void)
 		stoe_ReadReg(STOE_INT_STATUS_REG, &int_status, 1);
 		int_status &= STOE_DEFAULT_INT_MASK;
 
-		if (!int_status) 
-			break; 
+		if (!int_status)
+			break;
 
 		if (int_status & RCV_PACKET)
-		{	
+		{
 			while (PBDP->RFP < PAGES_OF_RCV)
 			{
-				stoe_RcvHandle();}
+				
+				stoe_RcvHandle();
+			}
 		}
 		if (int_status & RCV_BUF_RING_FULL)
 		{

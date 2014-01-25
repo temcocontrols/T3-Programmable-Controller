@@ -1005,7 +1005,7 @@ void scan_monitor_blocks( Mon_Data *PTRtable, Monitor_Block *ptr,int max_blocks,
 		PTRtable->para.mondata.header = 0;
 		PTRtable->para.mondata.dat= 0;
 
-		Test[40] = PTRtable->para.mondata.first_block;
+//		Test[40] = PTRtable->para.mondata.first_block;
 		Test[41] = PTRtable->para.mondata.last_block;
 		Test[42] = PTRtable->para.mondata.start_index;
 		Test[43] = PTRtable->para.mondata.end_index;

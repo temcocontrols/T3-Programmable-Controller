@@ -35,13 +35,15 @@ extern U8_T           far              free_mon_blocks;
 extern Byte			               	Station_NUM;
 extern U8_T 	client_ip[4];
 extern U8_T newsocket;
-extern U8_T flag_old_seocket;
 
-//extern Alarm_point 		    far				 alarms[MAX_ALARMS];
-//extern U8_T 			    far							 ind_alarms;
-//extern Alarm_set_point 	far    			 alarms_set[MAX_ALARMS_SET];
-//extern U8_T 			    far							 ind_alarms_set;
-//extern Units_element		    far				 units[MAX_UNITS];
+extern Alarm_point 		    far				 alarms[MAX_ALARMS];
+extern U8_T 			    far							 ind_alarms;
+extern Alarm_set_point 	far    			 alarms_set[MAX_ALARMS_SET];
+extern U8_T 			    far							 ind_alarms_set;
+extern unsigned int                 alarm_id;
+extern char                         new_alarm_flag;
+
+//extern Units_element		    far				 units[MAX_UNIT];
 //extern Password_struct 	    far			 passwords;
 
 extern Str_variable_point			far		 vars[MAX_VARS];
@@ -81,6 +83,12 @@ extern S32_T far v, value;
 extern S32_T far op1,op2;
 extern S32_T far n,*pn;
 
+extern char message[ALARM_MESSAGE_SIZE+26+10];
+extern unsigned char alarm_flag;
+extern char alarm_at_all;
+extern char ind_alarm_panel;
+extern char alarm_panel[5];
+extern U16_T                       miliseclast_cur;
 
 
 

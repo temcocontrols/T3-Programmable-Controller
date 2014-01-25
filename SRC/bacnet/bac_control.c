@@ -5,12 +5,111 @@
 S16_T exec_program(S16_T current_prg, U8_T *prog_code);
 
 
+#define NO_TABLE_RANGES 16
+#define MIDDLE_RANGE     8
+const long tab_int[10] = { 11875, 21375, 10000, 18000, 10000, 18000,10000, 18000, 10000, 18000 };
+
+const long limit[10][2] = { { -40000L, 150000L }, { -40000L, 302000L },
+							{ -40000L, 120000L }, { -40000L, 248000L },
+							{ -40000L, 120000L }, { -40000L, 248000L },
+							{ -40000L, 120000L }, { -40000L, 248000L },
+							{ -50000L, 110000L }, { -58000L, 230000L }
+						  };
+
+const unsigned char def_tab[5][17] = {
+ /* 3k termistor YSI44005 -40 to 150 Deg.C or -40 to 302 Deg.F */
+	{ 233*4,  211*4, 179*4, 141*4, 103*4, 71*4, 48*4, 32*4,
+		21*4, 14*4, 10*4, 7*4, 5*4, 4*4, 3*4, 2*4, 1*4 },
+
+ /* 10k termistor GREYSTONE -40 to 120 Deg.C or -40 to 248 Deg.F */
+	{ 246*4, 238*4, 227*4, 211*4, 191*4, 167*4, 141*4, 115*4,
+	 92*4, 72*4, 55*4, 42*4, 33*4, 25*4, 19*4, 15*4, 12*4 },
+
+ /* 3k termistor GREYSTONE -40 to 120 Deg.C or -40 to 248 Deg.F */
+	{ 233*4, 215*4, 190*4, 160*4, 127*4, 96*4, 70*4, 50*4,
+		35*4, 25*4, 18*4, 13*4, 9*4, 7*4, 5*4, 4*4, 3*4 },
+
+ /* 10k termistor KM -40 to 120 Deg.C or -40 to 248 Deg.F */
+	{ 246*4, 238*4, 227*4, 211*4, 191*4, 167*4, 141*4, 115*4,
+		92*4, 72*4, 55*4, 42*4, 33*4, 25*4, 19*4, 15*4, 12*4 },
+
+ /* 3k termistor AK -40 to 150 Deg.C or -40 to 302 Deg.F */
+	{ 246*4, 238*4, 227*4, 211*4, 191*4, 167*4, 141*4, 115*4,
+		92*4, 72*4, 55*4, 42*4, 33*4, 25*4, 19*4, 15*4, 12*4 }
+};
+
+
+
+U32_T get_input_value_by_range( int range, U16_T raw )
+{
+	int index;
+	long val;
+	int work_var;
+	int ran_in;
+	int delta = MIDDLE_RANGE;
+	Byte *def_tbl;
+	Byte end = 0;
+	range--;
+	ran_in = range;
+	range >>= 1;
+	def_tbl = ( Byte * )&def_tab[range];
+
+	if( raw <= def_tbl[NO_TABLE_RANGES] )
+		return limit[ran_in][1];
+	if( raw >= def_tbl[0] )
+		return limit[ran_in][0];
+	index = MIDDLE_RANGE;
+
+	while( !end )
+	{
+		if( ( raw >= def_tbl[index] ) && ( raw <= def_tbl[index-1] ) )
+		{
+			index--;
+			delta = def_tbl[index] - def_tbl[index+1];
+			if( delta )
+			{
+				work_var = (int)( ( def_tbl[index] - raw ) * 100 );
+				work_var /= delta;
+				work_var += ( index * 100 );
+				val = tab_int[ran_in];
+				val *= work_var;
+				val /= 100;
+				val += limit[ran_in][0];
+			}
+			return val;
+		}
+		else
+		{
+			if( !delta )
+				end = 1;
+			delta /= 2;
+			if( raw < def_tbl[index] )
+				index += delta;
+			else
+				index -= delta;
+			if( index <= 0 )
+				return limit[ran_in][0];
+			if( index >= NO_TABLE_RANGES )
+				return limit[ran_in][1];
+		}
+	}
+}
+
 
 void control_input(void)
 {
 	Str_in_point *ins;
 	uint8_t point = 0;
 	U32_T sample;
+	U8_T max_input;	
+#if defined(MINI)
+	if(Modbus.mini_type == BIG)
+   		max_input = 32;
+	else 
+		max_input = 16;
+#else if(defined(CM5))
+	max_input = 10;
+#endif
 
 	ins = inputs;
 //	inx = in_aux;
@@ -18,9 +117,9 @@ void control_input(void)
 	{		
 		if( ins->auto_manual == 0)  // auto			 
 		{  	
-			if(point >= 10 && point < (10 + sub_no))	sample = tst_info[point - 10].temperature;			
-			else if(point < 10)
-				sample = AI_Value[point];
+			if(point >= max_input && point < (max_input + sub_no))	sample = tst_info[point - max_input].temperature * 100;			
+			else if(point < max_input)
+				sample = input_raw[point];   // raw value
 			if( ins->range != not_used_input )
 			{					
 				if( ins -> digital_analog == 0)  // digital
@@ -41,33 +140,67 @@ void control_input(void)
 					sample = ins->control ? 1000L : 0;
 				}
 				else if(ins -> digital_analog == 1)	// analog
-				{	
-					if(point < 10)		 	
-						sample = RangeConverter(1,sample, point,100/*ins->calibration*/);  // temperature
-				//	ins->value = DoulbemGetPointWord2(sample);
-				
+				{
+					if(point < max_input)
+					{
+						switch(ins->range)
+						{
+						case Y3K_40_150DegC:
+						case Y3K_40_300DegF:
+						case R3K_40_150DegC:
+						case R3K_40_300DegF:
+						case R10K_40_120DegC:
+						case R10K_40_250DegF:
+						case KM10K_40_120DegC:
+						case KM10K_40_250DegF:
+						case A10K_50_110DegC:
+						case A10K_60_200DegF:
+							sample = get_input_value_by_range( ins->range, sample );
+							break;
+						case V0_5:
+							sample =  ( sample * 5000L ) >> 10;
+							break;
+						case I0_100Amps:
+							sample = ( 100000L * sample ) >> 10;
+							break;
+						case I0_20ma:
+							sample = ( 20000L * sample ) >> 10;
+							break;
+						case I0_20psi:
+							sample = ( 20000L * sample ) >> 10;
+							break;
+						case N0_3000FPM_0_5V:
+							sample = ( 3000000L * sample ) >> 10;
+							break;
+						case P0_100_0_5V:
+							sample = ( 100000L * sample ) >> 10;
+							break;
+						case P0_100_4_20ma:
+							sample = 100000L * ( sample - 255 ) / 768;
+							break;
+						default:
+							break;
+						}
+					}
 				}
 			}
 			else  // not_used_input
 			{
-			//	ins->value = 0;
 				sample = 0;
 			}
-
-			ins->value = DoulbemGetPointWord2(sample * 100);
+			ins->value = DoulbemGetPointWord2(sample);
 		}
 		else if(ins->auto_manual == 1)	// manual
 		{
 
 		}	
-	
 	   	point++;
 	   	ins++;
 	}
 }
 
 void SendSchedualData(unsigned char number,bit flag);
-U8_T far  schedule_data[10];
+U8_T far  schedule_data[10] = {0,0,0,0,0,0,0,0,0,0};
 
 void control_output(void)
 {
@@ -75,6 +208,15 @@ void control_output(void)
 	U8_T point = 0;
 	U32_T val;
 	U8_T loop;
+	U8_T max_output;	
+#if defined(MINI)
+	if(Modbus.mini_type == BIG)
+   		max_output = 24;
+	else 
+		max_output = 10;
+#else if(defined(CM5))
+	max_output = 10;
+#endif
 	outs = outputs;
 
 	while( point < MAX_OUTS )
@@ -88,27 +230,32 @@ void control_output(void)
 		{	
 			if( outs->digital_analog == 0 ) // digital_analog 0=digital 1=analog
 			{ // digtal input range 
-			/*	 if( outs->range >= OFF_ON && outs->range <= LOW_HIGH )
+				 if( outs->range >= OFF_ON && outs->range <= LOW_HIGH )
 					if( outs->control ) val = 512;
 					else val = 0;
 				if( outs->range >= ON_OFF && outs->range <= HIGH_LOW )
 					if( outs->control ) val = 0;
 					else val = 512;
-				if( outs->range >= custom_digital1 && outs->range <= custom_digital8 ) */
+				if( outs->range >= custom_digital1 && outs->range <= custom_digital8 ) 
 					if( outs->control ) val = 512;
 					else val = 0; 
+
+				output_raw[point] = val;
+
 			}
-			else if( outs->digital_analog == 1 )//  TBD : ADD analog
+			else if( outs->digital_analog == 1 )//  analog
 			{
-				value = outs->value;
+				value = DoulbemGetPointWord2(outs->value);
 				switch( outs->range )
 				{
-					case V0_10:
-						val = (Byte)( value * 213 / 10000L );
+					case V0_10:							
+						val = value;
+						output_raw[point] = value * 100;
 						break;
 					case P0_100_Open:
 					case P0_100_Close:
 					case P0_100:
+						output_raw[point] = value * 10;
 					/*	if( outs->m_del_low < outs->s_del_high )
 						{
 							delta = outs->s_del_high - outs->m_del_low;
@@ -125,7 +272,8 @@ void control_output(void)
 						break;
 					case P0_20psi:
 					case I_0_20ma:
-						val = (Byte)( value * 213 / 20000L );
+						val =  value;
+						output_raw[point] = value * 50;
 					default:
 						val = 0;
               		outs->range = not_used_output;
@@ -134,35 +282,32 @@ void control_output(void)
 			}
 		}
 		outs->value = DoulbemGetPointWord2(val);	
-			
-	
 		point++;
 		outs++;		
-	}
-
-	
+	}	
 		
 	for(loop = 0;loop < sub_no;loop++)
 	{
-		U8_T shecdual_dat = (DoulbemGetPointWord2(outputs[loop + 10].value) >= 512 ? 1 : 0);
+		U8_T shecdual_dat = (output_raw[loop + max_output] >= 512 ? 1 : 0);
 		if(shecdual_dat != schedule_data[loop])
 		{
 			
-			if(DoulbemGetPointWord2(outputs[loop + 10].value) >= 512)
-			{
-				SendSchedualData(loop,1);
+			if(output_raw[loop + max_output] >= 512)
+			{	// tbd: set tstat_type, different tstat have different register list
+				// choose 0 for now  
+			//	Test[42]++;
+				write_parameters_to_nodes(sub_addr[loop],Tst_Register[TST_OCCUPIED][TSTAT_6],1);
 			}
 			else
-			{		
-				SendSchedualData(loop,0);
+			{
+			//	Test[41]++;
+				write_parameters_to_nodes(sub_addr[loop],Tst_Register[TST_OCCUPIED][TSTAT_6],0);
+	
 			}
 		}
 		schedule_data[loop] = shecdual_dat;
 
 	}
-
-
-
 }
 
 
@@ -425,7 +570,7 @@ void Bacnet_Control(void) reentrant
 	U16_T i,j;
 	Str_program_point *ptr;
 	Str_points_ptr sptr, xptr;
-	portTickType xDelayPeriod  = ( portTickType ) 5000 / portTICK_RATE_MS; // 1000#endif
+	portTickType xDelayPeriod  = ( portTickType ) 1000 / portTICK_RATE_MS; // 1000#endif
 	for (;;)
     {
 		vTaskDelay(xDelayPeriod);
@@ -446,9 +591,13 @@ void Bacnet_Control(void) reentrant
 		}
 		control_output();
 
+		if(miliseclast_cur > 100)	miliseclast_cur = 0;
+		else
+			miliseclast_cur++;
+
 
 	   // dealwith controller roution per 1 sec		
-		if(count_10s < 2) 	count_10s++;
+		if(count_10s < 10) 	count_10s++;
 		else
 		{
 			count_10s = 0;
@@ -461,8 +610,8 @@ void Bacnet_Control(void) reentrant
 		}
 	
 		// dealwith check_weekly_routines per 1 min
-	//	if(count_1min < 30) 	count_1min++;
-	//	else
+		if(count_1min < 5) 	count_1min++;
+		else
 		{		
 			count_1min = 0;
 			check_weekly_routines();

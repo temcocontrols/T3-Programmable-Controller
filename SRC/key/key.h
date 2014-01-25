@@ -22,8 +22,8 @@
 #define BEEP_ON 	0
 #define BEEP_OFF 	1
 
-#define BACK_ON 	0
-#define BACK_OFF 	1
+#define BACK_ON 	1
+#define BACK_OFF 	0
 
 #define K_NONE      0
 #define K_SELECT	1    //  Select a menu or submenu  / Select a value for adjustment/ Save a change made to the value.

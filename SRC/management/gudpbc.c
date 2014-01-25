@@ -89,28 +89,28 @@ void UdpData(void)
 	InformationStr[2] = 0x0b;
 	InformationStr[3] = 0x00;
 	//serialnumber 4 bytes
-	InformationStr[4] =  serialNum[0];
+	InformationStr[4] =  Modbus.serialNum[0];
 	InformationStr[5] = 0;
-	InformationStr[6] =  serialNum[1];
+	InformationStr[6] =  Modbus.serialNum[1];
 	InformationStr[7] = 0;
-	InformationStr[8] =  serialNum[2];
+	InformationStr[8] =  Modbus.serialNum[2];
 	InformationStr[9] = 0;
-	InformationStr[10] =  serialNum[3];
+	InformationStr[10] =  Modbus.serialNum[3];
 	InformationStr[11] = 0;
 	//nc 
-	InformationStr[12] = PRODUCT_CM5;
+	InformationStr[12] = PRODUCT_MINI_BIG;
 	InformationStr[13] = 0;
 	//modbus address
-	InformationStr[14] =  Modbus_address;
+	InformationStr[14] =  Modbus.address;
 	InformationStr[15] = 0;
 	//Ip
-	InformationStr[16] =    IP_Addr[0];
+	InformationStr[16] =    Modbus.ip_addr[0];
 	InformationStr[17] = 0;
-	InformationStr[18] =    IP_Addr[1];
+	InformationStr[18] =    Modbus.ip_addr[1];
 	InformationStr[19] = 0;
-	InformationStr[20] =    IP_Addr[2];
+	InformationStr[20] =    Modbus.ip_addr[2];
 	InformationStr[21] = 0;
-	InformationStr[22] =    IP_Addr[3];
+	InformationStr[22] =    Modbus.ip_addr[3];
 	InformationStr[23] = 0;
 	//port
 	InformationStr[24]=(U8_T)(HTTP_SERVER_PORT);
