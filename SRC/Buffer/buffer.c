@@ -15,6 +15,9 @@
  * Date        : 2005-03-31
  * Notes       :
  * $Log: buffer.c,v $
+ * Revision 1.0  2009-01-05 14:01:30+08  wong
+ * Initial revision
+ *
  * Revision 1.3  2005/11/24 12:48:16  robin6633
  * initiate values of use.
  *

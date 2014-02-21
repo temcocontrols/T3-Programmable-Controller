@@ -46,6 +46,8 @@
 #include "interrupt.h"
 #include "dma.h"
 
+#include "main.h"
+
 /* Constants required to setup timer 2 to produce the RTOS tick. */
 //#define portCLOCK_DIVISOR				( ( unsigned portLONG ) 12 )
 //#define portMAX_TIMER_VALUE				( ( unsigned portLONG ) 0xffff )
@@ -263,13 +265,17 @@ void vIntPortContextSwitch(void) reentrant
 
 }
 
-extern U8_T ChangeFlash;
+//extern U8_T ChangeFlash;
 extern volatile U16_T SilenceTime;
+//extern U8_T far uart2_timeout;
+//extern U8_T far USB_timeout;
+
 /*-----------------------------------------------------------*/
 
 #if portUSE_PREEMPTION == 1
 
 /*-----------------------------------------------------------*/
+
 void PWMoutput(void);  // added by chelsea
 
 void vTimer2ISR( void ) interrupt 10
@@ -280,13 +286,26 @@ void vTimer2ISR( void ) interrupt 10
 #pragma ENDASM
 		isr = EA;
 		EA = 0;
+
+		if(uart2_timeout)
+			uart2_timeout--;
+
+		if(USB_timeout)
+			USB_timeout--;
+
+
 		TICK_INT = 1;
 		SaveSP = SP;
         prvGetCurrentTCB_XBP();
-			
-		SilenceTime++;
-		PWMoutput();
+		
+		if(SilenceTime < 50000)	
+			SilenceTime++;
+		else
+			SilenceTime = 0;
+		#if defined(CM5)
 
+		PWMoutput();
+	   #endif
 		EA = isr;
 		OSIntCtxSw();  	
 		

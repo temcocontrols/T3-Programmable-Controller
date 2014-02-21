@@ -210,6 +210,10 @@ void handler_private_transfer(
 					break;
 				case NEW_UDP_PORT:
 					ptr = (char *)(&client_ip[0]);
+					break;
+				case WRITEALARM_3000:
+					ptr = (char *)&alarms[private_header.point_start_instance];
+
 				default:
 					break;	
 					
@@ -218,27 +222,14 @@ void handler_private_transfer(
 			{
 				if(private_header.total_length  == private_header.entitysize * (private_header.point_end_instance - private_header.point_start_instance + 1) + header_len)
 				{	// check is length is correct 
-					if(command == WRITEVARIABLE_T3000)
-					{
-						if(private_header.point_start_instance == 0)
-						{
-//						char teststr[] = "\r\n 4: \r\n";
-//						sub_send_string(teststr,10,UART0);
-//						sub_send_string(Temp_CS.value,private_header.total_length,UART0);
-						}
-						
-					}
 				   	memcpy(ptr,&Temp_CS.value[header_len],private_header.total_length - header_len);
 					if(command == WRITEPROGRAMCODE_T3000)
 					{
-					//	U8_T j = 0;
 						for(j = private_header.point_start_instance;j <= private_header.point_end_instance;j++)
 						{  						
 							programs[j].bytes = mGetPointWord2(prg_code[j][1]* 256 + prg_code[j][0]);
-						}
-
-						/* recount code lenght once update program code */
-	
+						} 
+						/* recount code lenght once update program code */ 	
 						Code_total_length = 0;
 						for(j = 0;j < MAX_PRGS;j++)
 						{							
@@ -266,24 +257,21 @@ void handler_private_transfer(
 						U8_T tempsocket = 0;
 						static U32_T old_ip;	
 						if(old_ip != ((U32_T)client_ip[3] << 24) + ((U32_T)client_ip[2] << 16) + (U16_T)(client_ip[1] << 8) + client_ip[0])
-						{	Test[37]++;
+						{	
 							tempsocket = TCPIP_UdpNew(2, 3, ((U32_T)client_ip[3] << 24) + ((U32_T)client_ip[2] << 16) + (U16_T)(client_ip[1] << 8) + client_ip[0], 0, 47808);
 							if(tempsocket != 255)
 							{
 							   	newsocket = tempsocket;
 								old_ip = ((U32_T)client_ip[3] << 24) + ((U32_T)client_ip[2] << 16) + (U16_T)(client_ip[1] << 8) + client_ip[0];					
-								flag_old_seocket = 1;
-								Test[38]++;
+							    Test[38] = newsocket;
 							}
-							else
-							{
+							else 
 								Test[39]++;
-							}
 						}
-						Test[40] = newsocket;
-
-						
-
+					}
+					else if(command == WRITEALARM_3000)
+					{
+						update_alarm_tbl(&alarms[private_header.point_start_instance], private_header.point_end_instance - private_header.point_start_instance + 1 );
 					}
 				}
 			}
@@ -385,8 +373,12 @@ void handler_private_transfer(
 			case GET_PANEL_INFO:   // other commad
 		
 				ptr = (char *)(Panel_Info.all);	
-				flag_old_seocket = 0;
 				break;
+			case READALARM_T3000:   // 13
+				ptr = (char *)(&alarms[private_header.point_start_instance]);
+				break;
+
+			
 			default:
 				break;
 		}

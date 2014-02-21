@@ -1,18 +1,7 @@
 #ifndef	_FLASH_SCHEDULE_H
 #define	_FLASH_SCHEDULE_H
 
-typedef enum
-{
-	T_WEEK_DES = 0,
-	T_WEEK_ONTIME,
-	T_WEEK_OFFTIME,
-	T_ANNUAL_DES,
-	T_ANNUAL_TIME,
-	T_ID,
 
-	T_NAME, // ONLY FOR CM5
-	T_END_OLD
-};
 
 /* MACRO DECLARATIONS */
 typedef struct

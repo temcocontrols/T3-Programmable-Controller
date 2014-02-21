@@ -13,7 +13,7 @@ typedef struct _SCAN_DATABASE_
 	U8_T port;
 } SCAN_DB;
 
-//#define MAX_ID		255
+#define MAX_ID		255
 
 #define	NONE_ID						0
 #define	UNIQUE_ID					1
@@ -26,11 +26,11 @@ typedef struct _SCAN_DATABASE_
 #define	SCAN_BINSEARCH			1
 #define	SCAN_ASSIGN_ID_WITH_SN	2
 
-extern SCAN_DB xdata current_db;
-extern SCAN_DB xdata scan_db[255];
+extern SCAN_DB far current_db;
+extern SCAN_DB far scan_db[MAX_ID];
 extern U8_T db_ctr;
-extern U8_T xdata db_online[32], db_occupy[32], get_para[32];
-extern U8_T xdata current_online[32];
+extern U8_T db_online[32], db_occupy[32], get_para[32];
+extern U8_T current_online[32];
 extern U8_T current_online_ctr;
 extern U8_T external_nodes_plug_and_play;
 extern U8_T reset_scan_db_flag;
@@ -39,12 +39,14 @@ extern U8_T reset_scan_db_flag;
 //void get_parameters_from_nodes(void);
 void write_parameters_to_nodes(U8_T index, U16_T reg, U16_T value);
 
-
+void init_scan_db(void);
 U8_T check_master_id_in_database(U8_T set_id, U8_T increase) reentrant;
 void vStartScanTask(unsigned char uxPriority);
 void modify_master_id_in_database(U8_T old_id, U8_T set_id);
 void remove_id_from_db(U8_T index_of_scan_db);
+void Response_MAIN_To_SUB(U8_T *buf, U16_T len,U8_T port);
+U8_T Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header);
 
-void Response_MAIN_To_SUB(U8_T *buf, U16_T len);
+void Get_Tst_DB_From_Flash(void);
 
 #endif

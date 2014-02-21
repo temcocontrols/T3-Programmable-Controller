@@ -99,11 +99,11 @@ U8_T bip_NewConn(U32_T XDATA* pip, U16_T remotePort, U8_T socket)
 	// BIP_MAX_CONNS 1,only 1 
 	for (i = 0; i < BIP_MAX_CONNS; i++)
 	{
-		bip_Conns[i].State = BIP_STATE_CONNECTED;
-		bip_Conns[i].UdpSocket = socket;
-		bip_set_socket(bip_Conns[i].UdpSocket);
+			bip_Conns[i].State = BIP_STATE_CONNECTED;
+			bip_Conns[i].UdpSocket = socket;
+			bip_set_socket(bip_Conns[i].UdpSocket);
 
-		return i;
+			return i;
 	}
 
 	return BIP_STATE_CONNECTED;
@@ -134,19 +134,11 @@ void BIP_Receive_Handler(U8_T XDATA* pData, U16_T length, U8_T id)
 	flag_bip_active = 1;
 	if(cSemaphoreTake(sembip, 50) == pdFALSE)
 		return ;
-
-//	while(strncmp(bip_Data,pData,length)) // avoid bip_data error
-	{ 	
-	//	char teststr[] = "\r\n 1: \r\n";
-
+	flagLED_ether_rx = 1;
 	Test[12]++;
 	memcpy(bip_Data,pData,length);
-////	sub_send_string(teststr,10,0); 
-//	if(Test[49] == 1000)
-//	sub_send_string(bip_Data,bip_len,0);
 
 	bip_len = length;
-	}
 
 	cSemaphoreGive(sembip);
 
@@ -298,19 +290,16 @@ int bip_send_pdu(
         (uint16_t) (pdu_len + 4 /*inclusive */ ));
     memcpy(&mtu[mtu_len], pdu, pdu_len);
     mtu_len += pdu_len;
-	Test[37] = flag_old_seocket + 10;
-	if(flag_old_seocket == 0)
-		TCPIP_UdpSend(bip_Conns[0].UdpSocket, 0, 0, mtu, mtu_len);
-	else
+
+	if(newsocket != 0)
+	{
 		TCPIP_UdpSend(newsocket, 0, 0, mtu, mtu_len);
-//	if(newsocket != 0)
-//	{
-//		TCPIP_UdpSend(newsocket, 0, 0, mtu, mtu_len);
-//	}
-//	else
-//	{
-//	 	TCPIP_UdpSend(bip_Conns[0].UdpSocket, 0, 0, mtu, mtu_len);
-//	}
+	}
+	else
+	{
+	 	TCPIP_UdpSend(BIP_Socket/*bip_Conns[0].UdpSocket*/, 0, 0, mtu, mtu_len);
+	}
+	flagLED_ether_tx = 1;
 	Test[13]++;
     return bytes_sent;	 
 }
@@ -383,12 +372,6 @@ uint16_t bip_receive(
     bip_Data = pdu;
 
 
-//	if(pdu[20] == 0x67 && pdu[21] == 0x00 && pdu[22] == 0x03)
-//	{				  	
-//		char teststr[] = "\r\n 2: \r\n";
-//		sub_send_string(teststr,10,0);
-//		sub_send_string(pdu,bip_len,0);
-//	}
     /* See if there is a problem */
     if (received_bytes < 0) {  	cSemaphoreGive(sembip);
 

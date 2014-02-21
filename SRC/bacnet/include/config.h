@@ -90,7 +90,7 @@ extern unsigned int far Test[50];	  // for test added by chelsea
 #endif
 #endif
 
-//#define READ_WRITE_PROPERTY 1
+#define READ_WRITE_PROPERTY 1
 
 
 extern unsigned char far Temp_Buf[MAX_APDU];	    // add it by chelsea

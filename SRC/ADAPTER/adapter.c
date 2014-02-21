@@ -52,9 +52,6 @@ static U32_T eth_ArpSendIntervalTime = 5;
 static U32_T eth_ArpSendTime = 0;
 #endif
 
-extern	U8_T xdata Mac_Addr[6];
-
-
 
 /* LOCAL SUBPROGRAM DECLARATIONS */
 static void eth_RcvHandle(U8_T XDATA*, U16_T, U8_T);
@@ -444,12 +441,12 @@ void ETH_SendArpToGateway(BOOL StopSendAfterRcvReply)
 	buf[3] = 0xFF;
 	buf[4] = 0xFF;
 	buf[5] = 0xFF;
-	buf[6] = *(point);	  Mac_Addr[0] = buf[6];
-	buf[7] = *(point + 1);	 Mac_Addr[1] = buf[7];
-	buf[8] = *(point + 2);	  Mac_Addr[2] = buf[8];
-	buf[9] = *(point + 3);	  Mac_Addr[3] = buf[9];
-	buf[10] = *(point + 4);	   Mac_Addr[4] = buf[10];
-	buf[11] = *(point + 5);	  Mac_Addr[5] = buf[11];
+	buf[6] = *(point);
+	buf[7] = *(point + 1);
+	buf[8] = *(point + 2);
+	buf[9] = *(point + 3);
+	buf[10] = *(point + 4);
+	buf[11] = *(point + 5);
 	buf[12] = 0x08; 
 	buf[13] = 0x06;
 

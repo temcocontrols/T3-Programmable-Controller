@@ -49,6 +49,7 @@
 /* occurs in BACnet.  A device id is bound to a MAC address. */
 /* The normal method is using Who-Is, and using the data from I-Am */
 
+#if 0
 static struct Address_Cache_Entry {
     uint8_t Flags;
     uint32_t device_id;
@@ -197,7 +198,7 @@ DeviceID MAC SNET SADR MAX-APDU
 note: useful for MS/TP Slave static binding
 */
 static const char *Address_Cache_Filename = "address_cache";
-
+#if 0
 static void address_file_init(
     const char *pFilename)
 {
@@ -255,7 +256,7 @@ static void address_file_init(
     return;
 }
 
-
+#endif
 /****************************************************************************
  * Clear down the cache and make sure the full complement of entries are    *
  * available. Assume no persistance of memory.                              *
@@ -271,8 +272,9 @@ void address_init(
         pMatch->Flags = 0;
         pMatch++;
     }
+#if 0	 // marked by chelsea
     address_file_init(Address_Cache_Filename);
-
+#endif
     return;
 }
 
@@ -303,8 +305,9 @@ void address_init_partial(
 
         pMatch++;
     }
+#if 0
     address_file_init(Address_Cache_Filename);
-
+#endif
     return;
 }
 
@@ -1015,3 +1018,6 @@ int main(
 }
 #endif /* TEST_ADDRESS */
 #endif /* TEST */
+
+
+#endif

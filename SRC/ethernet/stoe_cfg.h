@@ -83,7 +83,7 @@
 											call function to read MAC register 0x28
 											to decide what events had happened.*/
 
-#define MAC_GET_INTSTATUS_MODE	(MAC_INTERRUPT_MODE)
+#define MAC_GET_INTSTATUS_MODE	MAC_POLLING_MODE//(MAC_INTERRUPT_MODE)
 
 /*-------------------------------------------------------------*/
 /* NAMING CONSTANT DECLARATIONS */

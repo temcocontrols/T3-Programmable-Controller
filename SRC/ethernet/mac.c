@@ -456,14 +456,16 @@ U8_T mac_GetMediaType(void)
  * Note:
  * ----------------------------------------------------------------------------
  */
+extern U16_T far Test[50];
 U8_T mac_LinkSpeedChk(void)
 {
 	if (mac_InterruptStatus & STATUS_PRIMARY_IS_LINK_UP)
-	{
+	{	
 		mac_InterruptStatus = 0;
 		if (PBDP->MacInfo.NetworkType != MAC_FORCE_ENBEDDED_PHY_10_HALF)
 		{
 			mac_GetMediaType();
+			
 		}
 		else
 		{
@@ -480,6 +482,7 @@ U8_T mac_LinkSpeedChk(void)
 	}
 	else
 	{
+	//	flag_EthPort = 0;
 		mac_InterruptStatus = 0;		
 		if (PBDP->MacInfo.LinkSpeed)
 		{

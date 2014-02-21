@@ -100,13 +100,13 @@ void Updata_Clock(void)
 	Get_Clock(PCF_MON,&mon);
 	Get_Clock(PCF_YEAR,&year);
 
-	 RTC.Clk.sec = sec;
-	 RTC.Clk.min = min;
-	 RTC.Clk.hour = hour;
-	 RTC.Clk.day = day;
-	 RTC.Clk.week = week;
-	 RTC.Clk.mon = mon;
-	 RTC.Clk.year = year;
+	RTC.Clk.sec = sec;
+	RTC.Clk.min = min;
+	RTC.Clk.hour = hour;
+	RTC.Clk.day = day;
+	RTC.Clk.week = week;
+	RTC.Clk.mon = mon;
+	RTC.Clk.year = year;
 
 	
 

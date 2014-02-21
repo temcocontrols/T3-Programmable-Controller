@@ -111,4 +111,3 @@ void SNTPC_Debug(void);
 
 #endif /* __SNTPC_H__ */
 
-

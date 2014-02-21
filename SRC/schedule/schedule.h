@@ -3,7 +3,7 @@
 
 //#include "main.h"
 
-#define MAX_ID					254
+#define MAX_ID1					254
 #define MAX_WR1      			20
 #define MAX_AR1					16
 
@@ -18,12 +18,13 @@
 #define	MAX_INTERVALS_PER_DAY			4
 
 
-/* ONLY FOR CM5 */
-extern	S8_T xdata menu_name[36][14];	
+/* ONLY FOR MINI */
+//extern	S8_T far menu_name[56][14];
   
 #define NAME_SIZE 	14  // 14 * 36 = 504
 #define MAX_NAME	36  // 10 OUTPUT 26 INPUT
 
+#define MAX_INPUT  32
 
 /* the following defintion is for schedule */
 
@@ -40,7 +41,7 @@ typedef enum
 	MODBUS_AR_DESCRIP_LAST		= MODBUS_AR_DESCRIP_FIRST +  AR_DESCRIPTION_SIZE * MAX_AR1 ,
 	
 	MODBUS_ID_FIRST				= MODBUS_AR_DESCRIP_LAST ,
-	MODBUS_ID_LAST				= MODBUS_ID_FIRST + ID_SIZE * MAX_ID ,
+	MODBUS_ID_LAST				= MODBUS_ID_FIRST + ID_SIZE * MAX_ID1 ,
 	
 	MODBUS_AR_TIME_FIRST		= MODBUS_ID_LAST ,
 	MODBUS_AR_TIME_LAST			= MODBUS_AR_TIME_FIRST + AR_TIME_SIZE * MAX_AR1 ,
@@ -170,7 +171,7 @@ extern bit BIT_FLAG;  // 0 -- run schedule
 
 extern STR_WR  far WR_Roution[MAX_WR1];
 extern STR_AR  far AR_Roution[MAX_AR1];
-extern UN_ID   far ID_Config[MAX_ID];
+extern UN_ID   far ID_Config[MAX_ID1];
 
 extern unsigned char far send_schedual[8];
 extern bit flag_send_schedual;

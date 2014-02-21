@@ -447,8 +447,6 @@ static bool apdu_unconfirmed_dcc_disabled(
  * @param apdu [in] The apdu portion of the request, to be processed.
  * @param apdu_len [in] The total (remaining) length of the apdu.
  */
- extern U8_T flag_old_seocket;
-
 void apdu_handler(
     BACNET_ADDRESS * src,
     uint8_t * apdu,     /* APDU data */
@@ -534,15 +532,14 @@ void apdu_handler(
 				#endif				
 				if (service_choice == SERVICE_UNCONFIRMED_WHO_IS) 
 				{				
-					if(	protocal == BAC_MSTP)
+					if(	Modbus.protocal == BAC_MSTP)
 					{	  
 	                	handler_who_is(service_request,
 	                     service_request_len, src);
 						}
-					else if(protocal == BAC_IP)
+					else if(Modbus.protocal == BAC_IP)
 					{					
 					Send_I_Am(&Handler_Transmit_Buffer[0]);
-					flag_old_seocket = 0;
 					}
             	}
 				// add unconfirmedPrivateTransfer handler, for TEMCO private

@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include "types.h"
 #include "flash_schedule.h"
+#include "alarm.h"
+
 
 #define FLASH_BUFFER_LENGTH    0x10000L
 
@@ -36,7 +38,7 @@
 #define MAX_ARRAYS             16
 #define MAX_ARRAYS_DATA		 2048
 
-#define MAX_UNITS               8
+#define MAX_UNIT               8
 #define MAX_INFO_TYPE		       20
 #define MAX_VIEWS		            3
 #define MAX_PASSW		            8
@@ -57,8 +59,8 @@
 
 typedef enum
 	{
-		OUT=0, IN, VAR, CON, WRT, AR, PRG, TBL, TZ, AMON, GRP, ARRAY, ALARMM,
-		UNIT, USER_NAME, ALARM_SET, WR_TIME, AR_DATA,
+		OUT=0, IN, VAR, CON, WRT, AR, PRG, TBL, TZ, AMON, GRP, ARRAY, ALARMM = 12,
+		UNIT, USER_NAME, ALARM_SET = 15, WR_TIME, AR_DATA,TSTAT,MAX_POINT_TYPE
 	}	Point_type_equate;
 
 typedef enum { 
@@ -74,6 +76,7 @@ typedef enum {
 		 READMONITOR_T3000         = AMON+1,       /* read monitors       */
 		 READSCREEN_T3000          = GRP+1,        /* read screens        */
 		 READARRAY_T3000           = ARRAY+1,      /* read arrays         */
+		 READALARM_T3000		   = ALARMM+1,       /* read arrays         */
 //		 READARRAYVALUE_T3000      = AYVALUE+1,    /* read array elements */
 
 		 READPROGRAMCODE_T3000     = 16,           /* read program code   */
@@ -101,6 +104,7 @@ typedef enum {
 		 WRITEMONITOR_T3000        = 100+AMON+1,       /* write monitors       */
 		 WRITESCREEN_T3000         = 100+GRP+1,        /* write screens        */
 		 WRITEARRAY_T3000          = 100+ARRAY+1,      /* write arrays         */
+		 WRITEALARM_3000		   = 100+ALARMM+1,       /* write alarm         */
 		 WRITETIMESCHEDULE_T3000   = 100+WR_TIME+1,    /* write time schedule  */
 		 WRITEANNUALSCHEDULE_T3000 = 100+AR_DATA+1,    /* write annual schedule*/
 		 WRITEPROGRAMCODE_T3000    = 100+16,           /* write program code    */
@@ -207,6 +211,8 @@ typedef enum { not_used_output, V0_10, P0_100_Open, P0_20psi, P0_100,
 
 
 
+
+
 typedef struct
 {
 	U8_T number;
@@ -271,7 +277,7 @@ typedef struct
 
 	int8_t auto_manual;  /* (1 bit; 0=auto, 1=manual)*/
 	int8_t digital_analog;  /* (1 bit; 0=digital, 1=analog)*/
-	int8_t access_level;  /* (3 bits; 0-5)*/
+	int8_t switch_status/*access_level*/;  /* (3 bits; 0-5)*/
 	int8_t control ;  /* (1 bit; 0=off, 1=on)*/
 	int8_t digital_control;  /* (1 bit)*/
 	int8_t decom;  /* (1 bit; 0=ok, 1=point decommissioned)*/
@@ -282,6 +288,26 @@ typedef struct
 	uint16_t delay_timer;      /* (2 bytes;  seconds,minutes)*/
 
 } Str_out_point;  /* 21+9+4+2+2+2 = 40 */
+
+typedef enum  
+{
+	e_out_description = 0, 	       /* (21 bytes; string)*/
+	e_out_label = 21,		       /* (9 bytes; string)*/
+
+	e_out_value = 30,		       /* (4 bytes; int32_t) */
+
+	e_out_auto_manual = 34,  /* (1 bit; 0=auto, 1=manual)*/
+	e_out_digital_analog = 35,  /* (1 bit; 0=digital, 1=analog)*/
+	e_out_switch_status = 36,/*access_level*/ /* (3 bits; 0-5)*/
+	e_out_control  = 37,  /* (1 bit; 0=off, 1=on)*/
+	e_out_digital_control = 38,  /* (1 bit)*/
+	e_out_decom = 39,  /* (1 bit; 0=ok, 1=point decommissioned)*/
+	e_out_range = 40,	/* (1 Byte ; output_range_equate)*/
+
+	e_out_m_del_low = 41,  /* (1 uint8_t ; if analog then low)*/
+	e_out_s_del_high = 42, /* (1 uint8_t ; if analog then high)*/
+	e_out_delay_timer = 43,      /* (2 bytes;  seconds,minutes)*/
+}modbus_output;
 
 typedef struct
 {
@@ -307,6 +333,25 @@ typedef struct
 	uint8_t range;	      /* (1 uint8_t ; input_range_equate)*/
 
 } Str_in_point; /* 21+1+4+1+1+9 = 38 */
+
+typedef enum  
+{
+	e_in_description = 0,	      /* (21 bytes; string)*/
+	e_in_label = 21,		      	/* (9 bytes; string)*/
+	e_in_value = 30,		     						/* (4 bytes; int32_t)*/
+	e_in_filter = 34,  /* (3 bits; 0=1,1=2,2=4,3=8,4=16,5=32, 6=64,7=128,)*/
+	e_in_decom = 35,/* (1 bit; 0=ok, 1=point decommissioned)*/
+	e_in_sen_on = 36,/* (1 bit)*/
+	e_in_sen_off = 37,  /* (1 bit)*/
+	e_in_control = 38, /*  (1 bit; 0=OFF, 1=ON)*/
+	e_in_auto_manua = 39, /* (1 bit; 0=auto, 1=manual)*/
+	e_in_digital_analog = 40 , /* (1 bit; 1=analog, 0=digital)*/
+	e_in_calibration_sign = 41, /* (1 bit; sign 0=positiv 1=negative )*/
+	e_in_calibration_increment = 42, /* (1 bit;  0=0.1, 1=1.0)*/
+	e_in_unused = 43, /* (5 bits - spare )*/
+	e_in_calibration = 44,  /* (8 bits; -25.6 to 25.6 / -256 to 256 )*/
+	e_in_range  = 45
+}modbus_input;
 
 typedef struct
 {
@@ -371,6 +416,23 @@ typedef struct
 
 } Str_weekly_routine_point; /* 21+9+2+3+3 = 38*/
 
+typedef enum
+{
+	e_week_description = 0,		     /* (21 bytes; string)*/
+	e_week_label = 21,		      	     /*	(9 bytes; string)*/
+
+	e_week_value = 30,  /* (1 bit; 0=off, 1=on)*/
+	e_week_auto_manual = 31,  /* (1 bit; 0=auto, 1=manual)*/
+	e_week_override_1_value = 32,  /* (1 bit; 0=off, 1=on)*/
+	e_week_override_2_value = 33,  /* (1 bit; 0=off, 1=on)*/
+	e_week_off = 34,
+	e_week_unused = 35, /* (11 bits)*/
+
+	e_week_override_1 = 36,	     /* (3 bytes; point)*/
+	e_week_override_2 = 39	     /* (3 bytes; point)*/
+
+}; 
+
 
 typedef struct
 {
@@ -393,11 +455,22 @@ typedef struct
 
 	uint8_t value		;  /* (1 bit; 0=off, 1=on)*/
 	uint8_t auto_manual;/* (1 bit; 0=auto, 1=manual)*/
-//	unsigned unused				: 14; 	/* ( 12 bits)*/
+//	U8_T unused				: 14; 	/* ( 12 bits)*/
 	uint8_t unused;
 
 }	Str_annual_routine_point;   /* 21+9+2=32 bytes*/
 
+typedef enum
+{
+	e_ar_description = 0, 	    /* (21 bytes; string)*/
+	e_ar_label = 21,		      		/* (9 bytes; string)*/
+
+	e_ar_value = 30,  /* (1 bit; 0=off, 1=on)*/
+	e_ar_auto_manual = 31,/* (1 bit; 0=auto, 1=manual)*/
+//	U8_T unused				: 14; 	/* ( 12 bits)*/
+	e_ar_unused = 32
+
+};   /* 21+9+2=32 bytes*/
 
 typedef struct
 {
@@ -520,9 +593,9 @@ typedef struct              /* 85 bytes */
 
 	U8_T monitor;//	       :4; /* monitors' number */
 	U8_T no_points ;//      :4; /* number of points in block */
-/*	unsigned tenths_of_seconds    : 4; /* 4 bits ; 0-15 */
-/*	unsigned second_interval_time : 6; /* 6 bits ; 0-59 */
-/*	unsigned minute_interval_time : 6; /* 6 bits ; 0-59 */
+/*	U8_T tenths_of_seconds    : 4; /* 4 bits ; 0-15 */
+/*	U8_T second_interval_time : 6; /* 6 bits ; 0-59 */
+/*	U8_T minute_interval_time : 6; /* 6 bits ; 0-59 */
 
 	U8_T second_interval_time; /* 1 U8_T ; 0-59 */
 	U8_T minute_interval_time; /* 1 U8_T ; 0-59 */
@@ -547,7 +620,7 @@ typedef struct              /* 85 bytes */
 
   U8_T      last_digital_state ;//: 14;
   U8_T      not_used       ;//    :  2;
-/*  unsigned      index_fast         :  2;*/
+/*  U8_T      index_fast         :  2;*/
 
 
 } Monitor_Block_Header;  /* 85 bytes */
@@ -686,6 +759,74 @@ typedef struct {
 	U8_T desc;
 	} Info_Table;
 
+typedef struct {
+
+	Point_Net	point;
+
+	U8_T 	modem  ;//   	  : 1;
+	U8_T 	printer	;//	    : 1;
+	U8_T 	alarm	;//		    : 1;
+	U8_T 	restored     ;// : 1;
+	U8_T 	acknowledged ;// : 1;
+	U8_T	ddelete		 ;//   : 1;
+	U8_T  type        ;//  : 2; /* DDDD */
+	U8_T  cond_type   ;//  : 4;
+	U8_T  level       ;//  : 4; /* DDDD */
+
+	U32_T 		alarm_time;
+	char 	  alarm_count;
+	char     alarm_message[ALARM_MESSAGE_SIZE+1];
+	char              none[5];
+	U8_T panel_type   ;//  :4;
+	U8_T dest_panel_type;//:4;
+	U16_T      alarm_id;
+	Byte              prg;
+
+	Byte alarm_panel;   /* (1 byte ; 1-32, panel alarm originated from)	*/
+	Byte where1;	      /* (1 byte ; panel# to send alarm to, 255 = all)	*/
+	Byte where2;	      /* (1 byte ; panel# to send alarm to, 0 = none)	*/
+	Byte where3;	      /* (1 byte ; panel# to send alarm to, 0 = none)	*/
+	Byte where4;	      /* (1 byte ; panel# to send alarm to, 0 = none)	*/
+	Byte where5;	      /* (1 byte ; panel# to send alarm to, 0 = none)	*/
+
+	U8_T where_state1 ;// :1;	      /* (1 byte ; panel# to send alarm to, 255 = all)	*/
+	U8_T where_state2 ;// :1;	      /* (1 byte ; panel# to send alarm to, 255 = all)	*/
+	U8_T where_state3 ;// :1;	      /* (1 byte ; panel# to send alarm to, 255 = all)	*/
+	U8_T where_state4 ;// :1;	      /* (1 byte ; panel# to send alarm to, 255 = all)	*/
+	U8_T where_state5 ;// :1;	      /* (1 byte ; panel# to send alarm to, 255 = all)	*/
+	U8_T change_flag ;//  :2;
+	U8_T original    ;//  :1;
+	U8_T no         ;//   :8;
+
+} Alarm_point; /* 88 bytes */
+
+typedef struct
+{
+	Point_T3000 point;
+	Point_T3000 point1;
+	U8_T cond1;
+	U32_T waylow;
+	U32_T low;
+	U32_T normal;
+	U32_T hi;
+	U32_T wayhi;
+	U8_T time;
+	U8_T nrmes;
+	U8_T count;
+
+}	Alarm_set_point;	/* (size =  bytes);	*/
+
+typedef struct
+{
+	U8_T modem     ;//		 :1 ;
+	U8_T printer  ;//	 	 :1 ;
+	U8_T screen   ;//		 :1 ;
+	U8_T restored   ;//   :1 ;
+	U8_T acknowledged ;// :1 ;
+	U32_T alarm_time ;
+	char alarm_count;
+	char alarm_message[70];
+} Alarm_struct;
 
 
 typedef union {
@@ -705,7 +846,7 @@ typedef union {
 		Control_group_point       *pgrp;
 		Aux_group_point           *pgaux;
 		Str_grp_element           *pgrel;
-	//	Alarm_point               *palrm;
+		Alarm_point               *palrm;
 	//	MiniInfo2 				  *pmi2;
 	//	MiniCommInfo			  *pmci;
 		Point_Net		          *pnet;

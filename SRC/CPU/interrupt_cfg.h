@@ -28,20 +28,25 @@
 #define INTERRUPT_CFG_H
 
 /* INCLUDE FILE DECLARATIONS */
-
+#include "main.h"
 
 /* NAMING CONSTANT DECLARATIONS */
 #define		AX_LBI_INT_ENABLE				0 // 1:enable Local Bus ISR ; 0:disable Local Bus ISR
 #define		AX_ETH_INT_ENABLE				1 // 1:enable Ethernet ISR ; 0:disable Ethernet ISR
 #define		AX_I2C_INT_ENABLE				1 // 1:enable I2C ISR ; 0:disable I2C ISR
-#define		AX_SPI_INT_ENABLE				0 // 1:enable SPI ISR ; 0:disable SPI ISR
 #define		AX_ONEWIRE_INT_ENABLE			0 // 1:enable OneWire ISR ; 0:disable OneWire ISR
 #define		AX_CAN_INT_ENABLE				0 // 1:enable CAN ISR ; 0:disable CAN ISR
-#define		AX_HSUART_INT_ENABLE			0 // 1:enable High Speed Uart ISR ; 0:disable High Speed Uart ISR
 #define		BOOTLDR_ISR						0 // 1:involve the boot loader source code.
 #define		AX_POWER_MANAGEMENT_INT_ENABLE	0 // 1:enable power management wake up  ISR ; 0:disable that
 #define		AX_WATCHDOG_INT_ENB				0 // 1:enable watchdog ISR ; 0:disable watchdog ISR;
 
+#if defined(MINI)
+#define		AX_SPI_INT_ENABLE				1 // 1:enable SPI ISR ; 0:disable SPI ISR
+#define		AX_HSUART_INT_ENABLE			1 // 1:enable High Speed Uart ISR ; 0:disable High Speed Uart ISR
+#else 
+#define		AX_SPI_INT_ENABLE				0 // 1:enable SPI ISR ; 0:disable SPI ISR
+#define		AX_HSUART_INT_ENABLE			0 // 1:enable High Speed Uart ISR ; 0:disable High Speed Uart ISR
+#endif
 
 /* MACRO DECLARATIONS */
 

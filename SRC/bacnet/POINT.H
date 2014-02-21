@@ -4,7 +4,7 @@
 #include "types.h"
 
 //uint16_t search_point( U8_T *type, U8_T *number, S8_T *buff, Search_type order );
-//void update_alarm_tbl( Alarm_point *block, S16_T max_points_bank );
+void update_alarm_tbl( Alarm_point *block, S16_T max_points_bank );
 S16_T put_net_point_value( Point_Net *point, S32_T *val_ptr, S16_T aux, S16_T prog_op );
 S16_T put_point_value( Point *point, S32_T *val_ptr, S16_T aux, S16_T prog_op );
 void put_remote_point_value( S16_T index, S32_T *val_ptr, S16_T prog_op );

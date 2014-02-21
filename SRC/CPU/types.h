@@ -15,13 +15,16 @@
 #define U16_T		unsigned int
 #define U32_T		unsigned long
 
+
 #define uint16		unsigned int
 #define uint8		unsigned char
+
 
 #define BOOL		unsigned short int
 
 #define TRUE    			1
 #define FALSE   			0
+
 
 #define LOW_BYTE(word)	(U8_T)(word & 0x00FF)
 #define HIGH_BYTE(word)	(U8_T)((word & 0xFF00) >> 8)

@@ -34,15 +34,16 @@
 
 /* GLOBAL VARIABLE DECLARATIONS */
 U16_T w_Key_Count;
-//U8_T by_Key_Buffer;
+U8_T by_Key_Buffer;
 U8_T b_PressKey;
 U16_T w_Beep_Count;
 U16_T w_Backlit_Count;
 U8_T by_Key;			/* the value of button */
 static U8_T by_shake_Count = 0;
 
-xTaskHandle xdata xKeyTask;
-xQueueHandle xdata xKeyQueue;
+
+xTaskHandle xKeyTask;
+xQueueHandle xKeyQueue;
 
 
 
@@ -63,10 +64,10 @@ xQueueHandle xdata xKeyQueue;
 void Key_Inital(void)
 {
 	KEY_PRO = 1;
-	KEY_SEL = 0;
+	KEY_SEL = 1;
 	KEY_DOWN = 1;
-	KEY_UP = 0;	
-//	KEY_LATCH = 0;
+	KEY_UP = 1;	
+//	KEY_COM = 0;
 	
 	w_Key_Count = 0;
 	w_Beep_Count = 0;
@@ -117,8 +118,6 @@ void vStartKeyTasks( unsigned char uxPriority)
 //  1. check key event,send the value of the key to another task
 // 	2. control the back light and buzzer
 //  </summary>
-extern xTaskHandle xdata Handle_PWMoutput;
-
 void Key_Process(void) reentrant
 {
 	U8_T by_Dat = K_NONE;
@@ -132,30 +131,14 @@ void Key_Process(void) reentrant
 		by_Dat = K_NONE;
 		by_Out = K_NONE;
 		vTaskDelay(xDelayPeriod);
-	//	Test[10]++;
-	//	EA = 0;
-		
-	
-		DI1_LATCH = 1; 
-		DI2_LATCH = 1; 
-		RELAY_LATCH = 0;
-		KEY_LATCH = 0;
-		P0 = 0xff;
-		DELAY_Us(10); 
-		by_Key_Buffer = P0 & 0xcc;  // KEYPAND P0 
-		KEY_LATCH = 1;
-//		EA = 1;	 
-		 
-	
-	#if 0
-		by_Key = K_NONE; 
 
-		if(!(by_Key_Buffer & 0x04)) 		by_Key = K_PROGRAM;
-		if(!(by_Key_Buffer & 0x08))		    by_Key = K_SELECT;
-		if(!(by_Key_Buffer & 0x40)) 		by_Key = K_UP;
-		if(!(by_Key_Buffer & 0x80)) 		by_Key = K_DOWN;
-	#endif
-#if 1
+		by_Key_Buffer = P3 & 0xf0;    
+//		Test[14]++;
+//		if(w_Backlit_Count > 0)		w_Backlit_Count--;	   // 1min stop beeper
+//		else	BACKLIT = BACK_OFF; 
+//		if(w_Beep_Count > 1)		w_Beep_Count--;	   // 50ms stop beeper
+//		else	BEEPER = BEEP_OFF;   
+
 		// by_shake_Count, avoid shakeing
 		if(by_shake_Count < 2)		by_shake_Count++;
 		else   
@@ -169,24 +152,24 @@ void Key_Process(void) reentrant
 			if(xKeyQueue != 0)
 			{
 				cQueueSend( xKeyQueue, ( void * )&by_Key, 10);				
-			} 
+			}  	
 			continue;	 
 		}
    		b_PressKey = 0;
-	
-   	/*  check the P2 to get the value of the key */
-//		if(!(by_Key_Buffer & 0x04)) 		{by_Dat = K_PROGRAM; Test[35]++;}
-//		if(!(by_Key_Buffer & 0x08))		    {by_Dat = K_SELECT; Test[36]++;}
-//		if(!(by_Key_Buffer & 0x40)) 		{by_Dat = K_UP;	 Test[37]++;}
-//		if(!(by_Key_Buffer & 0x80)) 		{by_Dat = K_DOWN;Test[38]++;}  
-		if(by_Key_Buffer == 200) 		{by_Dat = K_PROGRAM; }
-		if(by_Key_Buffer == 196)		{by_Dat = K_SELECT;}
-		if(by_Key_Buffer == 140) 		{by_Dat = K_UP;	}
-		if(by_Key_Buffer == 76) 		{by_Dat = K_DOWN;}
-		/* the following are combine keys*/ 
-		if(!(by_Key_Buffer & 0x80) && !(by_Key_Buffer & 0x40)) { by_Dat = K_UP_DOWN;	}
-		if(!(by_Key_Buffer & 0x04) && !(by_Key_Buffer & 0x08)) { by_Dat = K_SEL_PRO;  }
+//		Test[19] = by_Key_Buffer;
 
+   	/*  check the P2 to get the value of the key */
+		if(!(by_Key_Buffer & 0x10)) 		by_Dat = K_DOWN;
+		if(!(by_Key_Buffer & 0x20)) 		by_Dat = K_UP;
+		if(!(by_Key_Buffer & 0x40))		    by_Dat = K_SELECT;
+		if(!(by_Key_Buffer & 0x80)) 		by_Dat = K_PROGRAM;
+		
+	/* the following are combine keys*/ 
+	/*	if(!(by_Key_Buffer & 0x80) && !(by_Key_Buffer & 0x08))  by_Dat = K_UP_DOWN;
+		if(!(by_Key_Buffer & 0x02) && !(by_Key_Buffer & 0x20))  by_Dat = K_SEL_PRO;
+		if(!(by_Key_Buffer & 0x08) && !(by_Key_Buffer & 0x02))  by_Dat = K_UP_SEL;
+		if(!(by_Key_Buffer & 0x04) && !(by_Key_Buffer & 0x02))	by_Dat = K_DOWN_SEL; */
+		
 	   	if(by_Dat == K_NONE)
 	   	{
 		    w_Key_Count = 0;
@@ -194,10 +177,10 @@ void Key_Process(void) reentrant
 			if(xKeyQueue != 0)
 			{
 				cQueueSend( xKeyQueue, ( void * )&by_Key, 10);
-			}  	//  aviod shakeing	 			
+			}  	//  aviod shakeing
 			continue;
 	   	}
-
+	
 		if(w_Key_Count < C_MAX_TIME)	++w_Key_Count;
 	
 	   	if(w_Key_Count == C_TRUE_TIME)
@@ -206,9 +189,10 @@ void Key_Process(void) reentrant
 
 			w_Beep_Count = C_BEEP;
 			w_Backlit_Count = C_BACK;
+//			BEEPER = BEEP_ON;
 			BACKLIT = BACK_ON;	
+
 			by_Out = by_Dat;
-			
 
 	   	}
 	//  add press up and down longer, +/- 1
@@ -222,7 +206,7 @@ void Key_Process(void) reentrant
 		        }
 		    }
 	   	}
-		#if 1
+	
 		if(w_Key_Count == C_HOLD_TIME_M)
 	   	{
 	      	if(by_Dat == K_SELECT || by_Dat == K_SEL_PRO||by_Dat == K_PROGRAM ||by_Dat == K_UP_SEL || by_Dat == K_DOWN_SEL )
@@ -238,19 +222,16 @@ void Key_Process(void) reentrant
 	        	by_Out = by_Dat + 0x80;
 	      	}
 	   	}
-		 #endif
-		by_Key = by_Out;   
-
+	
+		by_Key = by_Out;
 		if(xKeyQueue != 0)
 		{
 			cQueueSend( xKeyQueue, ( void * )&by_Key, 10 );
 		} 
 	  continue;
-
-#endif
-	  //taskYIELD();
 	}
 }
+
 
 
 

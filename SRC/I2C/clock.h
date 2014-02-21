@@ -28,7 +28,6 @@ extern U8_T  	month_length[12];
 extern U32_T  	ora_current_sec;
 
 
-
 U8_T Set_Clock(U8_T addr,U8_T dat);
 U8_T Get_Clock(U8_T addr,U8_T *value);
 void Initial_Clock(void);

@@ -56,7 +56,7 @@ supplied with the distribution. */
 to exclude the component. */
 
 /* Include/exclude the stated API function. */
-#define INCLUDE_vTaskPrioritySet		0
+#define INCLUDE_vTaskPrioritySet		1
 #define INCLUDE_ucTaskPriorityGet		0
 #define INCLUDE_vTaskDelete				0
 #define INCLUDE_vTaskCleanUpResources	0

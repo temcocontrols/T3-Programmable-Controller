@@ -3,7 +3,6 @@
 #include  <intrins.h> 
 #include <string.h>
 #include <ctype.h>   
-#include "si2c.h"
 
 
 
@@ -605,13 +604,10 @@ unsigned char const code nAsciiDot[96][2][6] =  {
 
 };
 
-U8_T flag_protect_lcd = 0;
 
 void Lcd_Write_Byte(unsigned char num) //from high to low
 {
 	char data i;
-//	if(flag_protect_lcd) Test[40]++;//return;
-//	I2C_SCL = 1; 
 	LCD_CS = 0;
 	_nop_();
 	LCD_A0 = 1;
@@ -872,7 +868,7 @@ void Lcd_Show_Data(char pos_x,char pos_y,unsigned int number,char dot,char mode)
 		
 }
 
-char far message[200];
+char far scroll_message[200];
 char far scroll_message_length;
 
 bit scrolling_flag = TRUE;
@@ -926,21 +922,21 @@ void update_message_context(void)
 
 	length = sizeof(time) - 1;
 	get_time_text();
-	memcpy(message + scroll_message_length, time, length);
+	memcpy(scroll_message + scroll_message_length, time, length);
 	scroll_message_length += length;
 
 // Network
 	length = sizeof(network_status_text) - 1;
-	memcpy(message + scroll_message_length, network_status_text, length);
+	memcpy(scroll_message + scroll_message_length, network_status_text, length);
 	scroll_message_length += length;
 	// main net status
 	length = sizeof(main_net_status_text) - 1;
-	memcpy(message + scroll_message_length, main_net_status_text, length);
+	memcpy(scroll_message + scroll_message_length, main_net_status_text, length);
 	scroll_message_length += length;
 	//if(main_net_status_ctr)
 	{
 		length = sizeof(net_status_ok_text) - 1;
-		memcpy(message + scroll_message_length, net_status_ok_text, length);
+		memcpy(scroll_message + scroll_message_length, net_status_ok_text, length);
 		scroll_message_length += length;
 	}
 	/*else
@@ -951,12 +947,12 @@ void update_message_context(void)
 	}*/
 	// sub net status
 	length = sizeof(sub_net_status_text) - 1;
-	memcpy(message + scroll_message_length, sub_net_status_text, length);
+	memcpy(scroll_message + scroll_message_length, sub_net_status_text, length);
 	scroll_message_length += length;
 	//if(db_ctr == current_online_ctr)
 	{
 		length = sizeof(net_status_ok_text) - 1;
-		memcpy(message + scroll_message_length, net_status_ok_text, length);
+		memcpy(scroll_message + scroll_message_length, net_status_ok_text, length);
 		scroll_message_length += length;
 	}
 	/*else
@@ -986,13 +982,13 @@ void update_message_context(void)
 
 // Alarm
 	length = sizeof(alarm_text) - 1;
-	memcpy(message + scroll_message_length, alarm_text, length);
+	memcpy(scroll_message + scroll_message_length, alarm_text, length);
 	scroll_message_length += length;
 
 
 // SPACE
 	length = 3;
-	memcpy(message + scroll_message_length, "   ", length);
+	memcpy(scroll_message + scroll_message_length, "   ", length);
 	scroll_message_length += length;
 	}
 
@@ -1041,19 +1037,19 @@ void scrolling_message(void)
 
 	byte_index = start_byte;
 
-	disp_value = message[byte_index++];
+	disp_value = scroll_message[byte_index++];
 	byte_index %= scroll_message_length;
 	display_character_with_start_bit(4, 0, start_bit, 8, disp_value, NORMAL);
 	if(start_bit < 7)
 	{
 		for(i = 1; i < 16; i++)
 		{
-			disp_value = message[byte_index++];
+			disp_value = scroll_message[byte_index++];
 			byte_index %= scroll_message_length;
 			display_character_with_start_bit(4, 8 * i - start_bit, 0, 8, disp_value, NORMAL);
 		}
 	
-		disp_value = message[byte_index++];
+		disp_value = scroll_message[byte_index++];
 		byte_index %= scroll_message_length;
 		display_character_with_start_bit(4, 8 * i - start_bit, 0, 4 + start_bit, disp_value, NORMAL);
 	}
@@ -1061,12 +1057,12 @@ void scrolling_message(void)
 	{
 		for(i = 1; i < 17; i++)
 		{
-			disp_value = message[byte_index++];
+			disp_value = scroll_message[byte_index++];
 			byte_index %= scroll_message_length;
 			display_character_with_start_bit(4, 8 * i - start_bit, 0, 8, disp_value, NORMAL);
 		}
 	
-		disp_value = message[byte_index++];
+		disp_value = scroll_message[byte_index++];
 		byte_index %= scroll_message_length;
 		display_character_with_start_bit(4, 8 * i - start_bit, 0, start_bit - 2, disp_value, NORMAL);
 	} 

@@ -22,7 +22,7 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code);
 
 
 S8_T                         just_load;
-S16_T                       miliseclast_cur;
+U16_T                       miliseclast_cur = 0;
 
 S16_T isdelimit(S8_T c)
 {
@@ -75,49 +75,6 @@ U32_T DoulbemGetPointWord2( U32_T dat )
 	return( temp4 | (U16_T)temp3 << 8 | (U32_T)temp2 << 16 |  (U32_T)temp1 << 24);
 }
 
-//U8_T far cmdtest[30] = {
-//0x17, 0x00, 0x01, 0x0A, 0x00, 0x1A, 0x0B,0x41, 
-//0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 
-//0x4A, 0x4B, 0x01, 0x14, 0x00, 0x25, 0x9C, 0x00, 
-//0x01, 0xFE, 0x00, 0x00, 0x00, 0x00,
-//};
-U8_T far cmdtest[48] = {
-0x2a , 0x00 , 0x01 , 0x0a , 0x00 , 0x1a , 0x05 , 0x31 , 
-0x32 , 0x33 , 0x34 , 0x35 , 0x01 , 0x14 , 0x00 , 0x0e , 
-0x9c , 0x00 , 0x03 , 0x9d , 0x00 , 0x00 , 0x00 , 0x00 , 
-0x71 , 0xff , 0x20 , 0x00 , 0x25 , 0x9c , 0x00 , 0x01 , 
-0x01 , 0x1e , 0x00 , 0x09 , 0x9c , 0x00 , 0x03 , 0x9d , 
-0xe8 , 0x03 , 0x00 , 0x00 , 0xfe
-};
-void control_logic(void)
-{
-	U16_T i;
-	Str_program_point *ptr;
-	
-
-//	ptr = programs;	
-
-	/* deal with exec_program roution per 1s */	
-//	convert_in();
-	ptr = programs;
-	i = 0;
-	//for( i = 0; i < MAX_PRGS; i++, ptr++ )
-	{
-		if( mGetPointWord2(ptr->bytes) > 0 &&  mGetPointWord2(ptr->bytes) < CODE_ELEMENT)
-			//if( program_address[i] )
-			if(ptr->on_off)  // ptr->on_off		 
-			{
-				exec_program( 0, prg_code[i]);
-			//	exec_program( 0, cmdtest);
-			}
-	}
-//	convert_out();
-
-
-}
-
-
-
 
 S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 {
@@ -143,7 +100,7 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 	S32_T tempval = 0;
 
 
-	then_else /*= alarm_flag = error_flag*/ = 0;
+	then_else = alarm_flag /*= error_flag*/ = 0;
 	prog = (U8_T *)prog_code;
 	
 /*	if (called_program)
@@ -217,12 +174,8 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 //	alarm_at_all = OFF;
 //	ind_alarm_panel = 0;
 //	timeout = 0;
-	Test[3] = 0;
-	Test[4]++;
-	Test[5] = *prog;
 	while(*prog != 0xfe)
 	{
-		Test[3] = 1;
 //	 	if (timeout==8)
 //	 	{
 //			//programs[current_prg].errcode = 1;  tested by chelsea
@@ -230,9 +183,9 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 //	 	}
 		 lvar = 0;
 		 if(!then_else)
-	 	{	 Test[10] = 2;
+	 	{
 			if (*prog!=0x01)
-			{	 Test[10] = 3;
+			{	
 			/*			printf("ERROR!!!!!!Virtual!!!!!!!!!!!!!!\n"); */
 			/*			exit(1);*/
 				return -1;
@@ -242,11 +195,10 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 			prog += 2;
 	 	}
 	 	else if (*prog==0x01)
-		{	  Test[10] = 4;
+		{	
 			then_else = 0;
 			continue;
 		}
-		Test[10] = 5;
  	switch (*prog++) 
 		{	
 		case ASSIGN:
@@ -266,15 +218,14 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 					 ana_dig=DIGITAL;
 
 			if (*prog >= LOCAL_VARIABLE && *prog <= STRING_TYPE_ARRAY)
-			{	  Test[3] = 6;
+			{	 
 				type_var = LOCAL;
 				p = prog;
 				prog++;
 				prog += 2;
 			}
 			else if (*prog == LOCAL_POINT_PRG)
-			{	  Test[3] = 7;
-				Test[19]++;	
+			{	
 				  prog++;
 				  type_var = LOCAL_POINT_PRG;
 				  p_var = *((Point *)prog);
@@ -282,7 +233,6 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 			}
 			else
 			{
-				Test[3] = 8;
 				if (*prog == REMOTE_POINT_PRG)
 				{
 					prog++;
@@ -292,7 +242,7 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 				}
 			}
 			if ( id==OPEN )
-			{	  Test[3] = 9;
+			{	
 //				 if (type_var == LOCAL_POINT_PRG)
 //				 {
 //					if ( p_var.point_type - 1 == GRP )
@@ -315,7 +265,7 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 			if (id==STARTPRG || id==OPEN || id==ENABLEX) {	value = 1000L; Test[3] = 10;	}
 			if (id==STOP || id==CLOSE || id==DISABLEX) {	value = 0L;	 Test[3] = 11;}
 			if (id==ASSIGN)
-			{	  Test[3] = 12;
+			{
 				 value = veval_exp(local);
 				 if (type_var == LOCAL)
 				 {	
@@ -325,7 +275,7 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 						
 			}
 			else if (id==ASSIGNARRAY_1)
-			{	Test[3] = 13;
+			{
 				v2 = 0;
 				v1 = 1;
 				v2 = veval_exp(local);
@@ -333,7 +283,7 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 				put_local_array(p,value,v1,v2/1000L,local);
 			}
 			else if (id==ASSIGNARRAY_2)
-			{	Test[8]++;
+			{
 				v2 = 0;
 				v1 = veval_exp(local);
 				v2 = veval_exp(local);
@@ -425,17 +375,17 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 								pushlong((S32_T)return_pointer);
 								break;
 	
-//		case ON_ALARM:
-//								if (alarm_flag)
-//								{
-//									memcpy(&i, prog, 2);
-//									i = mGetPointWord2(i);
-//									prog = (U8_T *)p_buf + i - 2;
-//									alarm_flag=0;
-//								}
-//								else
-//								 prog += 2;
-//								break;
+		case ON_ALARM:
+								if (alarm_flag)
+								{
+									memcpy(&i, prog, 2);
+									i = mGetPointWord2(i);
+									prog = (U8_T *)p_buf + i - 2;
+									alarm_flag=0;
+								}
+								else
+								 prog += 2;
+								break;
 //		case ON_ERROR:
 //								if (error_flag)
 //								{
@@ -454,22 +404,21 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 								prog = (U8_T *)p_buf + i - 2;
 								
 								break;
-//		case Alarm:
-//								break;
-//		case ALARM_AT:
-//								if (*prog==0xFF)
-//								{
-//									 alarm_at_all = ON;
-//									 prog++;
-//								}
-//								else
-//								{
-////									 while(*prog)
-////										 alarm_panel[ind_alarm_panel++]=*prog++;
-////									 prog++;
-//								}
-//								break;
-//								break;
+		case Alarm:				
+								break;
+		case ALARM_AT:			
+								if (*prog==0xFF)
+								{
+									 alarm_at_all = ON;
+									 prog++;
+								}
+								else
+								{
+									 while(*prog)
+										 alarm_panel[ind_alarm_panel++]=*prog++;
+									 prog++;
+								}
+								break;
 //		case PRINT_AT:
 //								if (*prog==0xFF)
 //								{
@@ -486,64 +435,61 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 //								break;
 //		case CALLB:
 //								break;
-//		case DALARM:
-//							 {
-//		//						alarm_flag = 0;
-//								cond = veval_exp(local,port);  /* condition  */
-//								memcpy(&value,prog,4);    /* delay time */
-//								value = DoulbemGetPointWord2(value);
-//								prog += 4;
-//	
-//								len = *prog++;
-//	
-//								if (cond)         /* test condition*/
-//								{
-//									memcpy(message, prog, len);
-//									message[len]=0;
-//									prog += len;
-//									if(just_load)
-//									{
-//										memcpy(prog,&value,4);
-//									}
-//									memcpy(&v1,prog,4);
-//									v1 = DoulbemGetPointWord2(v1);
-//									if( v1 > 0 )
-//									{
-//									 	v1 -= miliseclast_cur;
-//									 	memcpy(prog, &v1, 4);
-//									}
-//									if (v1<=0)      /* delayed time elapsed */
-//									{
-//	
-//									#if 0 // TBD:
-//								 i=generatealarm(message, current_prg+1, Station_NUM, VIRTUAL_ALARM, alarm_at_all, ind_alarm_panel, alarm_panel, 0); /*printAlarms=1*/
-//									#endif 
-//						 	 		if ( i > 0 )    /* new alarm message*/
-//									 {
-//										 alarm_flag = 1;
-//									 }
-//									}
-//								}
-//								else
-//								{      /* condition is false*/
-//									memcpy(&v1,prog+len,4);
-//									v1 = DoulbemGetPointWord2(v1);
-//									if (v1<=0)   /* test for restore*/
-//									{
-//									 memcpy(message, prog, len);
-//									 message[len]=0;
-//									 dalarmrestore(message,current_prg+1,Station_NUM);
-//									 new_alarm_flag |= 0x01;  /* send the alarm to the destination panels*/
-//									 #if 0 // TBD: 
-//									 resume(ALARMTASK);
-//									 #endif
-//									}
-//									prog += len;
-//									memcpy(prog,&value,4);
-//								}
-//								prog += 4;
-//						 }
-//						 break;
+		case DALARM:
+							 {	
+								alarm_flag = 0;
+								cond = veval_exp(local);  /* condition  */
+								memcpy(&value,prog,4);    /* delay time */
+								value = DoulbemGetPointWord2(value);
+								prog += 4;
+								len = *prog++;
+	
+								if (cond)         /* test condition*/
+								{	
+									memcpy(message, prog, len);
+									message[len]=0;
+									prog += len;
+									if(just_load)
+									{
+										memcpy(prog,&value,4);
+									}
+									memcpy(&v1,prog,4);									
+									v1 /= 1000;	
+									if( v1 > 0 )
+									{	
+									 	v1 -= miliseclast_cur;
+									 	memcpy(prog, &v1, 4);
+									}
+									if (v1 <= 0)      /* delayed time elapsed */
+									{	
+									//	Test[40]++;
+								 		i = generatealarm(message, current_prg+1, Station_NUM, VIRTUAL_ALARM, alarm_at_all, ind_alarm_panel, alarm_panel, 0); /*printAlarms=1*/
+						 	 			if ( i > 0 )    /* new alarm message*/
+									 	{
+										 	alarm_flag = 1;
+									 	}
+									}
+								}
+								else
+								{      /* condition is false*/
+									memcpy(&v1,prog+len,4);
+									v1 = DoulbemGetPointWord2(v1);
+									if (v1<=0)   /* test for restore*/
+									{  
+									 memcpy(message, prog, len);
+									 message[len]=0;
+									 dalarmrestore(message,current_prg+1,Station_NUM);
+									 new_alarm_flag |= 0x01;  /* send the alarm to the destination panels*/
+									 #if 0 // TBD: 
+									 resume(ALARMTASK);
+									 #endif
+									}
+									prog += len;
+									memcpy(prog,&value,4);
+								}
+								prog += 4;
+						 }
+						 break;
 //		case DECLARE:
 //								break;
 //		case REMOTE_GET:
@@ -697,7 +643,7 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 							    }
 							    prog += 4;
 							    break;
-		default :  Test[23]++;
+		default :  
 			break;
 	 	}
 		 

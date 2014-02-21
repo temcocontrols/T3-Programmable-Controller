@@ -7,7 +7,6 @@
 #include "font.h"	  
 #include "key.h"
 #include "serial.h"
-#include "commsub.h"
 
 
 #define DisProcess_STACK_SIZE	((unsigned portSHORT)200)
@@ -16,16 +15,16 @@
 
 #define 	MENU_NUM		8
 
-#define 	IDLE_LEN		4
+#define 	IDLE_LEN		2
 #define 	MAIN_MENU_LEN 	3
-#define 	MAX_OUT_LEN 	10
-#define 	MAX_IN_LEN 	    26
+#define 	MAX_OUT_LEN 	24
+#define 	MAX_IN_LEN 	    46
 //#define 	SEN_MENU_LEN 	10
 #define 	TST_MENU_LEN	13
 #define 	MAX_SUB_NUM		8    
 //xTaskHandle xKeyTask;
 extern xQueueHandle xKeyQueue;
-extern unsigned int far temperature[10];
+//extern unsigned int far temperature[10];
 extern bit flag_control_by_button;
 
 xTaskHandle xDisplayTask;		/* handle for display task */
@@ -50,7 +49,6 @@ unsigned char far Set_Value = 0;
 unsigned char far by_Cur_sub = 0;
 char* menu = NULL;
 
-
 //extern unsigned int data temperature[10];
 		// control Tstat using T3000 or CM5's button
 
@@ -63,7 +61,7 @@ const char* Main_Menu[MAIN_MENU_LEN] =
 {
 	" Output",
 	" Input",
-	" Tstat info",
+	" Tstat info"
 };
 
 char far In_Menu[MAX_IN_LEN][14];
@@ -130,19 +128,43 @@ void Display_Initial_Data(void)
 	
 	Display_Clear_Screen();
 
-	Lcd_Show_String(1,1,"CM5",NORMAL,3);
-  	Lcd_Show_String(2,1,"TEMCO LTD.,",NORMAL,10);
+//	Lcd_Show_String(1,1,"CM5",NORMAL,3);
+//  	Lcd_Show_String(2,1,"TEMCO LTD.,",NORMAL,10);
 	by_submenu_index = 0;
-	if(protocal <= TCP_IP)
-	{
-		memset(menu_name,'\0',MAX_NAME * NAME_SIZE); 
-		menu = *menu_name;
-	}
+//	if(protocal <= TCP_IP)
+//	{
+//		memset(menu_name,'\0',MAX_NAME * NAME_SIZE); 
+//		menu = *menu_name;
+//	}
 
 //	DELAY_Us(5000);		DELAY_Us(5000);	DELAY_Us(5000);	DELAY_Us(5000);	
 }
 
+extern char time[];
 
+void Display_IP(void)
+{  	
+	char text[20];
+
+	sprintf(text, "IP:%u.%u.%u.%u:%u", (uint16)Modbus.ip_addr[0], (uint16)Modbus.ip_addr[1], (uint16)Modbus.ip_addr[2], (uint16)Modbus.ip_addr[3],(uint16)HTTP_SERVER_PORT);
+	Lcd_Show_String(0, 0, text, NORMAL, 21);
+	
+	// subnet mask address		
+	sprintf(text, "MASK: %u.%u.%u.%u", (uint16)Modbus.subnet[0], (uint16)Modbus.subnet[1], (uint16)Modbus.subnet[2], (uint16)Modbus.subnet[3]);
+	Lcd_Show_String(1, 0, text, NORMAL, 21);
+	// tcp port
+	sprintf(text, "GATE: %u.%u.%u.%u", (uint16)Modbus.getway[0], (uint16)Modbus.getway[1], (uint16)Modbus.getway[2], (uint16)Modbus.getway[3]);
+	Lcd_Show_String(2, 0, text, NORMAL, 21);
+//	// tcp port
+//	sprintf(text, "PORT: %u", (uint16)HTTP_SERVER_PORT);
+//	Lcd_Show_String(3, 0, text, NORMAL, 21);
+	// MAC address
+	sprintf(text, "MAC:%02X:%02X:%02X:%02X:%02X:%02X", (uint16)Modbus.mac_addr[0], (uint16)Modbus.mac_addr[1], (uint16)Modbus.mac_addr[2], (uint16)Modbus.mac_addr[3], (uint16)Modbus.mac_addr[4], (uint16)Modbus.mac_addr[5]);
+	Lcd_Show_String(3, 0, text, NORMAL, 21); 
+//	get_time_text();
+//	sprintf(text, "%s", time);
+//	Lcd_Show_String(4, 0, text, NORMAL, 21); 
+}
 
 /*
  *--------------------------------------------------------------------------------
@@ -191,6 +213,65 @@ void Display_Clear_Space(void)
 	}
 }
 
+#if 0
+/*
+ *--------------------------------------------------------------------------------
+ * char* Display_Format(U16_T number)
+ * Purpose : tranfer num to string
+ * Params  : number - the source data  (range:0 - 9999)
+ * Returns : return string
+ * Note    : none
+ *--------------------------------------------------------------------------------
+ */	 
+char* Display_Format(U16_T number)
+{
+	char loop = 0;
+	char num[5];
+	char length;
+	//number = number / div;
+	for(loop = 0;loop < 5;loop++)	num[loop] = 0;
+
+	if(number >= 1000)	length = 4;
+	else if(number >= 100)	length = 3;
+	else if(number >= 10)	length = 2;
+	else length = 1;
+
+	/* using num[] buffer to store the every num */
+	
+	num[0] = number / 1000; 		number = number % 1000;
+	num[1] = number / 100; 		number = number % 100;
+	num[2] = number / 10; 		number = number % 10;
+	num[3] = number;
+
+	/* check num[], put correct character to every posion */
+
+	if(num[0] > 0)  /* if number is bigger than 999 */
+	{
+		for(loop = 1;loop < 4;loop++)	num[loop] = num[loop] + 0x30;
+	}
+	else if(num[1] > 0)  /* if number is bigger than 99 */
+	{
+		num[0] = ' ';
+		for(loop = 1;loop < 4;loop++)	num[loop] = num[loop] + 0x30;		
+	}
+	else if(num[2] > 0) 	 /* if number is bigger than 9 */
+	{
+		num[0] = ' ';
+		num[1] = ' ';
+		for(loop = 2;loop < 4;loop++)	num[loop] = num[loop] + 0x30;
+	}
+	else if(num[3] > 0)   /* if number is less than 10 */
+	{
+		num[0] = ' ';
+		num[1] = ' ';
+		num[2] = ' ';
+		for(loop = 3;loop < 4;loop++)	num[loop] = num[loop] + 0x30;
+	}
+	num[4] = '\0';
+	return num;
+}
+
+#endif
 
 void Display_Check_Status(void)
 {
@@ -209,33 +290,6 @@ void Display_Check_Status(void)
 			else
 				start_scrolling();
 				 
-		}
-		if(by_Idle_index == IDLE_LEN - 1)  // ip info
-		{
-		//	Test[30]++;
-			if(by_Key == K_RESET)
-			{
-				U8_T loop = 0;
-			//	Test[31]++;
-				E2prom_Write_Byte(EEP_TCP_TYPE,0);
-
-				E2prom_Write_Byte(EEP_IP, 3);
-				E2prom_Write_Byte(EEP_IP + 1, 0);
-				E2prom_Write_Byte(EEP_IP + 2, 168);
-				E2prom_Write_Byte(EEP_IP + 3, 192);
-			
-				E2prom_Write_Byte(EEP_SUBNET, 0);
-				E2prom_Write_Byte(EEP_SUBNET + 1, 255);
-				E2prom_Write_Byte(EEP_SUBNET + 2, 255);
-				E2prom_Write_Byte(EEP_SUBNET + 3, 255);
-
-				for(loop = 0;loop < 4;loop++)
-				{
-					E2prom_Read_Byte(EEP_IP + loop,&IP_Addr[3 - loop]);	 	
-					E2prom_Read_Byte(EEP_SUBNET + loop,&SUBNET[3 - loop]);	
-				}
-
-			}
 		}
 	}
 	else if(by_Status == D_MENU) 
@@ -263,20 +317,9 @@ void Display_Check_Status(void)
 		}
 		if(by_Key == K_UP && (Value_Range[by_submenu_index] > 0))	
 		{
-			if((by_menu_index == 2) && (by_submenu_index == 0))    // sub tstat 
-			{
-				if(Set_Value < sub_no - 1)
-					Set_Value++; 	
-			}
-			else
-			/*if(Set_Value < Value_Range[by_submenu_index])*/ 
-			Set_Value++; /*else Set_Value = 0;*/ 
-			Display_Save_Value(by_menu_index,by_submenu_index);	
 		}
 		if(by_Key == K_DOWN && (Value_Range[by_submenu_index] > 0))	
 		{ 
-			if(Set_Value > 0)		Set_Value--; /*else Set_Value = Value_Range;*/ 
-			Display_Save_Value(by_menu_index,by_submenu_index);
 		}
 	}
 }
@@ -306,6 +349,7 @@ void Display_Check_Task(void) reentrant
 			}
 			
 		} 
+
 		#endif
 
 	}
@@ -313,24 +357,19 @@ void Display_Check_Task(void) reentrant
 
 
 
-void Update_AI(void);
-/* run this roution per 100ms */
-U8_T count_task = 0;
-extern U8_T flag_protect_lcd;
+
 void Display_Process(void) reentrant
 {
-	portTickType xDelayPeriod = ( portTickType ) 50 / portTICK_RATE_MS; //  100 
+	portTickType xDelayPeriod = ( portTickType ) 100 / portTICK_RATE_MS; //  100 
 //    portTickType xLastWakeTime = xTaskGetTickCount();
 	U8_T first_Status,second_Status;
 
 	for (;;)
 	{	
 		char loop;
-		static char pre_Status = 0;
+	//	static char pre_Status = 0;
 		vTaskDelay(xDelayPeriod);
-
-		if(count_task == 0)
-		{
+			Test[5]++;
 		#if 1
 			second_Status = by_Status;
 			/* if change status, clear screen and initial lcd again to avoid messed display */
@@ -345,11 +384,11 @@ void Display_Process(void) reentrant
 			{/* keep status for 1 min, go to idle mode */
 			
 				count_status++;
-				if(count_status >= 200) // 1min
+				if(count_status >= 300) // 1min
 				{	
 					BACKLIT = BACK_OFF;	
 				/* if current display is IDLE, initial lcd to avoid messed display */
-					if(by_Status == D_IDLE)	{/*Lcd_Initial();Lcd_All_Off();*/by_Idle_index = 0; 	}
+					if(by_Status == D_IDLE)	{/*Lcd_Initial();Lcd_All_Off();*/}
 					else if(by_Status == D_SUBMENU || by_Status == D_MENU)
 					{
 						by_Status = D_IDLE;
@@ -369,122 +408,14 @@ void Display_Process(void) reentrant
 		else if(by_Status == D_SUBMENU)		//Lcd_Show_String(3,1,"sub menu ,",NORMAL,10); 
 			Display_SubMenu(by_menu_index,by_submenu_index); 
 		
-		#endif
-		
+		#endif		
 	
-		count_task = 1;
-
-
-		}
-		else if(count_task == 1)
-		{ 	
-			//flag_protect_lcd = 1;		
-			Update_AI();  //flag_protect_lcd = 0;
-			count_task = 0;			
-		}
-	
-
 	}
 
 }
 
-void Display_Save_Value(unsigned char sub,unsigned char index)
-{
-	U8_T WRT_Tst_Reg;
-	switch(sub) 
-	{
-		case 0:  
-		/*	if(Set_Value)	
-				DO_Value |= (0x01 << index);
-			else	 
-				DO_Value &= ~(0x01 << index); */
-			break;
-		case 1:	 
-		/* input menu - sub DI DI*/
-		//	DI2_Value |= Set_Value << (index - sub_no);
-			break;
-		case 2:	 
-			if(index == E_MODBUS_ID)	  
-				by_Cur_sub = Set_Value;
-			else if(index == E_SET_POINT)
-			{
-				tst_info[by_Cur_sub].setpoint = Set_Value;				
-				WRT_Tst_Reg = Tst_Register[TST_ROOM_SETPOINT][tst_info[by_Cur_sub].type];
-				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
-			}
-			else if(index == E_COOL_SP)
-			{
-				tst_info[by_Cur_sub].cool_setpoint = Set_Value;
-				WRT_Tst_Reg = Tst_Register[TST_COOL_SETPOINT][tst_info[by_Cur_sub].type];
-				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
-			}
-			else if(index == E_HEAT_SP)
-			{
-				tst_info[by_Cur_sub].heat_setpoint = Set_Value;
-				WRT_Tst_Reg = Tst_Register[TST_HEAT_SETPOINT][tst_info[by_Cur_sub].type];
-				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
-			} 		
-			else if(index == E_NIGHT_HEAT_DB)
-			{
-				tst_info[by_Cur_sub].night_heat_db = Set_Value;
-				WRT_Tst_Reg = Tst_Register[TST_NIGHT_HEAT_DB][tst_info[by_Cur_sub].type];
-				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
-			}
-			else if(index == E_NIGHT_COOL_DB)
-			{
-				tst_info[by_Cur_sub].night_cool_db = Set_Value;
-				WRT_Tst_Reg = Tst_Register[TST_NIGHT_COOL_DB][tst_info[by_Cur_sub].type];
-				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
-			}
-			else if(index == E_NIGHT_HEAT_SP) 
-			{
-				tst_info[by_Cur_sub].night_heat_sp = Set_Value;				
-				WRT_Tst_Reg = Tst_Register[TST_NIGHT_HEAT_SP][tst_info[by_Cur_sub].type];
-				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
-			}
-			else if(index == E_NIGHT_COOL_SP)
-			{
-				tst_info[by_Cur_sub].night_cool_sp = Set_Value;
-				WRT_Tst_Reg = Tst_Register[TST_NIGHT_COOL_DB][tst_info[by_Cur_sub].type];
-				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);
-			}
-//			else if(index == E_OVER_RIDE_TIME)
-//			{
-//				tst_info[by_Cur_sub].over_ride = Set_Value;
-//				write_parameters_to_nodes(sub_addr[by_Cur_sub],WRT_Tst_Reg,Set_Value);			
-//			}
-			break;
-		default: break;
-	}
-//	#endif
 
-}
 
-extern char time[];
-
-void Display_IP(void)
-{  	
-	char text[20];
-
-	sprintf(text, "IP:   %u.%u.%u.%u", (uint16)IP_Addr[0], (uint16)IP_Addr[1], (uint16)IP_Addr[2], (uint16)IP_Addr[3]);
-	Lcd_Show_String(0, 0, text, NORMAL, 21);
-	
-	// subnet mask address		
-	sprintf(text, "MASK: %u.%u.%u.%u", (uint16)SUBNET[0], (uint16)SUBNET[1], (uint16)SUBNET[2], (uint16)SUBNET[3]);
-	Lcd_Show_String(1, 0, text, NORMAL, 21);
-	// tcp port
-	sprintf(text, "GATE: %u.%u.%u.%u", (uint16)GETWAY[0], (uint16)GETWAY[1], (uint16)GETWAY[2], (uint16)GETWAY[3]);
-	Lcd_Show_String(2, 0, text, NORMAL, 21);
-	// tcp port
-	sprintf(text, "PORT: %u", (uint16)HTTP_SERVER_PORT);
-	Lcd_Show_String(3, 0, text, NORMAL, 21);
-	// MAC address
-//				sprintf(text, "MAC:%02X:%02X:%02X:%02X:%02X:%02X", (uint16)Mac_Addr[0], (uint16)Mac_Addr[1], (uint16)Mac_Addr[2], (uint16)Mac_Addr[3], (uint16)Mac_Addr[4], (uint16)Mac_Addr[5]);
-//				Lcd_Show_String(4, 0, text, NORMAL, 21); 
-//	get_time_text();
-//	sprintf(text, "%s", time);
-//	Lcd_Show_String(4, 0, text, NORMAL, 21); 
-}
 void Display_Idle(U8_T index)
 {
 	static char pre_status = 0;
@@ -497,7 +428,7 @@ void Display_Idle(U8_T index)
 		Display_Clear_Screen();
 		pre_status = index;
 	}
-	if(index == 0)
+/*	if(index == 0)
 	{
 		if(count < dis_temp_interval) 
 			count++;
@@ -505,7 +436,7 @@ void Display_Idle(U8_T index)
 		{
 			count = 0;
 			Lcd_Show_String(0,0,menu_name[dis_temp_seq[i] + 26] ,NORMAL,10);
-			if(unit == 0)	
+			if(Modbus.unit == 0)	
 			{
 				Lcd_Show_String(1,18,"~",NORMAL,3);
 				print_number(temperature[dis_temp_seq[i]], 1);
@@ -525,7 +456,7 @@ void Display_Idle(U8_T index)
 
 	}
 
-/*	else if(index == 1)
+	else if(index == 1)
 	{
 		Lcd_Show_String(0,5,"CM5 DEMO  ",NORMAL,21);
 		Lcd_Show_String(1,1,"MOD  ",NORMAL,5);	
@@ -543,253 +474,41 @@ void Display_Idle(U8_T index)
 		Lcd_Show_String(3,1,"TIME      :",NORMAL,12); 
 		Lcd_Show_Data (3,6,(Priority * 60 - count_priority) / 60,0,1);
 		Lcd_Show_Data (3,12,(Priority * 60 - count_priority) % 60,0,1);
-	}*/
+	}
 	else if(index == 1) // relay value  
 	{	 
 		
-		Lcd_Show_String(0,1,"RELAY Value  ",NORMAL,20);		
-		Lcd_Show_String(1,0," OUT1",(DO_Value & (0x01 << 0)) >> 0,5);
-		Lcd_Show_String(1,6,"OUT2",(DO_Value & (0x01 << 1)) >> 1,4);
-		Lcd_Show_String(1,11,"OUT3",(DO_Value & (0x01 << 2)) >> 2,4);
-		Lcd_Show_String(1,16,"OUT4",(DO_Value & (0x01 << 3)) >> 3,4); 		
-		Lcd_Show_String(2,0," OUT5",(DO_Value & (0x01 << 4)) >> 4,5);
-		Lcd_Show_String(2,6,"OUT6",(DO_Value & (0x01 << 5)) >> 5,4);
-		Lcd_Show_String(2,11,"OUT7",(DO_Value & (0x01 << 6)) >> 6,4);
-		Lcd_Show_String(2,16,"OUT8",(DO_Value & (0x01 << 7)) >> 7,4);
-		Lcd_Show_String(3,0," OUT9",(DO_Value & (0x01 << 8)) >> 8,5);
-		Lcd_Show_String(3,6,"OUT10",(DO_Value & (0x01 << 9)) >> 9,5);
+
 	}
 	else if(index == 2)	 // di input value
 	{
 		Lcd_Show_String(0,1,"DI Input  ",NORMAL,20);
-		Lcd_Show_String(1,0," DI1", (DI2_Value & (0x01 << 0)) >> 0,5);
-		Lcd_Show_String(1,6,"DI2",(DI2_Value & (0x01 << 0)) >> 0,4);
-		Lcd_Show_String(1,11,"DI3",(DI2_Value & (0x01 << 0)) >> 0,4);
-		Lcd_Show_String(1,16,"DI4",(DI2_Value & (0x01 << 0)) >> 0,4); 		
-		Lcd_Show_String(2,0," DI5", (DI2_Value & (0x01 << 0)) >> 0,5);
-		Lcd_Show_String(2,6,"DI6",(DI2_Value & (0x01 << 0)) >> 0,4);
-		Lcd_Show_String(2,11,"DI7",(DI2_Value & (0x01 << 0)) >> 0,4);
-		Lcd_Show_String(2,16,"DI8",(DI2_Value & (0x01 << 0)) >> 0,4);
-		Lcd_Show_String(3,0," ", NORMAL,21);
+
 	}
-	else if(index == 3)	 // ip info
+	else if(index == 3)	 // ip info	*/
+	if(index == 1)
 	{
 		// ip address
-		sprintf(text, "IP:   %u.%u.%u.%u", (uint16)IP_Addr[0], (uint16)IP_Addr[1], (uint16)IP_Addr[2], (uint16)IP_Addr[3]);
+		sprintf(text, "IP:   %u.%u.%u.%u", (U16_T)Modbus.ip_addr[0], (U16_T)Modbus.ip_addr[1], (U16_T)Modbus.ip_addr[2], (U16_T)Modbus.ip_addr[3]);
 		Lcd_Show_String(0, 0, text, NORMAL, 21);
 		// subnet mask address
-		sprintf(text, "MASK: %u.%u.%u.%u", (uint16)SUBNET[0], (uint16)SUBNET[1], (uint16)SUBNET[2], (uint16)SUBNET[3]);
+		sprintf(text, "MASK: %u.%u.%u.%u", (U16_T)Modbus.subnet[0], (U16_T)Modbus.subnet[1], (U16_T)Modbus.subnet[2], (U16_T)Modbus.subnet[3]);
 		Lcd_Show_String(1, 0, text, NORMAL, 21);
 		// tcp port
-		sprintf(text, "GATE: %u.%u.%u.%u", (uint16)GETWAY[0], (uint16)GETWAY[1], (uint16)GETWAY[2], (uint16)GETWAY[3]);
+		sprintf(text, "GATE: %u.%u.%u.%u", (U16_T)Modbus.getway[0], (U16_T)Modbus.getway[1], (U16_T)Modbus.getway[2], (U16_T)Modbus.getway[3]);
 		Lcd_Show_String(2, 0, text, NORMAL, 21);
 		// tcp port
-		sprintf(text, "PORT: %u", (uint16)TCP_PORT);
+		sprintf(text, "PORT: %u", (U16_T)HTTP_SERVER_PORT);
 		Lcd_Show_String(3, 0, text, NORMAL, 21);
 		// MAC address
-		sprintf(text, "MAC:%02X:%02X:%02X:%02X:%02X:%02X", (uint16)Mac_Addr[0], (uint16)Mac_Addr[1], (uint16)Mac_Addr[2], (uint16)Mac_Addr[3], (uint16)Mac_Addr[4], (uint16)Mac_Addr[5]);
+		sprintf(text, "MAC:%02X:%02X:%02X:%02X:%02X:%02X", (U16_T)Modbus.mac_addr[0], (U16_T)Modbus.mac_addr[1], (U16_T)Modbus.mac_addr[2], (U16_T)Modbus.mac_addr[3], (U16_T)Modbus.mac_addr[4], (U16_T)Modbus.mac_addr[5]);
 		Lcd_Show_String(4, 0, text, NORMAL, 21);
 		
 	}
 }
 
 
-void Display_SubMenu(unsigned char sub,unsigned char index)
-{
-	unsigned int far PTRtemp[26];
 
-	unsigned char  flag_high_light;	
-	unsigned char  start_line;
-	unsigned char  loop1;
-	unsigned int tempValue;
-	unsigned char str_len;
-	unsigned char i;
-
-	Lcd_Show_String(0,0,"MAIN BOARD MENU  ",NORMAL,21);
-	if(sub == 2 && sub_no == 0) 
-	{
-		Lcd_Show_String(1,0,"                    ",NORMAL,21);
-		Lcd_Show_String(2,0,"                    ",NORMAL,21);
-		Lcd_Show_String(3,0," No TSTAT CONNECTED ",NORMAL,21);
-		Lcd_Show_String(4,0,"                    ",NORMAL,21);
-		return;
-	}
-	
-	if(sub == 0)
-	{			
-		str_len = 14;
-		sub_menu_len = 0;
-			
-		for(i = 0;i < 10;i++)	
-		{				
-			memcpy(In_Menu[sub_menu_len],menu_name[sub_menu_len],10);
-			PTRtemp[sub_menu_len] = (DO_Value & (0x01 << i)) >> i;
-			Value_Range[sub_menu_len] = 1;
-			sub_menu_len++;
-		}
-		menu = *In_Menu; 
-
-	}
-	
-	else if(sub == 1)
-	{
-		U8_T loop = 0;
-		sub_menu_len = 0;
-		 
-		for(i = 0;i < sub_no;i++)	
-		{
-			PTRtemp[sub_menu_len] = sub_addr[i];
-			Value_Range[sub_menu_len] = 0;
-
-			memcpy(In_Menu[sub_menu_len],menu_name[i + 10],14);
-			sub_menu_len++;
-			loop++;
-
-		}
-
-		loop = 0; 
-		for(i = 0;i < 8;i++)
-			if(DI_Enable & (0x01 << i))
-			{
-				PTRtemp[sub_menu_len] =  (DI2_Value & (0x01 << i)) >> i;
-				Value_Range[sub_menu_len] = 1;
-				memcpy(In_Menu[sub_menu_len],menu_name[i + 18],14);
-				sub_menu_len++;
-				loop++;
-			}
-		loop = 0; 
-		for(i = 0;i < 10;i++)
-			if(AI_Enable & (0x01 << i))	
-			{
-				PTRtemp[sub_menu_len] =  temperature[i];
-				Value_Range[sub_menu_len] = 0;
-
-				memcpy(In_Menu[sub_menu_len],menu_name[i + 26],14); 
-				sub_menu_len++;	
-				loop++;
-			}
-		str_len = 14;
-		//tempValue = DI2_Value;	//	Set_Value = (tempValue & (0x01 << index)) >> index;
-		//Value_Range = 1;
-		if(sub_menu_len > 0)
-			menu = *In_Menu;
-	
-	}
-	else if(sub == 2)
-	{	
-		menu = *TST_Menu; 
-		sub_menu_len = 13;  
-		str_len = 15;
-		PTRtemp[0] = sub_addr[by_Cur_sub];	  Value_Range[0] = sub_no - 1;
-		PTRtemp[1] = tst_info[by_Cur_sub].temperature;	   Value_Range[1] = 0;
-		PTRtemp[2] = tst_info[by_Cur_sub].mode;		   Value_Range[2] = 1;
-		PTRtemp[3] = tst_info[by_Cur_sub].setpoint;	   Value_Range[3] = 1;
-		PTRtemp[4] = tst_info[by_Cur_sub].cool_setpoint;  Value_Range[4] = 1;
-		PTRtemp[5] = tst_info[by_Cur_sub].heat_setpoint;  Value_Range[5] = 1;
-		PTRtemp[6] = tst_info[by_Cur_sub].occupied;//(tstat_occupied & (0x01 << by_Cur_sub)) >> by_Cur_sub;   Value_Range[6] = 1;
-		PTRtemp[7] = tst_info[by_Cur_sub].output_state;   Value_Range[7] = 0;
-		PTRtemp[8] = tst_info[by_Cur_sub].night_heat_db;  Value_Range[8] = 1;
-		PTRtemp[9] = tst_info[by_Cur_sub].night_cool_db;  Value_Range[9] = 1;
-		PTRtemp[10] = tst_info[by_Cur_sub].night_heat_sp; Value_Range[10] = 1;
-		PTRtemp[11] = tst_info[by_Cur_sub].night_cool_sp; Value_Range[11] = 1;
-		PTRtemp[12] = tst_info[by_Cur_sub].over_ride;     Value_Range[12] = 1;
-	}
-
-	if(Value_Range[index] > 0)
-	{
-		if(sub == 2 && index == 0)
-			Set_Value = by_Cur_sub;
-		else
-			Set_Value = PTRtemp[index];//tempValue;
-	} 
-
-	if(index < 4)
-	{
-		start_line = 0;
-		flag_high_light = index;
-	}
-	else
-	{
-		start_line = index - 3;
-		flag_high_light = 3;
-	}
-
-	if(sub_menu_len == 0 && sub == 1)
-	{
-		Lcd_Show_String(2,0,"NO INPUT",NORMAL,21);
-		return;	
-	}
-	else
-	{
-		U8_T max_row;
-		if(sub_menu_len < 4)
-		{
-			max_row = sub_menu_len;
-			for(loop1 = sub_menu_len;loop1 < 4;loop1++)
-				Lcd_Show_String(loop1 + 1,0,"                     ",NORMAL,21);
-		}
-		else 
-			max_row = 4;
-		for(loop1 = 0;loop1 < max_row;loop1++)
-		{
-			//if(sub_menu_len > loop1)	
-			//{
-		
-
-				Lcd_Show_String(loop1 + 1,0,&(menu + str_len *(start_line + loop1)),NORMAL,10);
-				
-				if(loop1 == flag_high_light)
-				{
-					if(sub == 0)	 // output menu
-					{
-						if(PTRtemp[start_line+ loop1] == 1)
-							Lcd_Show_String(loop1 + 1,16,"ON",INVERSE,5);
-						else
-							Lcd_Show_String(loop1 + 1,16,"OFF",INVERSE,5);
-					}
-					else  if(sub == 1)	  // input menu
-					{
-					   	if(Value_Range[start_line+ loop1] == 0)	  // read only , sub_tst and temperature
-							 Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,INVERSE);
-						else if(Value_Range[index] > 0) // DI
-						{
-							if(PTRtemp[start_line+ loop1] == 1)
-								Lcd_Show_String(loop1 + 1,16,"ON",INVERSE,5);
-							else
-								Lcd_Show_String(loop1 + 1,16,"OFF",INVERSE,5);
-						}	
-					}
-					else  if(sub == 2)	   // tst menu
-						Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,INVERSE);
-				}
-				else 
-				{ 
-					if(sub == 0)
-					{
-						if(PTRtemp[start_line+ loop1] == 1)
-							Lcd_Show_String(loop1 + 1,16,"ON",NORMAL,5);
-						else
-							Lcd_Show_String(loop1 + 1,16,"OFF",NORMAL,5);
-					}
-					else  if(sub == 1)
-					{
-					   	if(Value_Range[start_line+ loop1] == 0)	  // read only , sub_tst and temperature
-							 Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,NORMAL);
-						else if(Value_Range[start_line+ loop1] > 0) // DI
-						{
-							if(PTRtemp[start_line+ loop1] == 1)
-								Lcd_Show_String(loop1 + 1,16,"ON",NORMAL,5);
-							else
-								Lcd_Show_String(loop1 + 1,16,"OFF",NORMAL,5);
-						}	
-					}
-					else  if(sub == 2)	
-						Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,NORMAL);
-				}	
-			//} 
-		} 
-	}
-} 
 
 void Display_Menu(unsigned char index)
 {
@@ -798,25 +517,316 @@ void Display_Menu(unsigned char index)
 	unsigned char  loop1;
 
 	Lcd_Show_String(0,0,"MAIN BOARD MENU  ",NORMAL,21);
-	if(index < 4)
-	{
-		start_line = 0;
-		flag_high_light = index;
-	}
-	else
-	{
-		start_line = index - 3;
-		flag_high_light = 3;
-	}
-	for(loop1= 0;loop1 < 4;loop1++)
-	{
-		if(loop1 == flag_high_light)
-			Lcd_Show_String(loop1 + 1,0,*(Main_Menu + start_line+ loop1),INVERSE,21);
-		else  
-			Lcd_Show_String(loop1 + 1,0,*(Main_Menu + start_line + loop1),NORMAL,21);	
-	}
-	Lcd_Show_String(4,0,"                 ",NORMAL,21);
+//	if(index < 4)
+//	{
+//		start_line = 0;
+//		flag_high_light = index;
+//	}
+//	else
+//	{
+//		start_line = index - 3;
+//		flag_high_light = 3;
+//	}
+//	for(loop1= 0;loop1 < 4;loop1++)
+//	{
+//		if(loop1 == flag_high_light)
+//			Lcd_Show_String(loop1 + 1,0,*(Main_Menu + start_line+ loop1),INVERSE,21);
+//		else  
+//			Lcd_Show_String(loop1 + 1,0,*(Main_Menu + start_line + loop1),NORMAL,21);	
+//	}
+//	Lcd_Show_String(4,0,"                 ",NORMAL,21);
 
 } 
 
+
+void Display_SubMenu(unsigned char sub,unsigned char index)
+{
+//	unsigned int far PTRtemp[26];
+//
+//	unsigned char  flag_high_light;	
+//	unsigned char  start_line;
+//	unsigned char  loop1;
+//	unsigned int tempValue;
+//	unsigned char str_len;
+//	unsigned char i;
+//
+//	Lcd_Show_String(0,0,"MAIN BOARD MENU  ",NORMAL,21);
+//	if(sub == 2 && sub_no == 0) 
+//	{
+//		Lcd_Show_String(1,0,"                    ",NORMAL,21);
+//		Lcd_Show_String(2,0,"                    ",NORMAL,21);
+//		Lcd_Show_String(3,0," No TSTAT CONNECTED ",NORMAL,21);
+//		Lcd_Show_String(4,0,"                    ",NORMAL,21);
+//		return;
+//	}
+//	
+//	if(sub == 0)
+//	{	
+//		U8_T loop = 0;		
+//		str_len = 14;
+//		sub_menu_len = 0;
+//		
+//		loop = 0; 
+//		for(i = 0;i < 12;i++)
+//			if(DO_Enable & (0x01 << i))	
+//			{
+//				PTRtemp[sub_menu_len] =  (relay_value.word & (0x01 << i)) >> i;
+//				Value_Range[sub_menu_len] = 0;
+//
+////				memcpy(In_Menu[sub_menu_len],menu_name[i],14); 
+//				sub_menu_len++;	
+//				loop++;
+//			}
+//
+//		loop = 0; 	
+//		for(i = 0;i < 12;i++)
+//			if(AO_Enable & (0x01 << i))	
+//			{
+////				PTRtemp[sub_menu_len] =  Modbus.AOUTPUT[i];
+//				Value_Range[sub_menu_len] = 1;
+//
+//				memcpy(In_Menu[sub_menu_len],menu_name[i + 12],14); 
+//				sub_menu_len++;	
+//				loop++;
+//			}
+//		menu = *In_Menu; 
+//
+//	}	
+//	else if(sub == 1)
+//	{
+//		U8_T loop = 0;
+//		sub_menu_len = 0;
+//		str_len = 14;
+// 
+//		for(i = 0;i < sub_no;i++)	
+//		{
+//			PTRtemp[sub_menu_len] = sub_addr[i];
+//			Value_Range[sub_menu_len] = 0;
+//
+////			memcpy(In_Menu[sub_menu_len],menu_name[i + 10],14);
+//			sub_menu_len++;
+//			loop++;
+//
+//		}
+//		
+//		loop = 0; 
+//		for(i = 0;i < 32;i++)
+//			if(AI_Enable & (0x01 << i))	
+//			{
+//				PTRtemp[sub_menu_len] = Input[i];
+//				Value_Range[sub_menu_len] = 0;
+//
+////				memcpy(In_Menu[sub_menu_len],menu_name[i + 26],14); 
+//				sub_menu_len++;	
+//				loop++;
+//			}
+//
+//		if(sub_menu_len > 0)
+//			menu = *In_Menu;
+////		Test[30] = sub_menu_len;	
+//	
+//	}
+//	else if(sub == 2)
+//	{	
+//		menu = *TST_Menu; 
+//		sub_menu_len = 13;  
+//		str_len = 15;
+////		PTRtemp[0] = sub_addr[by_Cur_sub];	  Value_Range[0] = sub_no - 1;
+////		PTRtemp[1] = tstat_temperature[by_Cur_sub];	   Value_Range[1] = 0;
+////		PTRtemp[2] = tstat_mode[by_Cur_sub];		   Value_Range[2] = 1;
+////		PTRtemp[3] = tstat_setpoint[by_Cur_sub];	   Value_Range[3] = 1;
+////		PTRtemp[4] = tstat_cool_setpoint[by_Cur_sub];  Value_Range[4] = 1;
+////		PTRtemp[5] = tstat_heat_setpoint[by_Cur_sub];  Value_Range[5] = 1;
+////		PTRtemp[6] = (tstat_occupied & (0x01 << by_Cur_sub)) >> by_Cur_sub;   Value_Range[6] = 1;
+////		PTRtemp[7] = tstat_output_state[by_Cur_sub];   Value_Range[7] = 0;
+////		PTRtemp[8] = tstat_night_heat_db[by_Cur_sub];  Value_Range[8] = 1;
+////		PTRtemp[9] = tstat_night_cool_db[by_Cur_sub];  Value_Range[9] = 1;
+////		PTRtemp[10] = tstat_night_heat_sp[by_Cur_sub]; Value_Range[10] = 1;
+////		PTRtemp[11] = tstat_night_cool_sp[by_Cur_sub]; Value_Range[11] = 1;
+////		PTRtemp[12] = tstat_over_ride[by_Cur_sub];	   Value_Range[12] = 1;
+//	}
+//
+//	if(Value_Range[index] > 0)
+//	{
+//		if(sub == 2 && index == 0)
+//			Set_Value = by_Cur_sub;
+//		else
+//			Set_Value = PTRtemp[index];//tempValue;
+//	} 
+//
+//	if(index < 4)
+//	{
+//		start_line = 0;
+//		flag_high_light = index;
+//	}
+//	else
+//	{
+//		start_line = index - 3;
+//		flag_high_light = 3;
+//	}
+//
+//	if(sub_menu_len == 0 && sub == 1)
+//	{
+//		Lcd_Show_String(2,0,"NO INPUT",NORMAL,21);
+//		return;	
+//	}
+//	else
+//	{
+//		U8_T max_row;
+//		if(sub_menu_len < 4)
+//		{
+//			max_row = sub_menu_len;
+//			for(loop1 = sub_menu_len;loop1 < 4;loop1++)
+//				Lcd_Show_String(loop1 + 1,0,"                     ",NORMAL,21);
+//		}
+//		else 
+//			max_row = 4;
+//		for(loop1 = 0;loop1 < max_row;loop1++)
+//		{
+//			//if(sub_menu_len > loop1)	
+//			//{
+//		
+//
+//				Lcd_Show_String(loop1 + 1,0,&(menu + str_len *(start_line + loop1)),NORMAL,10);
+//				
+//				if(loop1 == flag_high_light)
+//				{
+//					if(sub == 0)	 // output menu
+//					{
+//						if(Value_Range[start_line+ loop1] == 0)
+//						{
+//							if(PTRtemp[start_line+ loop1] == 1)
+//								Lcd_Show_String(loop1 + 1,16,"ON",INVERSE,5);
+//							else
+//								Lcd_Show_String(loop1 + 1,16,"OFF",INVERSE,5);
+//						}
+//						else
+//						{
+//							Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,INVERSE);
+//						}
+//						
+//					}
+//					else  if(sub == 1)	  // input menu
+//					{
+//					   	if(Value_Range[start_line+ loop1] == 0)	 
+//							 Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,INVERSE);
+//						else if(Value_Range[index] > 0) // DI
+//						{
+//							if(PTRtemp[start_line+ loop1] == 1)
+//								Lcd_Show_String(loop1 + 1,16,"ON",INVERSE,5);
+//							else
+//								Lcd_Show_String(loop1 + 1,16,"OFF",INVERSE,5);
+//						}	
+//					}
+//					else  if(sub == 2)	   // tst menu
+//						Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,INVERSE);
+//				}
+//				else 
+//				{ 
+//					if(sub == 0)
+//					{
+//						if(Value_Range[start_line+ loop1] == 0)
+//						{
+//							if(PTRtemp[start_line+ loop1] == 1)
+//								Lcd_Show_String(loop1 + 1,16,"ON",NORMAL,5);
+//							else
+//								Lcd_Show_String(loop1 + 1,16,"OFF",NORMAL,5);
+//						}
+//						else
+//						{
+//							Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,NORMAL);
+//						}
+//					}
+//					else  if(sub == 1)
+//					{
+//					   	if(Value_Range[start_line+ loop1] == 0)	  // read only , sub_tst and temperature
+//							 Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,NORMAL);
+//						else if(Value_Range[start_line+ loop1] > 0) // DI
+//						{
+//							if(PTRtemp[start_line+ loop1] == 1)
+//								Lcd_Show_String(loop1 + 1,16,"ON",NORMAL,5);
+//							else
+//								Lcd_Show_String(loop1 + 1,16,"OFF",NORMAL,5);
+//						}	
+//					}
+//					else  if(sub == 2)	
+//						Lcd_Show_Data (loop1 + 1,16,PTRtemp[start_line+ loop1],0,NORMAL);
+//				}	
+//			//} 
+//		} 
+//	}
+} 
+
+
+void Display_Save_Value(unsigned char sub,unsigned char index)
+{
+//	U8_T WRT_Tst_Reg;
+//	switch(sub) 
+//	{
+//		case 0:  
+//		/*	if(Set_Value)	
+//				DO_Value |= (0x01 << index);
+//			else	 
+//				DO_Value &= ~(0x01 << index); */
+//			break;
+//		case 1:	 
+//		/* input menu - sub DI DI*/
+//		//	DI2_Value |= Set_Value << (index - sub_no);
+//			break;
+//		case 2:	 
+//			if(index == E_MODBUS_ID)	  
+//				by_Cur_sub = Set_Value;
+//			else if(index == E_SET_POINT)
+//			{
+//				tst_info[by_Cur_sub].setpoint = Set_Value;				
+//				WRT_Tst_Reg = Tst_Register[TST_ROOM_SETPOINT][tst_info[by_Cur_sub].type];
+//				write_parameters_to_nodes(by_Cur_sub,WRT_Tst_Reg,Set_Value);
+//			}
+//			else if(index == E_COOL_SP)
+//			{
+//				tst_info[by_Cur_sub].cool_setpoint = Set_Value;
+//				WRT_Tst_Reg = Tst_Register[TST_COOL_SETPOINT][tst_info[by_Cur_sub].type];
+//				write_parameters_to_nodes(by_Cur_sub,WRT_Tst_Reg,Set_Value);
+//			}
+//			else if(index == E_HEAT_SP)
+//			{
+//				tst_info[by_Cur_sub].heat_setpoint = Set_Value;
+//				WRT_Tst_Reg = Tst_Register[TST_HEAT_SETPOINT][tst_info[by_Cur_sub].type];
+//				write_parameters_to_nodes(by_Cur_sub,WRT_Tst_Reg,Set_Value);
+//			} 		
+//			else if(index == E_NIGHT_HEAT_DB)
+//			{
+//				tst_info[by_Cur_sub].night_heat_db = Set_Value;
+//				WRT_Tst_Reg = Tst_Register[TST_NIGHT_HEAT_DB][tst_info[by_Cur_sub].type];
+//				write_parameters_to_nodes(by_Cur_sub,WRT_Tst_Reg,Set_Value);
+//			}
+//			else if(index == E_NIGHT_COOL_DB)
+//			{
+//				tst_info[by_Cur_sub].night_cool_db = Set_Value;
+//				WRT_Tst_Reg = Tst_Register[TST_NIGHT_COOL_DB][tst_info[by_Cur_sub].type];
+//				write_parameters_to_nodes(by_Cur_sub,WRT_Tst_Reg,Set_Value);
+//			}
+//			else if(index == E_NIGHT_HEAT_SP) 
+//			{
+//				tst_info[by_Cur_sub].night_heat_sp = Set_Value;				
+//				WRT_Tst_Reg = Tst_Register[TST_NIGHT_HEAT_SP][tst_info[by_Cur_sub].type];
+//				write_parameters_to_nodes(by_Cur_sub,WRT_Tst_Reg,Set_Value);
+//			}
+//			else if(index == E_NIGHT_COOL_SP)
+//			{
+//				tst_info[by_Cur_sub].night_cool_sp = Set_Value;
+//				WRT_Tst_Reg = Tst_Register[TST_NIGHT_COOL_DB][tst_info[by_Cur_sub].type];
+//				write_parameters_to_nodes(by_Cur_sub,WRT_Tst_Reg,Set_Value);
+//			}
+////			else if(index == E_OVER_RIDE_TIME)
+////			{
+////				tst_info[by_Cur_sub].over_ride = Set_Value;
+////				write_parameters_to_nodes(by_Cur_sub,WRT_Tst_Reg,Set_Value);			
+////			}
+//			break;
+//		default: break;
+//	}
+//	#endif
+
+}
 

@@ -15,6 +15,7 @@ void Display_String(U8_T line, U8_T pos, S8_T* str,U8_T mode,U8_T format);
 
 void Display_Initial_Data(void);
 void Refreash_Display_Task(void);
+void Display_IP(void);
 
 
 void Display_Str(char line,char pos,char* str,char len);
