@@ -16,4 +16,4 @@ CM5 hydronics controller
 ![CM5 Network_800](https://github.com/temco-sophie/CM5/blob/master/Image/CM5%20network_800.jpg)
 
 Welcome to our website
-[https://www.temcocontrols.com/products/controllers/cm5.htm](https://www.temcocontrols.com/products/controllers/cm5.htm)
+![https://www.temcocontrols.com/products/controllers/cm5.htm](https://www.temcocontrols.com/products/controllers/cm5.htm)
