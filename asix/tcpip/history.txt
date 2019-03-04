@@ -1,0 +1,54 @@
+//======================================================================
+// AX11000 Firmware Revision History
+// Module Name: TCPIP
+//
+// This document describes the major changes, additions and bug fixes made 
+// to the AX11000 Firmware between released versions. 
+//======================================================================
+Version 1.0.9  (2010-09-24)
+1. Add the function to check the tcp connection existed after keep-alive function was enabled.
+
+Version 1.0.8  (2010-04-19)
+1. Add some functions to support un-listen and un-bind feature.
+
+Version 1.0.7  (2009-11-10)
+1. To fix a software issue in transparent mode when the ax110xx has not set up
+   the arp entry of gateway and got a frame from outside of the local LAN,
+   it create a wrong arp entry (gateway¡¦s ip and another station¡¦s mac address).
+
+Version 1.0.6  (2009-08-24)
+1. To fix the the issue (in transparent mode) that the subnet mask of
+   AX110xx was set in B Class, and the PC (in the same subnet mask) sent an
+   ping request packet to AX110xx through router. The AX110xx must send arp
+   request frame to query the PC's mac address because having not relative arp
+   entry in the arp table, but it sent the ping response to gateway directly
+   (because the uip create a new arp entry that maintain the PC's ip address
+   and gateway's Mac address).
+2. To fix one issue of arp table in transparent mode. When no empty arp entry
+   in arp table, and driver got a new ip address, software always stores the
+   this ip to the last arp entry.
+   
+Version 1.0.5  (2008-12-03)
+1. To avoid the tcpip module treating 00:00:00:00:00:00 as the gateway MAC
+   Address when gateway IP Address is 0.0.0.0 and try to search the MAC Address
+   from ARP Table.
+
+Version 1.0.4  (2008-07-22)
+1. Modified the release type of this module.
+
+Version 1.0.3  (2008-06-03)
+1. Fixed lib's bug that the lib can not reset the tcp socket when this tcp
+   socket is in re-transmit state.
+
+Version 1.0.2  (2008-04-22)
+1. Fixed a issue of tcpip stack that tcpip module does not handle the tcpip data
+   frames with FIN+PSH+ACK in tcp flag.
+
+Version 1.0.1  (2008-04-09)
+1. Use one dummy byte to occupy xdata memory at address 0 to avoid the tcpip
+   module allocates a tcp or udp socket for applications, but the socket
+   start address is at address 0.
+
+Version 1.0.0  (2006-11-13)
+1. Initial release
+

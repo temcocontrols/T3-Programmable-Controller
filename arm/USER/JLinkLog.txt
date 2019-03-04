@@ -1,0 +1,27 @@
+
+T10F0 000:335 SEGGER J-Link V4.96d Log File (0001ms, 0281ms total)
+T10F0 000:335 DLL Compiled: Jan 29 2015 11:45:37 (0001ms, 0281ms total)
+T10F0 000:335 Logging started @ 2018-04-24 12:43 (0001ms, 0281ms total)
+T10F0 000:336 JLINK_SetWarnOutHandler(...) (0000ms, 0281ms total)
+T10F0 000:336 JLINK_OpenEx(...)
+Firmware: J-Link V9 compiled Mar 29 2018 17:46:13
+Hardware: V9.40
+S/N: 59425868
+Feature(s): RDI, GDB, FlashDL, FlashBP, JFlash, RDDI  returns O.K. (0269ms, 0550ms total)
+T10F0 000:605 JLINK_SetErrorOutHandler(...) (0000ms, 0550ms total)
+T10F0 000:605 JLINK_ExecCommand("ProjectFile = "D:\Work\Designs\minipanel_bot\arm\USER\JLinkSettings.ini"", ...)  returns 0x00 (0002ms, 0552ms total)
+T10F0 000:621 JLINK_ExecCommand("Device = STM32F103ZE", ...)Device "STM32F103ZE" selected.  returns 0x00 (0013ms, 0565ms total)
+T10F0 000:634 JLINK_ExecCommand("DisableConnectionTimeout", ...)  returns 0x01 (0000ms, 0565ms total)
+T10F0 000:634 JLINK_GetHardwareVersion()  returns 0x16F30 (0000ms, 0565ms total)
+T10F0 000:634 JLINK_GetDLLVersion()  returns 49604 (0000ms, 0565ms total)
+T10F0 000:634 JLINK_GetFirmwareString(...) (0000ms, 0565ms total)
+T10F0 000:650 JLINK_GetDLLVersion()  returns 49604 (0000ms, 0565ms total)
+T10F0 000:650 JLINK_GetCompileDateTime() (0000ms, 0565ms total)
+T10F0 000:654 JLINK_GetFirmwareString(...) (0001ms, 0566ms total)
+T10F0 000:658 JLINK_GetHardwareVersion()  returns 0x16F30 (0000ms, 0566ms total)
+T10F0 000:674 JLINK_TIF_Select(JLINKARM_TIF_JTAG)  returns 0x00 (0002ms, 0568ms total)
+T10F0 000:676 JLINK_SetSpeed(500) (0000ms, 0568ms total)
+T10F0 000:676 JLINK_GetIdData(...) (0000ms, 0568ms total)
+T10F0 003:528 JLINK_Close() (0000ms, 0568ms total)
+T10F0 003:528  (0000ms, 0568ms total)
+T10F0 003:528 Closed (0000ms, 0568ms total)
