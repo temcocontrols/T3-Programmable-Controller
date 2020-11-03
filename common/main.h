@@ -77,7 +77,7 @@ extern xTaskHandle far Handle_SampleDI;
 
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 
 #include "stm32f10x.h"
 #include "stdint.h"
@@ -136,6 +136,7 @@ extern xTaskHandle far Handle_SampleDI;
 #include 	"sntpc.h"
 
 
+
 //#define BACNET_PORT 47808
 
 
@@ -167,6 +168,7 @@ extern xTaskHandle xHandleCommon;
 extern xTaskHandle xHandler_SPI;
 extern xTaskHandle xdata Handle_MainSerial;
 extern xTaskHandle Handle_Scan, Handle_Scan_net;
+extern xTaskHandle Handle_COV;
 extern xTaskHandle far xHandleMornitor_task;
 extern xTaskHandle far xHandleLCD_task;
 extern xTaskHandle far Handle_SampleDI;
@@ -240,7 +242,7 @@ U8_T SD_Initialize(void);
 U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos);
 U8_T Read_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos);
 void check_SD_exist(void);
-
+void check_SD_PnP(void);
 #endif
 
 
@@ -358,14 +360,21 @@ extern U8_T	TcpSocket_ME;
 
 #define UART1_SW        PCout(3)  // 0 - RS232, 1 - ZIGBEE
 
-
 #define	TOP_CS	PCout(1) 
+
+/**** LED FOR T3_BAC_ROUTER******/
+#define LED_ROUTER_HEART 				PGout(6)
+#define LED_ROUTER_SUB_RS485_RX 	PGout(7)
+#define LED_ROUTER_SUB_RS485_TX 	PGout(8)
+#define LED_ROUTER_MAIN_RS485_RX 	PGout(9)
+#define LED_ROUTER_MAIN_RS485_TX 	PGout(10)
 
 #endif
 
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI
 
 #include "LCD_TSTAT.h"
+#include "voc.h"
 
 #define  LCD_SCL  	   PEout(4)
 #define  LCD_SDA 	     PEout(5)
@@ -493,7 +502,7 @@ extern STR_LOSE_UDP far lose_udp_bip;
 
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 
 
 void responseCmd(U8_T type,U8_T* pData);
@@ -502,9 +511,11 @@ void DELAY_Us(U32_T delay);
 void DELAY_Ms(U32_T delay);
 void TCPIP_Task( void *pvParameters );
 void SoftReset(void);
+void QuickSoftReset(void);
 void SPI_ByteWrite(u8 TxData);
 u8 SPI_ByteRead(void);
 void vStartWifiTasks( U8_T uxPriority);
+void LED_IO_Init(void); // for tiny and router
 #endif
 
 
@@ -521,10 +532,14 @@ extern U8_T count_reintial_tcpip;
 extern uint16 far udp_scan_count;
 extern U8_T far flag_udp_scan;
 extern uint32_t run_time;
+extern uint32_t run_time_last;
+extern uint8_t reboot_counter;
 
 void vLCDTask( void ) reentrant;
 void Check_whether_reiniTCP(void);
 #endif
+
+#define SENDBUFF_SIZE   600    
 
 
 

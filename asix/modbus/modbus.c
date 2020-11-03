@@ -2973,11 +2973,8 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 {
 
 // compare sn to check whether it is current panel	
-	Test[22]++;
 	if(ptr->reg.sn == Modbus.serialNum[3] + (U16_T)(Modbus.serialNum[2] << 8)	+ ((U32_T)Modbus.serialNum[1] << 16) + ((U32_T)Modbus.serialNum[0] << 24))
 	{		
-		Test[20] = 100;
-		Test[21]++;
 		memcpy(panelname,ptr->reg.panel_name,20);
 		panelname[19] = 0;
 		Set_Object_Name(panelname);

@@ -22,7 +22,8 @@ U8_T 	scanstart=0;
 U8_T flag_response_scan = 0;
 U32_T response_scan_ip = 0;
 U32_T response_scan_port = 0;
-STR_SCAN_CMD Infor[20];
+
+STR_SCAN_CMD Infor[TOTAL_REPLY_COUNT];
 
 U8_T IP_Change = 0;
 
@@ -30,6 +31,7 @@ U8_T state;
 
 extern U8_T far flag_scan_sub;
 extern U8_T far count_scan_sub_by_hand;
+char get_current_mstp_port(void);
 
 void udp_scan_init(void)
 {
@@ -71,11 +73,10 @@ void UdpData(U8_T type)
 	Scan_Infor.own_sn[2] = (U16_T)Modbus.serialNum[2];
 	Scan_Infor.own_sn[3] = (U16_T)Modbus.serialNum[3];
 	
-	//nc 
-	
+	//nc 	
 	if(Modbus.mini_type == MINI_CM5)
 		Scan_Infor.product = (U16_T)PRODUCT_CM5;
-	else if((Modbus.mini_type >= MINI_BIG_ARM) && (Modbus.mini_type <= MINI_TINY_ARM))
+	else if((Modbus.mini_type >= MINI_BIG_ARM) && (Modbus.mini_type <= MINI_NANO))
 		Scan_Infor.product = (U16_T)PRODUCT_MINI_ARM;
 	else
 		Scan_Infor.product = (U16_T)PRODUCT_MINI_BIG;
@@ -103,8 +104,12 @@ void UdpData(U8_T type)
 	
 	Scan_Infor.bootloader = 0;  // 0 - app, 1 - bootloader, 2 - wrong bootloader
 	Scan_Infor.BAC_port = Modbus.Bip_port;//((Modbus.Bip_port & 0x00ff) << 8) + (Modbus.Bip_port >> 8);  // 
-	Scan_Infor.zigbee_exist = zigbee_exist; // 0 - inexsit, 1 - exist
+	Scan_Infor.zigbee_exist = zigbee_exist; // 0 - inexsit, 0x74 - exist
 	Scan_Infor.subnet_protocal = 0;
+	
+	Scan_Infor.command_version = 10;
+	Scan_Infor.subnet_port = 0;
+	Scan_Infor.subnet_baudrate = 0;
 	state = 1;
 	scanstart = 0;
 
@@ -125,6 +130,15 @@ void private_scan(void)
 	if(scan_temp[0] == 0x64)
 		{
 			state = 1;
+			if((scan_temp[1] == 0) 
+				&& (scan_temp[2] == 0) 
+				&& (scan_temp[3] == 0)
+				&& (scan_temp[4] == 0)
+			&& (len == 5)
+				)
+			{
+				rec_scan_index = 0;
+			}
 			for(n = 0;n < (u8)len / 4;n++)
 			{       
 				if((scan_temp[4*n+1] == Modbus.ip_addr[0]) && (scan_temp[4*n+2] == Modbus.ip_addr[1])
@@ -132,9 +146,7 @@ void private_scan(void)
 				{ 
 					 state=0;
 				}
-			}
-
-		
+			}		
 			
 			if(state)
 			{            
@@ -145,52 +157,66 @@ void private_scan(void)
 				Scan_Infor.master_sn[1] = 0;
 				Scan_Infor.master_sn[2] = 0;
 				Scan_Infor.master_sn[3] = 0;
-				memcpy(&Scan_Infor.panelname,panelname,20);			
-				uip_send((char *)&Scan_Infor, sizeof(STR_SCAN_CMD));
-				rec_scan_index = 0;
+				memcpy(&Scan_Infor.panelname,panelname,20);
+//				if(sub_no == 0)
+//					uip_send((char *)&Scan_Infor, sizeof(STR_SCAN_CMD));
+//				else
+				 memcpy(&Infor[rec_scan_index++],&Scan_Infor, sizeof(STR_SCAN_CMD));
 
 			// for MODBUS device
 				for(i = 0;i < sub_no;i++)
 				{	 
+					//Test[14 + i] = scan_db[i].sn;
 					if((scan_db[i].product_model >= CUSTOMER_PRODUCT) || (current_online[scan_db[i].id / 8] & (1 << (scan_db[i].id % 8))))	  	 // in database but not on_line
 					{
 						if(scan_db[i].product_model != PRODUCT_MINI_BIG)
 						{
-						Scan_Infor.own_sn[0] = (U16_T)scan_db[i].sn;
-						Scan_Infor.own_sn[1] = (U16_T)(scan_db[i].sn >> 8) & 0x00ff;
-						Scan_Infor.own_sn[2] = (U16_T)(scan_db[i].sn >> 16) & 0x00ff;
-						Scan_Infor.own_sn[3] = (U16_T)(scan_db[i].sn >> 24) & 0x00ff;					
+						if(scan_db[i].sn != 
+							Modbus.serialNum[0] + (U16_T)(Modbus.serialNum[1] << 8)	+ ((U32_T)Modbus.serialNum[2] << 16) + ((U32_T)Modbus.serialNum[3] << 24))
+							{
+								Scan_Infor.own_sn[0] = (U16_T)scan_db[i].sn;
+								Scan_Infor.own_sn[1] = (U16_T)(scan_db[i].sn >> 8) & 0x00ff;
+								Scan_Infor.own_sn[2] = (U16_T)(scan_db[i].sn >> 16) & 0x00ff;
+								Scan_Infor.own_sn[3] = (U16_T)(scan_db[i].sn >> 24) & 0x00ff;					
 
-						Scan_Infor.product = (U16_T)scan_db[i].product_model;
-						Scan_Infor.address = (U16_T)scan_db[i].id;
-				
-						Scan_Infor.instance_low = 0;
-						Scan_Infor.instance_hi = 0;
-						Scan_Infor.subnet_protocal = 1;  // modbus device
+								Scan_Infor.product = (U16_T)scan_db[i].product_model;
+								Scan_Infor.address = (U16_T)scan_db[i].id;
 						
-						Scan_Infor.master_sn[0] = Modbus.serialNum[0];
-						Scan_Infor.master_sn[1] = Modbus.serialNum[1];
-						Scan_Infor.master_sn[2] = Modbus.serialNum[2];
-						Scan_Infor.master_sn[3] = Modbus.serialNum[3];
-						
-						memcpy(&Scan_Infor.panelname,tstat_name[i],20);
-							//uip_send((char *)InformationStr, 60);
-							 if(rec_scan_index < 19)
-								 memcpy(&Infor[rec_scan_index++],&Scan_Infor, sizeof(STR_SCAN_CMD));
+								
+								
+								Scan_Infor.instance_low = 0;
+								Scan_Infor.instance_hi = 0;
+								Scan_Infor.subnet_protocal = 1;  // modbus device
+								
+								Scan_Infor.master_sn[0] = Modbus.serialNum[0];
+								Scan_Infor.master_sn[1] = Modbus.serialNum[1];
+								Scan_Infor.master_sn[2] = Modbus.serialNum[2];
+								Scan_Infor.master_sn[3] = Modbus.serialNum[3];
+								
+								Scan_Infor.subnet_port = (scan_db[i].port & 0x0f) - 1;
+								Scan_Infor.subnet_baudrate = ((scan_db[i].port & 0xf0) >> 4); 
+								
+								memcpy(&Scan_Infor.panelname,tstat_name[i],20);
+								
+								if(rec_scan_index < SUB_NET_MAX_COUNT)
+									memcpy(&Infor[rec_scan_index++],&Scan_Infor, sizeof(STR_SCAN_CMD));
+
+							}
 						}	
 					}						
 				}
 				
 // if id confict, send it to T3000
-			if(conflict_num == 1)
+			for(i = 0;i < index_id_conflict;i++)
+			//if(conflict_num == 1)
 			{
-				Scan_Infor.own_sn[0] = (U16_T)conflict_sn_old;
-				Scan_Infor.own_sn[1] = (U16_T)(conflict_sn_old >> 8);
-				Scan_Infor.own_sn[2] = (U16_T)(conflict_sn_old >> 16);
-				Scan_Infor.own_sn[3] = (U16_T)(conflict_sn_old >> 24);					
+				Scan_Infor.own_sn[0] = (U16_T)id_conflict[i].sn_old;
+				Scan_Infor.own_sn[1] = (U16_T)(id_conflict[i].sn_old >> 8);
+				Scan_Infor.own_sn[2] = (U16_T)(id_conflict[i].sn_old >> 16);
+				Scan_Infor.own_sn[3] = (U16_T)(id_conflict[i].sn_old >> 24);					
 
 				Scan_Infor.product = 0x08;//(U16_T)scan_db[i].product_model << 8;
-				Scan_Infor.address = (U16_T)conflict_id;
+				Scan_Infor.address = (U16_T)id_conflict[i].id;
 		
 				
 				Scan_Infor.master_sn[0] = Modbus.serialNum[0];
@@ -198,17 +224,17 @@ void private_scan(void)
 				Scan_Infor.master_sn[2] = Modbus.serialNum[2];
 				Scan_Infor.master_sn[3] = Modbus.serialNum[3];
 				
-				if(rec_scan_index < 19)
+				if(rec_scan_index < SUB_NET_MAX_COUNT)
 					memcpy(&Infor[rec_scan_index++],&Scan_Infor, sizeof(STR_SCAN_CMD));
 				
-				Scan_Infor.own_sn[0] = (U16_T)conflict_sn_new;
-				Scan_Infor.own_sn[1] = (U16_T)(conflict_sn_new >> 8);
-				Scan_Infor.own_sn[2] = (U16_T)(conflict_sn_new >> 16);
-				Scan_Infor.own_sn[3] = (U16_T)(conflict_sn_new >> 24);		
+				Scan_Infor.own_sn[0] = (U16_T)id_conflict[i].sn_new;
+				Scan_Infor.own_sn[1] = (U16_T)(id_conflict[i].sn_new >> 8);
+				Scan_Infor.own_sn[2] = (U16_T)(id_conflict[i].sn_new >> 16);
+				Scan_Infor.own_sn[3] = (U16_T)(id_conflict[i].sn_new >> 24);		
 				
 
 				//uip_send((char *)InformationStr, 60);
-				if(rec_scan_index < 19)
+				if(rec_scan_index < SUB_NET_MAX_COUNT)
 				 memcpy(&Infor[rec_scan_index++],&Scan_Infor,  sizeof(STR_SCAN_CMD));
 			}
 
@@ -229,10 +255,20 @@ void private_scan(void)
 //						if(status > 0)
 						{
 							char temp_name[20];
-							Scan_Infor.own_sn[0] = (U16_T)remote_panel_db[i].device_id;
-							Scan_Infor.own_sn[1] = (U16_T)(remote_panel_db[i].device_id >> 8);
-							Scan_Infor.own_sn[2] = (U16_T)(remote_panel_db[i].device_id >> 16);
-							Scan_Infor.own_sn[3] = (U16_T)(remote_panel_db[i].device_id >> 24);
+							if(remote_panel_db[i].sn != 0)
+							{
+//								Scan_Infor.own_sn[0] = (U16_T)remote_panel_db[i].device_id;
+//								Scan_Infor.own_sn[1] = (U16_T)(remote_panel_db[i].device_id >> 8);
+//								Scan_Infor.own_sn[2] = (U16_T)(remote_panel_db[i].device_id >> 16);
+//								Scan_Infor.own_sn[3] = (U16_T)(remote_panel_db[i].device_id >> 24);
+//							}
+//							else
+//							{
+								Scan_Infor.own_sn[0] = (U16_T)remote_panel_db[i].sn;
+								Scan_Infor.own_sn[1] = (U16_T)(remote_panel_db[i].sn >> 8);
+								Scan_Infor.own_sn[2] = (U16_T)(remote_panel_db[i].sn >> 16);
+								Scan_Infor.own_sn[3] = (U16_T)(remote_panel_db[i].sn >> 24);
+							}
 							
 							
 							Scan_Infor.product = remote_panel_db[i].product_model;
@@ -245,7 +281,7 @@ void private_scan(void)
 						
 							
 							Scan_Infor.instance_low = HTONS(remote_panel_db[i].device_id); // hight byte first
-							Scan_Infor.panel_number = remote_panel_db[i].panel;	
+							Scan_Infor.panel_number = remote_panel_db[i].sub_id;	
 							Scan_Infor.instance_hi = HTONS(remote_panel_db[i].device_id >> 16); // hight byte first
 							
 							memset(temp_name,0,20);
@@ -263,7 +299,15 @@ void private_scan(void)
 							
 							Scan_Infor.subnet_protocal = 12;  // MSTP device
 							
-							if(rec_scan_index < 19)
+							Scan_Infor.subnet_port = get_current_mstp_port();
+							if(Scan_Infor.subnet_port == 0)
+								Scan_Infor.subnet_baudrate = uart0_baudrate; 
+							else if(Scan_Infor.subnet_port == 2)
+								Scan_Infor.subnet_baudrate = uart2_baudrate; 
+							else
+								Scan_Infor.subnet_baudrate = 0;
+
+							if(rec_scan_index < SUB_NET_MAX_COUNT)
 							memcpy(&Infor[rec_scan_index++],&Scan_Infor, sizeof(STR_SCAN_CMD));		
 						}						
 					}				
@@ -288,7 +332,8 @@ void private_scan(void)
 				Modbus.ip_addr[2] = scan_temp[n++];
 				Modbus.ip_addr[3] = scan_temp[n++];
 			 
-			 	if(Modbus.com_config[2] == BACNET_SLAVE || Modbus.com_config[2] == BACNET_MASTER)
+			 	if(Modbus.com_config[2] == BACNET_SLAVE || Modbus.com_config[2] == BACNET_MASTER
+					|| Modbus.com_config[0] == BACNET_SLAVE || Modbus.com_config[0] == BACNET_MASTER)
 				{
 					Send_I_Am_Flag = 1;
 				}
@@ -335,7 +380,7 @@ void private_scan(void)
 					E2prom_Write_Byte(EEP_SUBNET + 3, Modbus.subnet[0]);
 		#endif
 
-		#if (ARM_MINI || ARM_CM5 || ARM_WIFI)			
+		#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)			
 					E2prom_Write_Byte(EEP_IP, Modbus.ip_addr[0]);
 					E2prom_Write_Byte(EEP_IP + 1, Modbus.ip_addr[1]);
 					E2prom_Write_Byte(EEP_IP + 2, Modbus.ip_addr[2]);
@@ -409,7 +454,7 @@ void private_scan(void)
 			
 			if(ptr->product != 0)
 			{		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)		
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)		
 				
 //		device_id = ptr->instance_low * 65536L + ptr->instance_hi;
 		device_id = HTONS(ptr->instance_low) + HTONS(ptr->instance_hi) * 65536L ;
@@ -440,6 +485,8 @@ void private_scan(void)
 			add_remote_panel_db(device_id,&src,ptr->panel_number,NULL,0,BAC_IP,1);
 			}
 		}
+		else
+			return ;
 		
 		if(rec_scan_index > 0)
 		{
@@ -495,7 +542,7 @@ void Response_Scan_Start(void)
 	{
 		uip_udp_remove(Scan_Rec_conn);
 	}
-
+	
 	uip_ipaddr(addr, (U8_T)(response_scan_ip), (U8_T)(response_scan_ip >> 8), (U8_T)(response_scan_ip >> 16), (U8_T)(response_scan_ip >> 24));	
 	Scan_Rec_conn = uip_udp_new(&addr, HTONS(response_scan_port));
 	if(Scan_Rec_conn != NULL) { 
@@ -505,12 +552,14 @@ void Response_Scan_Start(void)
   }
 
 }
-
+char temp_buf_scan[140];
 void Response_Scan_appcall(void)
 {
+    int loop = 0;
 	static u32 t1 = 0;
 	static u32 t2 = 0;
-
+    char * test_point = 0;
+    memset(temp_buf_scan, 0, 140);
 	if(uip_poll()) 
 	{	
 		// auto send
@@ -521,6 +570,23 @@ void Response_Scan_appcall(void)
 			{
 				uip_send(&Infor[send_scan_index++], sizeof(STR_SCAN_CMD));	
 			}			
+			else if (send_scan_index <= rec_scan_index) 
+			{
+					temp_buf_scan[0] = 0x2f;
+					temp_buf_scan[1] = sub_no;
+					temp_buf_scan[2] = (U16_T)Modbus.serialNum[0];
+					temp_buf_scan[3] = (U16_T)Modbus.serialNum[1];
+					temp_buf_scan[4] = (U16_T)Modbus.serialNum[2];
+					temp_buf_scan[5] = (U16_T)Modbus.serialNum[3];
+					
+					for (loop = 0; loop < sub_no; loop++)
+					{
+							temp_buf_scan[6 + 15 + loop * 2] = (current_online[scan_db[loop].id / 8] & (1 << (scan_db[loop].id % 8))) ? 1 : 0;
+							temp_buf_scan[6 + 15 + loop * 2 + 1] = scan_db[loop].id;
+					}
+					uip_send(temp_buf_scan, 140);
+					send_scan_index++;
+			}
 			t2 = uip_timer;
 		}
 		
@@ -593,7 +659,7 @@ U8_T TimeSync_Tstat(void)
 	buf[21] = HIGH_BYTE(crc_val);
 	buf[22] = LOW_BYTE(crc_val);
 
-	if(port == 2) Test[0]++;
+//	if(port == 2) Test[0]++;
 	uart_init_send_com(port);
 	
 	uart_send_string(buf,23,port);

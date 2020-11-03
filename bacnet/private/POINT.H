@@ -23,7 +23,7 @@ S16_T delete_remote_point( Point_Net *point, S16_T index );
 //void move_groups( S8_T *dest, S8_T *source, S16_T length,S16_T no_elem, Str_grp_element *address );
 S32_T localvalue(U8_T *p, U8_T *local);
 S16_T find_remote_poS16_T( Point_Net *point );
-S16_T get_net_point_value( Point_Net *p, S32_T *val_ptr , U8_T mode );
+S16_T get_net_point_value( Point_Net *p, S32_T *val_ptr , U8_T mode ,U8_T flag);
 //int GetPrivateData(Point_Net point,U32_T deviceid);
 //void WritePrivateData(Point_Net point,S32_T value);
 //S8_T put_timer_value(U8_T pro_index,U8_T type,U32_T time,char *messgae); 
@@ -38,6 +38,7 @@ int WriteRemotePoint(uint8_t object_type,uint32_t object_instance,uint8_t panel,
 void Check_Net_Point_Table(void);
 
 S8_T get_point_info_by_instacne(Point_Net * point);
+U8_T check_point_type(Point_Net * point);
 
 
 #endif

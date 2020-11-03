@@ -30,7 +30,7 @@ uint8 password_index;
 
 uint32 menu_block_timer_start, menu_block_timer_end;
 uint8 menu_block_seconds = MENU_BLOCK_SECONDS_DEFAULT;
-uint8 backlight_keep_seconds = BACKLIGHT_KEEP_SECONDS_DEFAULT;
+//uint8 backlight_keep_seconds = BACKLIGHT_KEEP_SECONDS_DEFAULT;
 xQueueHandle xMutex,IicMutex;
 struct _MENU_STATE_ CurrentState;
 
@@ -129,7 +129,7 @@ void MenuTask(void *pvParameters)
 	
 	while(1)
 	{
-		
+       
  		if(xQueueTakeMutexRecursive( xMutex, portMAX_DELAY )==pdPASS)
 		{
 			if(xQueueReceive(qKey, &key_temp, 20) == pdTRUE)

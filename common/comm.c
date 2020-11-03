@@ -13,7 +13,7 @@
 
 #include "e2prom.h"
 #include "comm.h"
-#if (ASIX_MINI || ASIX_CM5)
+#if ASIX_MINI
 #include "projdefs.h"
 #include "portable.h"
 #include "errors.h"
@@ -90,7 +90,9 @@ static U8_T OLD_COMM;
 U8_T far high_spd_flag[HI_COMMON_CHANNEL];
 U8_T far clear_high_spd[HI_COMMON_CHANNEL];
 U16_T far count_clear_hsp[HI_COMMON_CHANNEL] = {0,0,0,0,0,0};
-
+#if (ARM_MINI || ARM_TSTAT_WIFI)
+U8_T far flag_count_in[HI_COMMON_CHANNEL];
+#endif
 U8_T xdata tmpbuf[150];
 
 //U32_T far input_raw_temp[32];
@@ -100,6 +102,7 @@ U8_T far spi_index;
 
 void initial_input_filter_data(void);
 void Updata_Comm_Led(void);
+U16_T crc16(U8_T *p, U8_T length);
 
 #if (ARM_MINI || ASIX_MINI)
 
@@ -115,8 +118,11 @@ void vStartCommToTopTasks( unsigned char uxPriority)
 {
 //	U8_T base_hsp;
 	U8_T i;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)	
-	SPI1_Init(0);
+#if ARM_MINI
+	//if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
+	{	
+		SPI1_Init(0);
+	}
 	
 #endif
 	
@@ -164,7 +170,11 @@ void vStartCommToTopTasks( unsigned char uxPriority)
 		
 	for(i = 0;i < HI_COMMON_CHANNEL;i++)
 	{
-		if((inputs[i].range == HI_spd_count) || (inputs[i].range == N0_2_32counts))
+		if((inputs[i].range == HI_spd_count) || (inputs[i].range == N0_2_32counts) 
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+			|| (inputs[i].range == RPM)
+#endif
+		)
 		{
 			high_spd_counter[i] = swap_double(inputs[i].value) / 1000;
 			high_spd_counter_tempbuf[i] = 0;
@@ -193,14 +203,20 @@ void vStartCommToTopTasks( unsigned char uxPriority)
 
 void Check_Pulse_Counter(void)
 {
-  char loop;
-	
+  char loop;	
+	U8_T shift;
+	shift = 1;
+		
+	if(chip_info[1] >= 42) 
+		shift = 4;
+	else 
+		shift = 1;
 	for(loop = 0;loop < HI_COMMON_CHANNEL;loop++)
 	{
 		if(high_spd_flag[loop] == 1) // start
 		{ 
-			if((input_raw_back[loop] != input_raw[loop]) && (input_raw[loop] > 800) 
-				&& (input_raw_back[loop] < 200))  // from low to high
+			if((input_raw_back[loop] != input_raw[loop]) && (input_raw[loop] > 600 * shift) 
+				&& (input_raw_back[loop] < 400 * shift))  // from low to high
 			{
 				high_spd_counter_tempbuf[loop]++;
 			}
@@ -209,12 +225,12 @@ void Check_Pulse_Counter(void)
 		if(high_spd_flag[loop] == 2) // clear
 		{
 			high_spd_counter_tempbuf[loop] = 0;
-//			inputs[loop].value = 0;
+			inputs[loop].value = 0;
 		}
 		
 		// backup input only when value is changed 
-		if((input_raw_back[loop] > input_raw[loop] + 800)
-			|| (input_raw[loop] > input_raw_back[loop] + 800))
+		if((input_raw_back[loop] > input_raw[loop] + 400 * shift)
+			|| (input_raw[loop] > input_raw_back[loop] + 400 * shift))
 		{
 			input_raw_back[loop] = input_raw[loop];
 		}
@@ -236,7 +252,11 @@ void Check_Pulse_Counter(void)
 		}
 		else
 		{			
-			if((inputs[loop].range == HI_spd_count) || (inputs[loop].range == N0_2_32counts))
+			if((inputs[loop].range == HI_spd_count) || (inputs[loop].range == N0_2_32counts) 
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+				|| (inputs[loop].range == RPM)
+#endif
+			)
 			{
 				//high_spd_flag[HI_COMMON_CHANNEL - loop - 1] = high_spd_en[HI_COMMON_CHANNEL - loop - 1] + 1;
 				high_spd_flag[loop] = 1; // start
@@ -248,7 +268,6 @@ void Check_Pulse_Counter(void)
 		}
 	}
 }
-
 
 
 // update led and input_type
@@ -263,9 +282,13 @@ void Update_Led(void)
 	U8_T pre_status;
 	U8_T max_in,max_out,max_digout;
 	/*    check input led status */	
+	U8_T shift;
 
-	
-	
+	if(chip_info[1] >= 42) 
+		shift = 4;
+	else 
+		shift = 1;
+
 	if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))
 	{
 		max_in = 32;
@@ -278,7 +301,7 @@ void Update_Led(void)
 		max_out = 10;
 		max_digout = 6;
 	}
-#if (ASIX_MINI || ASIX_CM5)
+#if ASIX_MINI
 	else  if(Modbus.mini_type == MINI_TINY)
 	{
 		max_in = 11;
@@ -290,15 +313,19 @@ void Update_Led(void)
 	{
 		max_in = 8;
 		max_out = 14;
-		max_digout = 8;	
+		max_digout = 6;
+		if(outputs[6].digital_analog == 0)
+			max_digout++;
+		if(outputs[7].digital_analog == 0)
+			max_digout++;	
 	}
 
 	for(loop = 0;loop < max_in;loop++)
 	{	
 		pre_status = InputLed[loop];
 	   
-		if(input_raw[loop] > pre_in[loop])
-			error_in = input_raw[loop] - pre_in[loop];
+		if(input_raw[loop]  > pre_in[loop])
+			error_in = input_raw[loop]  - pre_in[loop];
 		else
 			error_in = pre_in[loop] - input_raw[loop];					
 		
@@ -308,31 +335,41 @@ void Update_Led(void)
 			InputLed[loop] = 0;	
 		else
 		{
-			if(inputs[loop].auto_manual == 0)
+			if(inputs[loop].auto_manual == 0) // auto
 			{
 				if(inputs[loop].digital_analog == 1) // analog 
 				{
-					if(inputs[loop].range <= A10K_60_200DegF)	  // temperature
+					if(inputs[loop].range <= PT1000_200_570DegF)	  // temperature
 					{	//  10k termistor GREYSTONE
-						if(input_raw[loop]  > TEMPER_0_C) 	InputLed[loop] = 0;	   // 0 degree
-						else  if(input_raw[loop]  > TEMPER_10_C) 	InputLed[loop] = 1;	// 10 degree
-						else  if(input_raw[loop]  > TEMPER_20_C) 	InputLed[loop] = 2;	// 20 degree
-						else  if(input_raw[loop]  > TEMPER_30_C) 	InputLed[loop] = 3;	// 30 degree
-						else  if(input_raw[loop]  > TEMPER_40_C) 	InputLed[loop] = 4;	// 40 degree
+						if(input_raw[loop]  > TEMPER_0_C * shift) 	InputLed[loop] = 0;	   // 0 degree
+						else  if(input_raw[loop]  > TEMPER_10_C * shift) 	InputLed[loop] = 1;	// 10 degree
+						else  if(input_raw[loop]  > TEMPER_20_C * shift) 	InputLed[loop] = 2;	// 20 degree
+						else  if(input_raw[loop]  > TEMPER_30_C * shift) 	InputLed[loop] = 3;	// 30 degree
+						else  if(input_raw[loop]  > TEMPER_40_C * shift) 	InputLed[loop] = 4;	// 40 degree
 						else
 							InputLed[loop] = 5;	   // > 50 degree
 
 						//InputLed high 4 bits - input type,
 	//					InputLed[loop] |= 0x30;   // input type is 3
 						
-					}						
+					}	
+#if (ARM_MINI || ARM_TSTAT_WIFI)
+					else if((inputs[loop].range == HI_spd_count) 
+						|| (inputs[loop].range == N0_2_32counts) 
+						|| (inputs[loop].range == RPM))
+					{
+						if(flag_count_in[loop] == 1)	{InputLed[loop] = 5; flag_count_in[loop] = 0;}
+						else
+						{InputLed[loop] = 0; }
+					}	
+#endif					
 					else 	  // voltage or current
 					{
-						if(input_raw[loop]  < 50) 	InputLed[loop] = 0;
-						else  if(input_raw[loop]  < 200) 	InputLed[loop] = 1;
-						else  if(input_raw[loop]  < 400) 	InputLed[loop] = 2;
-						else  if(input_raw[loop]  < 600) 	InputLed[loop] = 3;
-						else  if(input_raw[loop]  < 800) 	InputLed[loop] = 4;
+						if(input_raw[loop]  < 50 * shift) 	InputLed[loop] = 0;
+						else  if(input_raw[loop] < 200 * shift) 	InputLed[loop] = 1;
+						else  if(input_raw[loop] < 400 * shift) 	InputLed[loop] = 2;
+						else  if(input_raw[loop] < 600 * shift) 	InputLed[loop] = 3;
+						else  if(input_raw[loop] < 800 * shift) 	InputLed[loop] = 4;
 						else
 							InputLed[loop] = 5;
 
@@ -343,20 +380,18 @@ void Update_Led(void)
 				{
 					if(( inputs[loop].range >= ON_OFF  && inputs[loop].range <= HIGH_LOW )  // control 0=OFF 1=ON
 					||(inputs[loop].range >= custom_digital1 // customer digital unit
-					&& inputs[loop].range <= custom_digital6
+					&& inputs[loop].range <= custom_digital8
 					&& digi_units[inputs[loop].range - custom_digital1].direct == 1))
 					{// inverse
-						if(input_raw[loop]  >= 512)
-							InputLed[loop] = 0;
+						if(inputs[loop].control == 1) InputLed[loop] = 0;	
 						else
-							InputLed[loop] = 5;
+							InputLed[loop] = 5;	
 					}
 					else
 					{
-						if(input_raw[loop]  < 512)
-							InputLed[loop] = 0;
+						if(inputs[loop].control == 1) InputLed[loop] = 5;	
 						else
-							InputLed[loop] = 5;				
+							InputLed[loop] = 0;	
 					}
 				}
 			}
@@ -366,7 +401,7 @@ void Update_Led(void)
 				{
 					if(( inputs[loop].range >= ON_OFF  && inputs[loop].range <= HIGH_LOW )  // control 0=OFF 1=ON
 					||(inputs[loop].range >= custom_digital1 // customer digital unit
-					&& inputs[loop].range <= custom_digital6
+					&& inputs[loop].range <= custom_digital8
 					&& digi_units[inputs[loop].range - custom_digital1].direct == 1))
 					{ // inverse
 						if(inputs[loop].control == 1) InputLed[loop] = 0;	
@@ -379,19 +414,13 @@ void Update_Led(void)
 						else
 							InputLed[loop] = 0;				
 					}
-					if( inputs[loop].range >= custom_digital1 && inputs[loop].range <= custom_digital8 )
-					{
-						if(inputs[loop].control == 1) InputLed[loop] = 5;	
-						else
-							InputLed[loop] = 0;	
-					}
 						
 				}
 				else   // analog
 				{
 					U32_T tempvalue;
 					tempvalue = swap_double(inputs[loop].value) / 1000;
-					if(inputs[loop].range <= A10K_60_200DegF)	  // temperature
+					if(inputs[loop].range <= PT1000_200_570DegF)	  // temperature
 					{	//  10k termistor GREYSTONE
 						if(tempvalue <= 0) 	InputLed[loop] = 0;	   // 0 degree
 						else  if(tempvalue < 10) 	InputLed[loop] = 1;	// 10 degree
@@ -440,14 +469,14 @@ void Update_Led(void)
 			}
 		}	
 		
-		if(pre_status != InputLed[loop] && error_in > 50)
+		if(pre_status != InputLed[loop] && error_in > 50 * shift)
 		{  //  error is larger than 20, led of input is changed
 			flag_led_in_changed = 1;   
 			re_send_led_in = 0;
 		}
 		pre_in[loop] = input_raw[loop];
 
-		//if(Setting_Info.reg.pro_info.firmware_c8051 >= 14)
+		//if(Setting_Info.reg.pro_info.firmware_rev >= 14)
 		{
 			InputLed[loop] &= 0x0f;		
 			if(input_type[loop] >= 1)
@@ -499,7 +528,7 @@ void Update_Led(void)
 						{  // AO is used for DO
 							if(( outputs[loop].range >= ON_OFF  && outputs[loop].range <= HIGH_LOW )  // control 0=OFF 1=ON
 							||(outputs[loop].range >= custom_digital1 // customer digital unit
-							&& outputs[loop].range <= custom_digital6
+							&& outputs[loop].range <= custom_digital8
 							&& digi_units[outputs[loop].range - custom_digital1].direct == 1))
 							{ // inverse
 								if(outputs[loop].control == 1) OutputLed[loop] = 0;	
@@ -512,17 +541,6 @@ void Update_Led(void)
 								else
 									OutputLed[loop] = 0;				
 							}
-							if( outputs[loop].range >= custom_digital1 && outputs[loop].range <= custom_digital8 )
-							{
-								if(outputs[loop].control == 1) OutputLed[loop] = 5;	
-								else
-									OutputLed[loop] = 0;	
-							}
-								
-							
-//							if(swap_double(outputs[loop].value) == 0) OutputLed[loop] = 0;
-//							else
-//								OutputLed[loop] = 5;
 						}
 					}
 				}
@@ -656,13 +674,13 @@ void Updata_Comm_Led(void)
 void SPI_Send(U8_T cmd,U8_T* buf,U8_T len)
 {	 
 	U8_T i;
-
-#if (ASIX_MINI || ASIX_CM5)
+	u16 crc;
+#if ASIX_MINI
 	if(cSemaphoreTake(sem_SPI, 0) == pdFALSE)
 		return ;
 #endif	
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if ARM_MINI
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		if(cSemaphoreTake(sem_SPI, 5) == pdFALSE)
@@ -677,14 +695,23 @@ void SPI_Send(U8_T cmd,U8_T* buf,U8_T len)
 	}
 	
 	// add crc
-	SPI_ByteWrite(0x55);
-	SPI_ByteWrite(0xaa);
+	if(cmd == S_ALL_NEW)
+	{
+		crc = crc16(buf,len);
+		SPI_ByteWrite(crc / 256);
+		SPI_ByteWrite(crc % 256);
+	}
+	else
+	{
+		SPI_ByteWrite(0x55);
+		SPI_ByteWrite(0xaa);
+	}
 
-#if (ASIX_MINI || ASIX_CM5)
+#if ASIX_MINI
 	cSemaphoreGive(sem_SPI);
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if ARM_MINI
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 		cSemaphoreGive(sem_SPI);
 #endif
@@ -700,13 +727,13 @@ void SPI_Get(U8_T cmd,U8_T len)
 	U8_T crc[2];
 	U16_T temp;
 
-#if (ASIX_MINI || ASIX_CM5)	
+#if ASIX_MINI	
 	/*send the first byte, command type */
 	if(cSemaphoreTake(sem_SPI, 5) == pdFALSE)
 		return ;
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if ARM_MINI
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		if(cSemaphoreTake(sem_SPI, 5) == pdFALSE)
@@ -717,7 +744,7 @@ void SPI_Get(U8_T cmd,U8_T len)
 	
 	SPI_ByteWrite(0xff);
 
-#if (ASIX_MINI || ASIX_CM5)	
+#if ASIX_MINI	
 	if((Modbus.mini_type == MINI_TINY) && (Modbus.hardRev < STM_TINY_REV))
 	{
 		rec_len = len + 3;
@@ -729,25 +756,22 @@ void SPI_Get(U8_T cmd,U8_T len)
 	
 	for(i = 0; i < rec_len; i++) 
 	{	
-#if (ASIX_MINI || ASIX_CM5)
+#if ASIX_MINI
 		SPI_ByteWrite(0xff);		
 		SPI_GetData(&tmpbuf[i]);
 #endif
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)	
+#if ARM_MINI	
 		tmpbuf[i] = SPI1_ReadWriteByte(0xff);
+		//if(i == rec_len - 1)  delay_ms(20);
 #endif
 		
 		if(tmpbuf[i] != 0xff)  
 			error = 0;
 	}	
 
-//	SPI1_CS_SET();
-	
-	crc[0] = tmpbuf[i - 1];
-	crc[1] = tmpbuf[i - 2];
-
-#if (ASIX_MINI || ASIX_CM5) // old top board
+//	SPI1_CS_SET();	
+#if ASIX_MINI // old top board
 	if((Modbus.mini_type == MINI_TINY) && (Modbus.hardRev < STM_TINY_REV))
 	{
 		if((crc[0]!= 0x55) ||(crc[1] != 0xd5))	 {error = 1; } 	
@@ -762,13 +786,33 @@ void SPI_Get(U8_T cmd,U8_T len)
 	}
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
-	if((crc[0]!= 0xaa) ||(crc[1] != 0x55))	
-	{		
-		error = 1; 
+#if (ARM_MINI || ASIX_MINI)
+	if(cmd == G_ALL_NEW)
+	{
+		u16 crc_check;		
+		crc_check = crc16(tmpbuf, i - 2); // crc16
+		
+		if((HIGH_BYTE(crc_check) == tmpbuf[i - 2]) && (LOW_BYTE(crc_check) == tmpbuf[i - 1]))
+		{
+			error = 0;
+		}
+		else
+		{
+			error = 1;
+		}
 	}
-	else 
-		error = 0;
+	else
+	{
+		if((0x55 == tmpbuf[i - 2]) && (0xaa == tmpbuf[i - 1]))
+		{
+			error = 0;
+		}
+		else
+		{
+			error = 1;
+		}
+	}
+
 #endif
 	
 	if((tmpbuf[0] == 0x55) && (tmpbuf[1] == 0x55) && (tmpbuf[2] == 0x55) && (tmpbuf[3] == 0x55) && (tmpbuf[4] == 0x55))
@@ -784,7 +828,7 @@ void SPI_Get(U8_T cmd,U8_T len)
 		flag_lose_comm = 0;
 		count_lose_comm = 0;
 		count_error = 0;
-#if (ASIX_MINI || ASIX_CM5) // old top board, old commucation protocal
+#if ASIX_MINI // old top board, old commucation protocal
 		if(cmd == G_SWTICH_STATUS)
 		{				
 		  for(i = 0;i < len;i++)
@@ -811,8 +855,10 @@ void SPI_Get(U8_T cmd,U8_T len)
 				for(i = 0;i < 4;i++)
 				{
 					chip_info[i] = tmpbuf[i];
-					Setting_Info.reg.pro_info.firmware_c8051 = chip_info[1];  
-					Setting_Info.reg.pro_info.frimware_sm5964 = chip_info[2];
+					Setting_Info.reg.pro_info.firmware_rev = chip_info[1];  
+					Setting_Info.reg.pro_info.hardware_rev = chip_info[2];
+					
+					Setting_Info.reg.specila_flag &= 0xfe;
 				}	
 				flag_get_chip_info = 1;
 				OLD_COMM = 0;				
@@ -822,32 +868,53 @@ void SPI_Get(U8_T cmd,U8_T len)
 				for(i = 0;i < len / 2;i++)
 				{
 					if(i < 6)
-						chip_info[i] = (U16_T)(tmpbuf[i * 2 + 1] + tmpbuf[i * 2] * 256);
-					Setting_Info.reg.pro_info.firmware_c8051 = chip_info[1];
-					Setting_Info.reg.pro_info.frimware_sm5964 = chip_info[2];
-					flag_get_chip_info = 1;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
-					// check whether hardware information is valid
-					if((chip_info[2] != 0) || (chip_info[3] != 0) || (chip_info[4] != 0))  // SM5964 rev is 0, read wrong information
 					{
-						flag_get_chip_info = 0;
+						chip_info[i] = (U16_T)(tmpbuf[i * 2 + 1] + tmpbuf[i * 2] * 256);						
 					}
-#endif
-					
-					if(Setting_Info.reg.pro_info.firmware_c8051 >= 9)  // new comm
-					{					
-						OLD_COMM = 0;
-					}
-					else
-					{	
-						OLD_COMM = 1; 
-					}
+					Setting_Info.reg.pro_info.firmware_rev = chip_info[1];
+					Setting_Info.reg.pro_info.hardware_rev = chip_info[0];
 				}
+				
+				if(chip_info[1] >= 42 && chip_info[2] == 1) // rev42 add PT sensor
+					Setting_Info.reg.specila_flag |= 0x01;
+				else
+					Setting_Info.reg.specila_flag &= 0xfe;					
+				
+				
+				if(Setting_Info.reg.pro_info.firmware_rev > 0
+					&& Setting_Info.reg.pro_info.hardware_rev > 0)
+				{
+					flag_get_chip_info = 1;
+				}
+				else
+				{
+					// reboot top board
+					Test[40] = 22;
+				}
+				
+				
+#if (ARM_MINI || ASIX_ARM)
+				// check whether hardware information is valid
+				if( (chip_info[4] != 0) || (chip_info[5] != 0))  // SM5964 rev is 0, read wrong information
+				{
+						flag_get_chip_info = 0;
+				}
+#endif
+				
+				if(Setting_Info.reg.pro_info.firmware_rev >= 9)  // new comm
+				{					
+					OLD_COMM = 0;
+				}
+				else
+				{	
+					OLD_COMM = 1; 
+				}
+				
 			}
 		}
-		else if(cmd == G_ALL)
+		else if((cmd == G_ALL) || (cmd == G_ALL_NEW))
 		{
-#if (ASIX_MINI || ASIX_CM5)
+#if 	ASIX_MINI 
 			if(Modbus.mini_type == MINI_TINY)  // tiny
 			{
 				for(i = 0;i < 8;i++)
@@ -860,7 +927,7 @@ void SPI_Get(U8_T cmd,U8_T len)
 					flag_read_switch = 1;
 				}
 			
-				if(Setting_Info.reg.pro_info.firmware_c8051 >= 30) // ARM board
+				if(Setting_Info.reg.pro_info.firmware_rev >= 30) // ARM board
 				{
 					for(i = 0;i < 22 / 2;i++)
 					{		
@@ -892,14 +959,14 @@ void SPI_Get(U8_T cmd,U8_T len)
 			}
 			else  // big and small panel
 #endif
-			{
-			
+			{			
 				if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))
 				{
 					flag_read_switch = 1;
 					for(i = 0;i < 24;i++)
 					{
-						if(tmpbuf[i] != outputs[i].switch_status)
+						if((tmpbuf[i] != outputs[i].switch_status) &&
+								(tmpbuf[i] <= 2))						
 						{
 							outputs[i].switch_status = tmpbuf[i];	
 							check_output_priority_HOA(i);	
@@ -909,7 +976,15 @@ void SPI_Get(U8_T cmd,U8_T len)
 					{							
 						temp = Filter(i,(U16_T)(tmpbuf[i * 2 + 1 + 24] + tmpbuf[i * 2 + 24] * 256));
 						if(temp != 0xffff)
-							input_raw[i] = temp;		
+						{// rev42 of top is 12bit, older rev is 10bit
+								//if(chip_info[1] >= 42)
+									// new input moudle with PT sensor
+									input_raw[i] = (U32_T)temp * 1023 / Modbus.vcc_adc;
+//								else
+//									// for old input moudle
+//									input_raw[i] = (U32_T)temp * 255 / Modbus.vcc_adc;	
+						}
+
 					}
 				}
 				if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
@@ -917,21 +992,13 @@ void SPI_Get(U8_T cmd,U8_T len)
 					// check packet is correct, only for LB_ARM
 					U8_T packet_error;
 					packet_error = 0;
-					
 					for(i = 0;i < 10;i++)
 					{
 						if(tmpbuf[i] > 2) 			packet_error = 1;
 					}
 					
-					for(i = 0;i < 32 / 2;i++)
-					{
-						if((tmpbuf[i * 2 + 1 + 24] + tmpbuf[i * 2 + 24] * 256) > 1023)
-							packet_error = 1;
-					}
-
 					if(packet_error == 0)
 					{
-							
 						flag_read_switch = 1;					
 
 						for(i = 0;i < 10;i++)
@@ -945,15 +1012,24 @@ void SPI_Get(U8_T cmd,U8_T len)
 						}
 						
 						for(i = 0;i < 32 / 2;i++)	  // 88 == 24+64
-						{						
+						{	
 							temp = Filter(i,(U16_T)(tmpbuf[i * 2 + 1 + 24] + tmpbuf[i * 2 + 24] * 256));
 							if(temp != 0xffff)
-								input_raw[i] = temp;							
+							{// rev42 of top is 12bit, older rev is 10bit
+								//if(chip_info[1] >= 42)
+									// new input moudle with PT sensor
+									input_raw[i] = (U32_T)temp * 1023 / Modbus.vcc_adc;
+//								else
+//									// for old input moudle
+//									input_raw[i] = (U32_T)temp * 255 / Modbus.vcc_adc;	
+								
+							}
 						}
 					}
 				}
-				if(Setting_Info.reg.pro_info.firmware_c8051 >= 30) // ARM board
-				{					
+				if(Setting_Info.reg.pro_info.firmware_rev >= 30) // ARM board
+				{
+					
 					for(i = 0;i < 24 / 4;i++)
 					{		
 						char start;
@@ -961,7 +1037,8 @@ void SPI_Get(U8_T cmd,U8_T len)
 						else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM)) start = 10;		
 						//else if(Modbus.mini_type == MINI_TINY) start = 5;	
 						//if(inputs[start + i].range == HI_spd_count)
-						high_spd_counter_tempbuf[start + i] = swap_double( tmpbuf[i * 4 + 91] | (U16_T)tmpbuf[i * 4 + 90] << 8 | (U32_T)tmpbuf[i * 4 + 89] << 16 |  (U32_T)tmpbuf[i * 4 + 88] << 24);
+						//high_spd_counter_tempbuf[start + i] = swap_double( tmpbuf[i * 4 + 91] | (U16_T)tmpbuf[i * 4 + 90] << 8 | (U32_T)tmpbuf[i * 4 + 89] << 16 |  (U32_T)tmpbuf[i * 4 + 88] << 24);
+						high_spd_counter_tempbuf[start + i] = swap_double( tmpbuf[i * 4 + 88] | (U16_T)tmpbuf[i * 4 + 89] << 8 | (U32_T)tmpbuf[i * 4 + 90] << 16 |  (U32_T)tmpbuf[i * 4 + 91] << 24);
 					}
 				}
 			}
@@ -970,19 +1047,17 @@ void SPI_Get(U8_T cmd,U8_T len)
 	else
 	{
 		Test[0]++;
-//#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
-//		SPI1_Init(0);
-//#endif
+
 		flag_lose_comm = 1;
 		count_lose_comm++;
 	}
 
-#if (ASIX_MINI || ASIX_CM5)
+#if ASIX_MINI 
 	cSemaphoreGive(sem_SPI);
 #endif
 
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if ARM_MINI
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 		cSemaphoreGive(sem_SPI);
 #endif
@@ -1002,7 +1077,7 @@ void Check_whether_lose_comm(void)
 		{	
 	// generate a alarm
 			generate_common_alarm(ALARM_LOST_TOP);
-#if (ASIX_MINI || ASIX_CM5)			
+#if ASIX_MINI 			
 			if((Modbus.mini_type == MINI_BIG) && (Modbus.hardRev <= 22))
 			{
 				RESET_TOP = 0;  // RESET c8051f023 
@@ -1028,7 +1103,6 @@ void Check_whether_lose_comm(void)
 					RESET_TOP = 0;  // RESET stm32
 					DELAY_Ms(100);
 					RESET_TOP = 1; 
-					Test[3]++;
 				}
 				else
 				{  // old version, top board is sm5r16
@@ -1041,7 +1115,7 @@ void Check_whether_lose_comm(void)
 			}
 #endif
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)  // BB && LB
+#if ARM_MINI   // BB && LB
 			if((Modbus.mini_type == MINI_BIG_ARM) || (Modbus.mini_type == MINI_SMALL_ARM))
 			{
 				RESET_TOP = 0;  // RESET c8051f023 
@@ -1049,6 +1123,7 @@ void Check_whether_lose_comm(void)
 				RESET_TOP = 1; 	
 				flag_send_start_comm = 1;
 				count_send_start_comm = 0;
+				Test[3]++;
 			}
 			
 #endif
@@ -1072,7 +1147,8 @@ void SPI_Roution(void)
 	for (;;)
 	{
 		task_test.count[8]++;
-		Check_Pulse_Counter();
+		if(task_test.count[8] % 40 == 0)
+			Check_Pulse_Counter();
 		Update_Led();
 		current_task = 8;
 		Check_whether_lose_comm();
@@ -1085,7 +1161,7 @@ void SPI_Roution(void)
 			vTaskDelay(75 / portTICK_RATE_MS);
 		}
 		else if(Test[40] == 11)
-		{
+		{ // top reset bot
 			SPI_ByteWrite(0x11);	
 			vTaskDelay(500 / portTICK_RATE_MS);
 		}
@@ -1099,10 +1175,10 @@ void SPI_Roution(void)
 		}
 		else
 		{
-#if (ASIX_MINI || ASIX_CM5)
-	  if(Modbus.mini_type == MINI_TINY)
+#if ASIX_MINI
+		if(Modbus.mini_type == MINI_TINY)
 		{			
-			if(Setting_Info.reg.pro_info.firmware_c8051 >= 30)
+			if(Setting_Info.reg.pro_info.firmware_rev >= 30)
 				vTaskDelay(50 / portTICK_RATE_MS);
 			else
 				vTaskDelay(175 / portTICK_RATE_MS);
@@ -1120,9 +1196,10 @@ void SPI_Roution(void)
 					//memcpy(send_all,CommLed,2);	
 					memcpy(&send_all[0],OutputLed,8);
 					
-					if(Setting_Info.reg.pro_info.firmware_c8051 >= 30)  // ARM board
+					if(Setting_Info.reg.pro_info.firmware_rev >= 30)  // ARM board
 					{
 						memcpy(&send_all[8],InputLed,11);	
+						
 					}
 					else
 					{
@@ -1146,29 +1223,33 @@ void SPI_Roution(void)
 					send_all[21] = (CommLed[0] & 0x10) ? 5 : 0;
 					send_all[22] = (CommLed[0] & 0x20) ? 5 : 0;
 					
-					
-					if(Setting_Info.reg.pro_info.firmware_c8051 >= 30) // ARM board
+					if(Setting_Info.reg.pro_info.firmware_rev >= 30) // ARM board
 					{// new hardware have high speed counter
 						char i;
 						
 						memcpy(&send_all[25],&high_spd_flag[5],6);  // tiny have 6 HSP ,start pos is 5
-#if (ASIX_MINI || ASIX_CM5)							
+#if ASIX_MINI						
 						send_all[31] = relay_value.byte[1];   // new tiny control relays by ARM chip
 						
 						send_all[32] = relay_value.byte[0];
 #endif
-						SPI_Send(S_ALL,send_all,33);
+						if(Setting_Info.reg.pro_info.firmware_rev >= 45)
+						{
+							SPI_Send(S_ALL_NEW,send_all,33); // add CRC
+						}
+						else	
+							SPI_Send(S_ALL,send_all,33);
 					}
 					else  // old version, do not have high speed counter					
 						SPI_Send(S_ALL,send_all,25);
 				}			
 				else if(spi_index == 1)
 				{	
-					if(Setting_Info.reg.pro_info.firmware_c8051 >= 33) // ARM board  8 switch_status + 11 (* 2) input_value + 6 (* 4) highspeedcouner + 4 (*2) AO feedback
+					if(Setting_Info.reg.pro_info.firmware_rev >= 33) // ARM board  8 switch_status + 11 (* 2) input_value + 6 (* 4) highspeedcouner + 4 (*2) AO feedback
 					{
 						SPI_Get(G_ALL,62); 
 					}
-					else if(Setting_Info.reg.pro_info.firmware_c8051 >= 30) // ARM board  8 switch_status + 11 (* 2) input_value + 6 (* 4) highspeedcouner
+					else if(Setting_Info.reg.pro_info.firmware_rev >= 30) // ARM board  8 switch_status + 11 (* 2) input_value + 6 (* 4) highspeedcouner
 					{
 						SPI_Get(G_ALL,54);
 					}
@@ -1201,7 +1282,7 @@ void SPI_Roution(void)
 			}
 			else
 			{	
-#if (ASIX_MINI || ASIX_CM5)		 // for very old hardware, top board is c8051		
+#if ASIX_MINI		 // for very old hardware, top board is c8051		
 				if(OLD_COMM == 1)
 				{
 					if(flag_get_chip_info == 0)
@@ -1276,8 +1357,8 @@ void SPI_Roution(void)
 						{
 							memcpy(send_all,CommLed,2);
 							memcpy(&send_all[2],OutputLed,24);
-#if (ASIX_MINI || ASIX_CM5)  // old communcation protocal, old top board
-							if(Setting_Info.reg.pro_info.firmware_c8051 <= 13)  // old top board
+#if ASIX_MINI  // old communcation protocal, old top board
+							if(Setting_Info.reg.pro_info.firmware_rev <= 13)  // old top board
 							{
 								char i;
 								for(i = 0;i < 32;i++)
@@ -1287,16 +1368,21 @@ void SPI_Roution(void)
 							memcpy(&send_all[26],InputLed,32);
 
 							
-							if(Setting_Info.reg.pro_info.firmware_c8051 >= 10)  // C8051, new protocal
+							if(Setting_Info.reg.pro_info.firmware_rev >= 10)  // C8051, new protocal
 							{	
 								if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))
 									memcpy(&send_all[58],&high_spd_flag[26],6);	 // HI_COMMON_CHANNEL 6
 								else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 									memcpy(&send_all[58],&high_spd_flag[10],6);	 // HI_COMMON_CHANNEL 6
-								SPI_Send(S_ALL,send_all,64);	
+								if(Setting_Info.reg.pro_info.firmware_rev >= 45)
+								{
+									SPI_Send(S_ALL_NEW,send_all,64); // add CRC
+								}
+								else
+									SPI_Send(S_ALL,send_all,64);	
 							}
-#if (ASIX_MINI || ASIX_CM5)  // old communcation protocal, old top board
-							else if(Setting_Info.reg.pro_info.firmware_c8051 == 9)  // C8051, old protocal
+#if ASIX_MINI  // old communcation protocal, old top board
+							else if(Setting_Info.reg.pro_info.firmware_rev == 9)  // C8051, old protocal
 							{
 								SPI_Send(S_ALL,send_all,58);
 							}
@@ -1307,19 +1393,23 @@ void SPI_Roution(void)
 						}
 						else 
 						{	
-#if (ASIX_MINI || ASIX_CM5)
-							if(Setting_Info.reg.pro_info.firmware_c8051 >= 10)
-							{	
-#endif
-								SPI_Get(G_ALL,112);  // 88 + 24
-#if (ASIX_MINI || ASIX_CM5) 								
-							}
+#if ASIX_MINI 														
  // old communcation protocal, old top board
-							else if(Setting_Info.reg.pro_info.firmware_c8051 == 9)
+							if(Setting_Info.reg.pro_info.firmware_rev == 9)
 							{
 								SPI_Get(G_ALL,88);						
 							}
+							else
 #endif
+							if(Setting_Info.reg.pro_info.firmware_rev >= 45)
+							{
+								SPI_Get(G_ALL_NEW,112); // add CRC
+							}
+							else
+							{
+								SPI_Get(G_ALL,112);  // 88 + 24
+							}
+
 							spi_index = 0;
 						}
 					}

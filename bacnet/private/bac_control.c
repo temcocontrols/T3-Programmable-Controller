@@ -9,7 +9,9 @@ void update_comport_health(void);
 
 Con_aux				far			con_aux[MAX_CONS];
 
-#define PID_SAMPLE_TIME 20
+#define PID_SAMPLE_COUNT 20
+#define PID_SAMPLE_TIME 10
+
 
 void pid_controller( S16_T p_number )   // 10s 
 {
@@ -145,7 +147,6 @@ void check_weekly_routines(void)
 	S32_T value;
 	Str_weekly_routine_point *pw;
 	Time_on_off *pt;
-	
 #if 1
 	pw = &weekly_routines[0];
 	for( i=0; i< MAX_WR; pw++, i++ )
@@ -266,7 +267,7 @@ void check_annual_routines( void )
 }
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 
 extern U8_T tst_retry[MAX_ID];
 
@@ -370,6 +371,7 @@ U8_T SendSchedualData(U8_T mode)
 			if(crc_check == subnet_response_buf[length - 2] * 256 + subnet_response_buf[length - 1])
 			{  
 				tst_retry[buf[0]] = 0;
+				scan_db_time_to_live[buf[0]] = 100;
 				retry = 0;
 			}
 			else
@@ -609,7 +611,7 @@ void check_graphic_element(void)
 //};
 
 
-
+void Ethernet_Debug_Task();
 U8_T count_10s = 0;
 U8_T count_reset_zigbee = 0;
 U16_T last_reset_zigbee;
@@ -621,6 +623,9 @@ U8_T current_day;
 //uint8_t flag_load_prg;
 //uint8_t count_load_prg;
 void Check_All_WR(void);
+u8 check_whehter_running_code(void);
+extern u8 flag_writing_code;
+extern u8 count_wring_code;
 void Bacnet_Control(void) reentrant
 {
 	U16_T i,j;
@@ -662,31 +667,125 @@ void Bacnet_Control(void) reentrant
 	for(i = 0;i < MAX_OUTS;i++)
 	{		
 		//output_priority[i][15] = swap_double(outputs[i].value / 1000);
-		//output_relinquish[i] = swap_double(outputs[i].value / 1000);
-		check_output_priority_array(i);
+#if 1// ASIX_MINI
+//		output_relinquish[i] = 0;//swap_double(outputs[i].value / 1000);
+#endif
+		check_output_priority_array(i,0);
+#if OUTPUT_DEATMASTER
+			clear_dead_master();
+#endif	
 	}
+// check reboot counter
+ 
+	E2prom_Read_Byte(EEP_REBOOT_COUNTER,&reboot_counter);
+	E2prom_Write_Byte(EEP_REBOOT_COUNTER,++reboot_counter);
+
+	if(reboot_counter > 5)
+	{
+		for( i = 0; i < MAX_PRGS; i++/*, ptr++*/ )
+		{
+			programs[i].on_off = 0;
+		}
+		E2prom_Write_Byte(EEP_REBOOT_COUNTER,0);
+	}
+	flag_writing_code = 1;
+	count_wring_code = 5;
 	Check_All_WR();
 	for(;;)
   {
-		//vTaskDelay(1000 / portTICK_RATE_MS);
-		vTaskDelayUntil( &xLastWakeTime, 500 );
-		
+		//vTaskDelay(500 / portTICK_RATE_MS);
+		vTaskDelayUntil( &xLastWakeTime,500 );
 		/* deal with exec_program roution per 1s */	
+#if ARM_TSTAT_WIFI
+		if(Modbus.mini_type == MINI_T10P)
+		{
+			inputs[HI_COMMON_CHANNEL + 2].range = 0;
+		}
+		else
+		{
+			inputs[COMMON_CHANNEL + 2].range = 0;
+		}
+#endif
 		control_input();
+#if ARM_TSTAT_WIFI
+		if(Check_sensor_exist(E_FLAG_HUM))
+		{
+			if(Modbus.mini_type == MINI_T10P)
+			{
+				inputs[HI_COMMON_CHANNEL + 2].range = 27;
+			}
+			else
+			{
+				inputs[COMMON_CHANNEL + 2].range = 27;
+			}
+		}
+		else
+		{
+			if(Modbus.mini_type == MINI_T10P)
+			{
+				inputs[HI_COMMON_CHANNEL + 2].range = 0;
+			}
+			else
+			{
+				inputs[COMMON_CHANNEL + 2].range = 0;
+			}
+		}
+#endif
 		current_task = 9;
 		task_test.count[9]++;
 
+	  #ifdef ETHERNET_DEBUG
+			Ethernet_Debug_Task();
+		#endif
+
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+	Check_spd_count_led();
+#endif
+		
+		if((run_time > 60) && (reboot_counter != 0))
+		{
+			reboot_counter = 0;
+			E2prom_Write_Byte(EEP_REBOOT_COUNTER,0);
+		}		
+		
 		//ptr = &programs[0];
+		if(check_whehter_running_code() == 1)
 		for( i = 0; i < MAX_PRGS; i++/*, ptr++*/ )
 		{
 			if( programs[i].bytes )
 			{
 				if(programs[i].on_off	== 1)  
-				{
+				{ 
+					u32 t1,t2;
+					// add checking running time of program			
+
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )					
+					t1 = uip_timer;
+#else
+					t1 = (U16_T)SWTIMER_Tick();	
+#endif
 					exec_program( i, prg_code[i]);
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )							
+					t2 = uip_timer;
+					programs[i].costtime = (t2 - t1) + 1;
+#else
+					t2 = (U16_T)SWTIMER_Tick();	
+					//programs[i].costtime = (t2 - t1) + 1;?????????????
+#endif
+					
+//					if(t2 - t1 > 200)	// avoid dead cycle	, turn off program once the program code is wrong	
+//					{				
+//						generate_program_alarm(2,i + 1);
+//						programs[i].on_off = 0;
+//					}
 				}
+				else
+					programs[i].costtime = 0;
 			}
-		} 
+			else
+					programs[i].costtime = 0;
+			
+		}
 
 		control_output();
 // check whether external IO are on line
@@ -711,16 +810,19 @@ void Bacnet_Control(void) reentrant
 			}
 		}			
 		count_10s++;  // 1s
-		if(count_10s >= PID_SAMPLE_TIME)
+		if(count_10s >= PID_SAMPLE_COUNT) // 500MS * PID_SAMPLE_COUNT == PID_SAMPLE_TIME 10S
 		{
 	   // dealwith controller roution per 1 sec	
 			for(i = 0;i < MAX_CONS; i++)
 			{					
 				pid_controller( i );
 			}
-			count_10s = 0;		 
+			count_10s = 0;
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+			Store_Pulse_Counter(0);
+			calculate_RPM();
+#endif			
 		}	 
-	 
 		// dealwith check_weekly_routines per 1 min
 
 		if(count_1min < 5) 	count_1min++;
@@ -730,7 +832,7 @@ void Bacnet_Control(void) reentrant
 			check_weekly_routines();
 			check_annual_routines();			
 		}
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)		
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)		
 		CheckIdRoutines();
 #endif
 	
@@ -828,12 +930,15 @@ void check_output_priority_HOA(U8_T i)
 {	
 	// check swtich status
 		if(outputs[i].switch_status == SW_OFF)
-		{		
+		{	
+#if OUTPUT_DEATMASTER
+			clear_dead_master();
+#endif						
 			if(outputs[i].digital_analog == 0)
 			{									
 				if(( outputs[i].range >= ON_OFF && outputs[i].range <= HIGH_LOW )
 				||(outputs[i].range >= custom_digital1 // customer digital unit
-				&& outputs[i].range <= custom_digital6
+				&& outputs[i].range <= custom_digital8
 				&& digi_units[outputs[i].range - custom_digital1].direct == 1))
 				{ // inverse
 					output_priority[i][6] = 1;	
@@ -886,11 +991,14 @@ void check_output_priority_HOA(U8_T i)
 		}
 		else if(outputs[i].switch_status == SW_HAND)
 		{
+#if OUTPUT_DEATMASTER
+			clear_dead_master();
+#endif			
 			if(outputs[i].digital_analog == 0)
 			{
 				if(( outputs[i].range >= ON_OFF && outputs[i].range <= HIGH_LOW )
 					||(outputs[i].range >= custom_digital1 // customer digital unit
-					&& outputs[i].range <= custom_digital6
+					&& outputs[i].range <= custom_digital8
 					&& digi_units[outputs[i].range - custom_digital1].direct == 1))
 				{// inverse
 					output_priority[i][6] = 0;	
@@ -917,6 +1025,7 @@ void check_output_priority_HOA(U8_T i)
 					set_output_raw(i,1000);
 				else 
 					set_output_raw(i,0);	
+			
 			}
 			else
 			{
@@ -947,20 +1056,28 @@ void check_output_priority_HOA(U8_T i)
 				else
 					outputs[i].value = swap_double(Analog_Output_Present_Value(i) * 1000);
 
-				Set_AO_raw(i,swap_double(outputs[i].value));
+				Set_AO_raw(i,swap_double(outputs[i].value));					
 			}
 		}
-		else // auto
-		{
+		else if(outputs[i].switch_status == SW_AUTO)// auto
+		{//Test[16]++;
 			output_priority[i][6] = 0xff;	
-		}		
+			check_output_priority_array(i,1);
+		}
+		else
+		{
+			// error status
+//			Test[30]++;
+		}
 
 }
 
 
 
 // CHECK A/M
-void check_output_priority_array(U8_T i)
+// HOA: 1 -> 改变HOA后调用level7值不变
+//			0 -> modbus或者bancent软件直接改变 leve7 值改变
+void check_output_priority_array(U8_T i,U8_T HOA)
 {	
 	if(i >= max_dos + max_aos)
 	{
@@ -979,7 +1096,7 @@ void check_output_priority_array(U8_T i)
 
 					if(( outputs[i].range >= ON_OFF && outputs[i].range <= HIGH_LOW )
 					||(outputs[i].range >= custom_digital1 // customer digital unit
-					&& outputs[i].range <= custom_digital6
+					&& outputs[i].range <= custom_digital8
 					&& digi_units[outputs[i].range - custom_digital1].direct == 1))
 					{// inverse
 						outputs[i].control = Binary_Output_Present_Value(i) ? 0 : 1;	
@@ -1002,20 +1119,45 @@ void check_output_priority_array(U8_T i)
 			}
 			else
 			{
-				if(i < max_dos)  //???????????????
+#if ASIX_MINI
+				if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
 				{
-					outputs[i].value = swap_double(Binary_Output_Present_Value(i) * 1000); 
-					set_output_raw(i,Binary_Output_Present_Value(i) * 1000);
+					max_dos = 6;
+					if(outputs[6].digital_analog == 0)
+						max_dos++;
+					if(outputs[7].digital_analog == 0)
+						max_dos++;	
 				}
-				else
+				if(Modbus.mini_type == MINI_TINY)
 				{
-	#if (ARM_MINI || ARM_CM5 || ARM_WIFI)  //???????????????????
-					if(i < max_aos + max_dos/*get_max_internal_output()*/)
-	#endif
+					max_dos = 4;
+					max_aos = 2;
+					if(outputs[4].digital_analog == 0)
+						max_dos++;
+					else
+						max_aos++;
+					if(outputs[5].digital_analog == 0)
+						max_dos++;	
+					else
+						max_aos++;
+				}
+#endif
+//				if(i < max_dos)  //???????????????
+//				{
+//					outputs[i].value = swap_double(Binary_Output_Present_Value(i) * 1000); 
+//					set_output_raw(i,Binary_Output_Present_Value(i) * 1000);
+//				}
+//				else
+				{
+					if(i < get_max_internal_output())
+					{	
+						outputs[i].value = swap_double(Analog_Output_Present_Value(i) * 1000);
+						// set output_raw
+						Set_AO_raw(i,swap_double(outputs[i].value));
+					}
+					else
 					{
-						outputs[i].value = swap_double(Analog_Output_Present_Value(i) * 1000);				 
-	//					// set output_raw
-						Set_AO_raw(i,Analog_Output_Present_Value(i) * 1000);
+						output_raw[i] = swap_double(outputs[i].value);
 					}
 
 				}	
@@ -1024,16 +1166,35 @@ void check_output_priority_array(U8_T i)
 		} // else manual
 		else
 		{		
+#if OUTPUT_DEATMASTER
+			clear_dead_master();
+#endif			
 			if(outputs[i].digital_analog == 0)
 			{	// digital
-				if(outputs[i].control == 1)
-					output_priority[i][7] = 1;
-				else
-					output_priority[i][7] = 0;
+				if(HOA == 0)
+				{
+					if(outputs[i].control == 1)
+						output_priority[i][7] = 1;
+					else
+						output_priority[i][7] = 0;
+				}
 				if(i < max_dos)
 					outputs[i].value = swap_double(Binary_Output_Present_Value(i) * 1000); 
 				else
 					outputs[i].value = swap_double(Analog_Output_Present_Value(i) * 1000);
+				
+				if(( outputs[i].range >= ON_OFF && outputs[i].range <= HIGH_LOW )
+					||(outputs[i].range >= custom_digital1 // customer digital unit
+					&& outputs[i].range <= custom_digital8
+					&& digi_units[outputs[i].range - custom_digital1].direct == 1))
+				{// inverse
+					outputs[i].control = Binary_Output_Present_Value(i) ? 0 : 1;	
+				}	
+				else
+				{
+					outputs[i].control = Binary_Output_Present_Value(i) ? 1 : 0;
+				}
+				
 				
 				if(outputs[i].control) 
 					set_output_raw(i,1000);
@@ -1042,17 +1203,19 @@ void check_output_priority_array(U8_T i)
 			}		
 			else
 			{  // analog
-				if(i < max_dos)
+//				if(i < max_dos)
+//				{
+//					if(HOA == 0)
+//						output_priority[i][7] = (float)swap_double(outputs[i].value) / 1000;
+//					outputs[i].value = swap_double(Binary_Output_Present_Value(i) * 1000); 
+//					set_output_raw(i,Binary_Output_Present_Value(i) * 1000);
+//				}
+//				else
 				{
-					output_priority[i][7] = (float)swap_double(outputs[i].value) / 1000;
-					outputs[i].value = swap_double(Binary_Output_Present_Value(i) * 1000); 
-					set_output_raw(i,Binary_Output_Present_Value(i) * 1000);
-				}
-				else
-				{
-					output_priority[i][7] = (float)swap_double(outputs[i].value) / 1000;
+					if(HOA == 0)
+						output_priority[i][7] = (float)swap_double(outputs[i].value) / 1000;
 					if(i < get_max_internal_output())
-					{
+					{	
 						outputs[i].value = swap_double(Analog_Output_Present_Value(i) * 1000);
 						// set output_raw
 						Set_AO_raw(i,swap_double(outputs[i].value));
@@ -1064,14 +1227,15 @@ void check_output_priority_array(U8_T i)
 				}					
 			}
 		}	
-	}		
+	}	
+	
 }
 
 
 // dont check A/M
-void check_output_priority_array_AM(U8_T i)
+void check_output_priority_array_without_AM(U8_T i)
 {	
-	Test[10]++;
+	
 	if(i >= max_dos + max_aos)
 	{
 		output_priority[i][7] = 0xff;	
@@ -1098,13 +1262,13 @@ void check_output_priority_array_AM(U8_T i)
 		{  // analog
 			if(i < max_dos)
 			{
-				output_priority[i][7] = (float)swap_double(outputs[i].value) / 1000;
+				//output_priority[i][7] = (float)swap_double(outputs[i].value) / 1000;
 				outputs[i].value = swap_double(Binary_Output_Present_Value(i) * 1000); 
 				set_output_raw(i,Binary_Output_Present_Value(i) * 1000);
 			}
 			else
 			{
-				output_priority[i][7] = (float)swap_double(outputs[i].value) / 1000;
+				//output_priority[i][7] = (float)swap_double(outputs[i].value) / 1000;
 				if(i < get_max_internal_output())
 				{
 					outputs[i].value = swap_double(Analog_Output_Present_Value(i) * 1000);
@@ -1119,10 +1283,12 @@ void check_output_priority_array_AM(U8_T i)
 			
 		}
 
-	}		
+	}	
+	
 }
 
 U8_T far output_pri_live[MAX_OUTS];
+
 
 void Check_Program_Output_Pri_valid(void)
 {
@@ -1140,6 +1306,37 @@ void Check_Program_Output_Pri_valid(void)
 	
 }
 
-	
+
+
+#if OUTPUT_DEATMASTER
+U32_T far count_dead_master = 0;	
+
+void clear_dead_master(void)
+{
+	count_dead_master = 0;	
+}
+
+
+void output_dead_master(void)
+{
+	U8_T i,j;
+	if(Modbus.dead_master != 0)  
+	{
+		if(count_dead_master++ > Modbus.dead_master  * 60)
+		{
+			// go to relinquish
+			count_dead_master = 0;
+			for(i = 0;i < MAX_OUTS;i++)
+			{
+				for(j = 0;j < 16;j++)
+					output_priority[i][j] = 0xff;
+				check_output_priority_array(i,0);
+			}
+		}
+			
+	}
+}
+
+#endif
 
 

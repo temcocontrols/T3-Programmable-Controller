@@ -903,7 +903,7 @@ void Display_IP(void)
 #if (ARM_CM5 || ASIX_CM5)
 	sprintf(text, "ALARM: ");
 	Lcd_Show_String(5, 0, text, NORMAL, 21,0x0000,0xffff); 
-	sprintf(text, "CM5 DEMO SHOW");
+	sprintf(text, "CM5 Controller");
 	Lcd_Show_String(6, 0, text, NORMAL, 21,0x0000,0xffff); 
 	sprintf(text, "www.temcocontrols.com");
 	Lcd_Show_String(7, 0, text, NORMAL, 21,0x0000,0xffff); 

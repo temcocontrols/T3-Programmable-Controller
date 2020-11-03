@@ -99,7 +99,7 @@
 
 #include "product.h"
 
-#if STORE_TO_SD
+#if (SD_BUS == SPI_BUS_TYPE)
 
 
 #include "ff.h"			/* FatFs configurations and declarations */
@@ -2109,7 +2109,7 @@ FRESULT chk_mounted (	/* FR_OK(0): successful, !=0: any error occurred */
 
 	/* The file system object is not valid. */
 	/* Following code attempts to mount the volume. (analyze BPB and initialize the fs object) */
-
+	
 	fs->fs_type = 0;					/* Clear the file system object */
 	fs->drv = LD2PD(vol);				/* Bind the logical drive and a physical drive */
 	stat = disk_initialize(fs->drv);	/* Initialize the physical drive */
@@ -2121,10 +2121,10 @@ FRESULT chk_mounted (	/* FR_OK(0): successful, !=0: any error occurred */
 	if (disk_ioctl(fs->drv, GET_SECTOR_SIZE, &fs->ssize) != RES_OK)
 		return FR_DISK_ERR;
 #endif
-
+		Test[30]++;
 	/* Search FAT partition on the drive. Supports only generic partitions, FDISK and SFD. */
 	fmt = check_fs(fs, bsect = 0);		/* Load sector 0 and check if it is an FAT-VBR (in SFD) */
-
+Test[31]++;
 	if (LD2PT(vol) && !fmt) fmt = 1;	/* Force non-SFD if the volume is forced partition */
 	if (fmt == 1) {						/* Not an FAT-VBR, the physical drive can be partitioned */
 		/* Check the partition listed in the partition table */
@@ -2136,15 +2136,15 @@ FRESULT chk_mounted (	/* FR_OK(0): successful, !=0: any error occurred */
 			fmt = check_fs(fs, bsect);		/* Check the partition */
 		}
 	}	
-	
+	Test[32] = fmt;
 	if (fmt == 3) return FR_DISK_ERR;
 	if (fmt) return FR_NO_FILESYSTEM;		/* No FAT volume is found */
-	
+	Test[33]++;
 	/* An FAT volume is found. Following code initializes the file system object */
 	
 	if (LD_WORD(fs->win+BPB_BytsPerSec) != SS(fs))		/* (BPB_BytsPerSec must be equal to the physical sector size) */
 		return FR_NO_FILESYSTEM;
-
+	Test[34]++;
 	fasize = LD_WORD(fs->win+BPB_FATSz16);				/* Number of sectors per FAT */
 	if (!fasize) fasize = LD_DWORD(fs->win+BPB_FATSz32);
 	fs->fsize = fasize;
@@ -2155,7 +2155,7 @@ FRESULT chk_mounted (	/* FR_OK(0): successful, !=0: any error occurred */
 	if (!b || (b & (b - 1))) return FR_NO_FILESYSTEM;	/* (Must be power of 2) */
 	fs->n_rootdir = LD_WORD(fs->win+BPB_RootEntCnt);	/* Number of root directory entries */
 	if (fs->n_rootdir % (SS(fs) / SZ_DIR)) return FR_NO_FILESYSTEM;	/* (BPB_RootEntCnt must be sector aligned) */
-
+	Test[35]++;
 	tsect = LD_WORD(fs->win+BPB_TotSec16);				/* Number of sectors on the volume */
 	if (!tsect) tsect = LD_DWORD(fs->win+BPB_TotSec32);
 	nrsv = LD_WORD(fs->win+BPB_RsvdSecCnt);				/* Number of reserved sectors */
@@ -2313,7 +2313,7 @@ FRESULT f_open (
 	DIR dj;
 	BYTE *dir;
 	DEF_NAMEBUF;
-
+	
 	if(!fp) return FR_INVALID_OBJECT;
 	fp->fs = 0;			/* Clear file object */
 #if !_FS_READONLY
@@ -2323,7 +2323,8 @@ FRESULT f_open (
 	mode &= FA_READ;
 	res = chk_mounted(&path, &dj.fs, 0);
 #endif
-	if (res == FR_OK) { 
+	Test[20] = res + 5;
+	if (res == FR_OK) {
 		INIT_BUF(dj);
 		res = follow_path(&dj, path);	/* Follow the file path */
 		dir = dj.dir;
@@ -2340,8 +2341,8 @@ FRESULT f_open (
 		/* Create or Open a file */
 		if (mode & (FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW)) {
 			DWORD dw, cl;
-
-			if (res != FR_OK) {					/* No file, create new */
+		Test[33]++;
+			if (res != FR_OK) {	Test[34]++;				/* No file, create new */
 				if (res == FR_NO_FILE)			/* There is no file to open, create a new entry */
 #if _FS_LOCK
 					res = enq_lock() ? dir_register(&dj) : FR_TOO_MANY_OPEN_FILES;
@@ -2381,8 +2382,8 @@ FRESULT f_open (
 
 			}
 		}
-		else {	/* Open an existing file */
-			if (res == FR_OK) {						/* Follow succeeded */
+		else {Test[34]++;	/* Open an existing file */
+			if (res == FR_OK) {	Test[35]++;					/* Follow succeeded */
 				if (dir[DIR_Attr] & AM_DIR) {		/* It is a directory */
 					res = FR_NO_FILE;
 				} else {
@@ -2391,8 +2392,8 @@ FRESULT f_open (
 				}
 
 			}
-		}
-		if (res == FR_OK) {
+		}Test[37]++;
+		if (res == FR_OK) {Test[38]++;
 			if (mode & FA_CREATE_ALWAYS)			/* Set file change flag if created or overwritten */
 				mode |= FA__WRITTEN;
 			fp->dir_sect = dj.fs->winsect;			/* Pointer to the directory entry */
@@ -2405,7 +2406,7 @@ FRESULT f_open (
 		}
 
 #else				/* R/O configuration */
-		if (res == FR_OK) {					/* Follow succeeded */
+		if (res == FR_OK) {	Test[39]++;				/* Follow succeeded */
 			dir = dj.dir;
 			if (!dir) {						/* Current dir itself */
 				res = FR_INVALID_NAME;
@@ -2418,7 +2419,7 @@ FRESULT f_open (
 
 		FREE_BUF();
 
-		if (res == FR_OK) {
+		if (res == FR_OK) {Test[29]++;
 			fp->flag = mode;					/* File access mode */
 			fp->sclust = ld_clust(dj.fs, dir);	/* File start cluster */
 			fp->fsize = LD_DWORD(dir+DIR_FileSize);	/* File size */

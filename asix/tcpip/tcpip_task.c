@@ -174,7 +174,6 @@ void TCP_IP_Init(void)
 {
 	/* Initialize Network adapter */
 	ETH_Init();
-	Test[14]++;
 	DHCP_Init();
 
 #if GCONFIG_EEPROM_CONFIG
@@ -278,7 +277,6 @@ void TCPIP_Task(void) reentrant
 	vSemaphoreCreateBinary(xSemaphore_tcp_send);
 	vSemaphoreCreateBinary(xSemaphore_udp_receive);
 	vSemaphoreCreateBinary(sembip);
-	Test[13]++;
   TCP_IP_Init();
 	firmware_update = FALSE;     
 

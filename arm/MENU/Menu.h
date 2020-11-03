@@ -8,7 +8,7 @@
 #include "menuMain.h"
 #include "menuSet.h"
 
-#define MENU_BLOCK_SECONDS_DEFAULT		60
+#define MENU_BLOCK_SECONDS_DEFAULT		15 //60  dufan ¸Ä15Ãë²»¶¯
 #define BACKLIGHT_KEEP_SECONDS_DEFAULT	30
 #define SWTIMER_COUNT_SECOND	 configTICK_RATE_HZ   
 

@@ -72,11 +72,45 @@ U8_T far rw_sd_buf[READ_SD_BUFFER_SIZE];
 extern u8 SD_Type;
 #endif
 
+void check_SD_PnP(void)
+{
+	if((Modbus.mini_type == MINI_BIG) ||(Modbus.mini_type == MINI_BIG_ARM)
+			|| (Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM) 
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)	
+			|| (Modbus.mini_type == MINI_TINY)
+			|| (Modbus.mini_type == MINI_NANO) 
+			)
+		{
+			if(SD_exist == 1) // check whehter SD exist
+			{
+#if (SD_BUS == SPI_BUS_TYPE)				
+#if ARM_MINI
+				if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
+				{
+					vTaskSuspend(xHandler_SPI);
+					SPI1_Init(1);
+				}
+#endif
+#endif
+				check_SD_exist();
+#if (SD_BUS == SPI_BUS_TYPE)
+#if ARM_MINI
+				if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
+				{
+					SPI1_Init(0);
+					vTaskResume(xHandler_SPI);
+				}
+#endif
+#endif
+			}
+		}
+}
+
+
 void check_SD_exist(void)
 {
 	U8_T ret;
 	U16_T loop = 20;
-	
 	SD_exist = 1;
 
 #if (ASIX_MINI || ASIX_CM5)	
@@ -88,7 +122,7 @@ void check_SD_exist(void)
 	ret = SD_Initialize();
 #endif	
 	
-	if(ret == 0)  // successfully
+	if(ret == 0 || ret == 42)  // successfully
 	{
 		if(SD_Type > 0)
 			SD_exist = 2;		
@@ -99,20 +133,10 @@ void check_SD_exist(void)
 #if ARM_UART_DEBUG
 	uart1_init(115200);
 	DEBUG_EN = 1;
-	printf(" sd type %u \r\n",SD_Type);
+	printf(" sd type %u mount %u\r\n",SD_Type,flag_f_mount);
 #endif
 	Test[41] = SD_exist;
-
-	memset(seg_in_time_txt,0,sizeof(TIME_SD) * 10);
 	index_in_time_txt = 0;
-	}
-	else
-	{
-#if ARM_UART_DEBUG
-	uart1_init(115200);
-	DEBUG_EN = 1;
-	printf(" sd type not exsit \r\n");
-#endif
 	}
 }
 
@@ -164,8 +188,12 @@ U8_T open_file(U16_T file_num,U8_T index)
 //	if(pre_open_file_index != cur_open_file_index)
 	{		
 		if(index < 24)
-		{			
+		{	
+#if (SD_BUS == SPI_BUS_TYPE)			
 			memcpy(filename, "0:/       .bin", 20);
+#else
+			memcpy(filename, "0:test.txt", 20);
+#endif
 			if(index / 2 + 1 >= 10)
 			{
 				filename[7] = (index / 2 + 1) / 10 + '0';
@@ -221,6 +249,7 @@ U8_T open_file(U16_T file_num,U8_T index)
 		}
 		
 		ret = f_open(&file[index],filename, FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+		
 		if(ret == FR_OK)
 			pre_open_file_index = index;
 		return ret;
@@ -247,16 +276,21 @@ U8_T Read_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 		return 1;
 	}		
 	if(flag_f_mount != FR_OK) {  return 0;}
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+
+#if (SD_BUS == SPI_BUS_TYPE)
+	
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 	if(cSemaphoreTake(sem_SPI, 200) == pdFALSE)
 	{
 		return 0;
 	}
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		vTaskSuspend(xHandler_SPI);
 		SPI1_Init(1);
 	}
+#endif
 #endif
 	
 #if (ASIX_MINI || ASIX_CM5)		
@@ -264,6 +298,8 @@ U8_T Read_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 			return 0;
 	vTaskSuspend(xHandler_SPI);
 	SD_HardWareInit();	
+#endif
+
 #endif
 	
 	if(ana_dig == 1)
@@ -330,21 +366,25 @@ U8_T Read_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 	{
 		result = 0;
 	}
+#if (SD_BUS == SPI_BUS_TYPE)
+	
 #if (ASIX_MINI || ASIX_CM5)		
 	SPI_Setup(SPI_SSO_ENB|SPI_MST_SEL|SPI_SS_AUTO|SPI_ENB, SPI_STCFIE, 10, SLAVE_SEL_1); // 25M
 	vTaskResume(xHandler_SPI);
 	cSemaphoreGive(sem_SPI);
 #endif	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		SPI1_Init(0);
 		vTaskResume(xHandler_SPI);
 	}
+#endif
 	cSemaphoreGive(sem_SPI);
 
 #endif
-	
+#endif	
 
 	
 	return result;
@@ -374,31 +414,32 @@ u8 Get_start_end_packet_by_time(u8 file_index,u32 start_time,u32 end_time, u32 *
 		return 0;
 	}
 	
-	
 	if(file_index >= 24 )  // 0-24
 		return 0;
 	
 	if(start_time > end_time) 
 		return 0;
-		
+	
 	if(SD_exist != 2)
 	{
 		return 1;
 	}		
 	
 
-	
 	if(flag_f_mount != FR_OK) return 0;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (SD_BUS == SPI_BUS_TYPE)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if(cSemaphoreTake(sem_SPI, 200) == pdFALSE)
 	{
 			return 0;
 	}
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		vTaskSuspend(xHandler_SPI);
 		SPI1_Init(1);
 	}
+#endif
 #endif
 	
 #if (ASIX_MINI || ASIX_CM5)		
@@ -407,7 +448,8 @@ u8 Get_start_end_packet_by_time(u8 file_index,u32 start_time,u32 end_time, u32 *
 	vTaskSuspend(xHandler_SPI);
 	SD_HardWareInit();	
 #endif
-
+#endif
+	
 	ret = open_file(0,file_index + 24);
 	*start_seg = 0;
 	*total_seg = 0;
@@ -429,22 +471,26 @@ u8 Get_start_end_packet_by_time(u8 file_index,u32 start_time,u32 end_time, u32 *
 		
 
 		if(i >= 8192) 
-		{			
+		{		
+#if (SD_BUS == SPI_BUS_TYPE)			
 #if (ASIX_MINI || ASIX_CM5)		
 	SPI_Setup(SPI_SSO_ENB|SPI_MST_SEL|SPI_SS_AUTO|SPI_ENB, SPI_STCFIE, 10, SLAVE_SEL_1); // 25M
 	vTaskResume(xHandler_SPI);
 	cSemaphoreGive(sem_SPI);
 #endif				
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		SPI1_Init(0);
 		vTaskResume(xHandler_SPI);
 	}
+#endif
 	cSemaphoreGive(sem_SPI);
 #endif
-			return;
+#endif
+			return 0;
 		}
 		for(;i >= 0;i--)
 		{
@@ -465,7 +511,7 @@ u8 Get_start_end_packet_by_time(u8 file_index,u32 start_time,u32 end_time, u32 *
 				else
 				{
 					// check start_time and end_time
-					for(j = 128;j >= 0;j--)
+					for(j = 127;j >= 0;j--)
 					{
 						if(i * 128 + j >= block_no - 1)
 						{
@@ -479,7 +525,7 @@ u8 Get_start_end_packet_by_time(u8 file_index,u32 start_time,u32 end_time, u32 *
 								*total_seg = 0;
 							}
 							else if(f_end == 1)  // do not find start time 
-							{		
+							{
 								*start_seg = 0;	
 								*total_seg  = end_seg + 1;
 								
@@ -509,7 +555,12 @@ u8 Get_start_end_packet_by_time(u8 file_index,u32 start_time,u32 end_time, u32 *
 						{
 							if((time < 1514736000) || (time > 1893427200))  //from 2018/1/1 to 2030/1/1
 							{// error
-								
+#if ARM_UART_DEBUG
+		uart1_init(115200);
+		DEBUG_EN = 1;
+		printf("find error time seg = %u %u, time = %u \r\n",i, j,time);
+#endif	
+				
 									if(i * 128 + j - 1 > 0)
 										*start_seg = i * 128 + j - 2;
 									*total_seg = 1;								
@@ -558,7 +609,7 @@ u8 Get_start_end_packet_by_time(u8 file_index,u32 start_time,u32 end_time, u32 *
 							}
 						}		
 						else
-						{//Test[22]++;
+						{
 //							j = -1;
 //							i = -1;  // end search
 //							k = 0;
@@ -582,7 +633,7 @@ u8 Get_start_end_packet_by_time(u8 file_index,u32 start_time,u32 end_time, u32 *
 	}
 	
 	
-
+#if (SD_BUS == SPI_BUS_TYPE)
 	
 #if (ASIX_MINI || ASIX_CM5)		
 	SPI_Setup(SPI_SSO_ENB|SPI_MST_SEL|SPI_SS_AUTO|SPI_ENB, SPI_STCFIE, 10, SLAVE_SEL_1); // 25M
@@ -590,17 +641,19 @@ u8 Get_start_end_packet_by_time(u8 file_index,u32 start_time,u32 end_time, u32 *
 	cSemaphoreGive(sem_SPI);
 #endif	
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		SPI1_Init(0);
 		vTaskResume(xHandler_SPI);
 	}
+#endif
 	cSemaphoreGive(sem_SPI);
 
 #endif
 
-	
+#endif	
 	return result;
 	
 }
@@ -615,23 +668,25 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 	uint8 ret;//, loop = 50;
 	uint8 result;	
 	uint8 file_index;  // range is  0 - 23
+	Test[10]++;
 	if(SD_exist != 2) 
 	{
 		return 1;
 	}
-
+#if (SD_BUS == SPI_BUS_TYPE)
 	// wait reading
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if ARM_MINI || ARM_CM5
 	if(cSemaphoreTake(sem_SPI, 100) == pdFALSE)
 	{
-//		Test[21]++;
 		return 0;
 	}
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		vTaskSuspend(xHandler_SPI);
 		SPI1_Init(1);
 	}
+#endif
 #endif
 	
 #if (ASIX_MINI || ASIX_CM5)	
@@ -642,6 +697,7 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 	
 #endif
 	
+#endif
 	if(ana_dig == 1)  // analog
 	{
 		file_index = index * 2;		
@@ -654,20 +710,20 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 	//if(star_pos == 0) // first packet, record start time
 	{
 		U32_T time;
-		ret = open_file(0,file_index + 24);
+		ret = open_file(0,file_index + 24);Test[11]++;
 		if(ret == FR_OK)
-		{
+		{Test[12]++;
 			time = get_current_time();//RTC_GetCounter();
 			// check time is valid or not
 			if((time > 1514736000) && (time < 1893427200))  //from 2018/1/1 to 2030/1/1
-			{
+			{Test[13]++;
 				ret = f_lseek(&file[file_index + 24] , (U32_T)SD_block_num[file_index] * 4);
 //				if(ana_dig == 1)
 //						memcpy(rw_sd_buf,&time,4);
 //				else
 				if(ret != FR_OK)
 				{
-					Test[24]++;
+					Test[14]++;
 				}
 				else
 				{
@@ -682,22 +738,20 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 						result = 1;
 					}
 				}
-#if 0//ARM_UART_DEBUG
+#if ARM_UART_DEBUG
 	uart1_init(115200);
 	DEBUG_EN = 1;
 	printf("index %u,store time %lu,block %u \r\n",file_index,time,SD_block_num[file_index]);
 #endif
 				
 			}	
-//			else
-//				Test[24]++;
+			else
+				Test[15]++;
 			
 			f_close(&file[file_index + 24]);	
 		}
 		else
-		{
-			Test[25]++;
-			Test[26] = ret;
+		{Test[16]++;
 			if(ret == 13)  // FILE SYSTEM is not correct
 			{
 				SD_exist = 3;
@@ -719,7 +773,7 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 		{
 			ret = f_lseek(&file[file_index] , star_pos);
 			if(ret != FR_OK)
-			{//Test[27]++;
+			{
 				ret = open_file(file_no,file_index);
 				count_sd_seek_error++;
 				
@@ -737,7 +791,7 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 						memcpy(rw_sd_buf,&write_mon_point_buf[index * 2], MAX_MON_POINT * sizeof(Str_mon_element));
 				else
 						memcpy(rw_sd_buf,&write_mon_point_buf[index * 2 + 1], MAX_MON_POINT * sizeof(Str_mon_element));
-//				Test[28]++;
+
 				ret = f_write(&file[file_index], &rw_sd_buf , MAX_MON_POINT * sizeof(Str_mon_element), &bw);
 				if(ret != FR_OK)
 				{			
@@ -761,12 +815,15 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 //			Test[29]++;
 //		}
 	}
+#if (SD_BUS == SPI_BUS_TYPE)
+	
 #if (ASIX_MINI || ASIX_CM5)	
 	SPI_Setup(SPI_SSO_ENB|SPI_MST_SEL|SPI_SS_AUTO|SPI_ENB, SPI_STCFIE, 10, SLAVE_SEL_1); // 25M
 	vTaskResume(xHandler_SPI);
 	cSemaphoreGive(sem_SPI);
 #endif
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		SPI1_Init(0);
@@ -775,8 +832,8 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 	cSemaphoreGive(sem_SPI);
 
 #endif
-	
-	
+
+#endif	
 	return result;
 }
 
@@ -842,16 +899,19 @@ U8_T Read_Picture_from_SD(U8_T fileindex,U16_T index)
 		return 1;
 	}		
 	if(flag_f_mount != FR_OK) { return 0;}
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (SD_BUS == SPI_BUS_TYPE)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if(cSemaphoreTake(sem_SPI, 200) == pdFALSE)
 	{
 		return 0;
 	}
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		vTaskSuspend(xHandler_SPI);
 		SPI1_Init(1);
 	}
+#endif
 #endif
 	
 #if (ASIX_MINI || ASIX_CM5)		
@@ -860,7 +920,7 @@ U8_T Read_Picture_from_SD(U8_T fileindex,U16_T index)
 	vTaskSuspend(xHandler_SPI);
 	SD_HardWareInit();	
 #endif
-	
+#endif	
 	
 	ret = open_file(0,48 + fileindex);	
 
@@ -894,20 +954,23 @@ U8_T Read_Picture_from_SD(U8_T fileindex,U16_T index)
 	{
 		result = 0;
 	}
-	
+#if (SD_BUS == SPI_BUS_TYPE)	
 #if (ASIX_MINI || ASIX_CM5)		
 	SPI_Setup(SPI_SSO_ENB|SPI_MST_SEL|SPI_SS_AUTO|SPI_ENB, SPI_STCFIE, 10, SLAVE_SEL_1); // 25M
 	vTaskResume(xHandler_SPI);
 	cSemaphoreGive(sem_SPI);
 #endif	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		SPI1_Init(0);
 		vTaskResume(xHandler_SPI);
 	}
+#endif
 	cSemaphoreGive(sem_SPI);
 
+#endif
 #endif
 	return result;	
 }
@@ -922,16 +985,19 @@ U8_T Write_Picture(U8_T fileindex,U8_T * buf,U16_T index)
 		return 1;
 	}		
 	if(flag_f_mount != FR_OK) { return 0;}
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (SD_BUS == SPI_BUS_TYPE)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if(cSemaphoreTake(sem_SPI, 200) == pdFALSE)
 	{
 		return 0;
 	}
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		vTaskSuspend(xHandler_SPI);
 		SPI1_Init(1);
 	}
+#endif
 #endif
 	
 #if (ASIX_MINI || ASIX_CM5)		
@@ -940,7 +1006,7 @@ U8_T Write_Picture(U8_T fileindex,U8_T * buf,U16_T index)
 	vTaskSuspend(xHandler_SPI);
 	SD_HardWareInit();	
 #endif
-	
+#endif	
 	ret = f_mount(0, &fs);
 	if(FR_OK == ret)
 	{
@@ -956,22 +1022,24 @@ U8_T Write_Picture(U8_T fileindex,U8_T * buf,U16_T index)
 	ret = f_write((FIL *)&file, buf , PIC_PACKET_LEN, &bw);
 
 	f_close((FIL *)&file);
-	
+#if (SD_BUS == SPI_BUS_TYPE)	
 #if (ASIX_MINI || ASIX_CM5)		
 	SPI_Setup(SPI_SSO_ENB|SPI_MST_SEL|SPI_SS_AUTO|SPI_ENB, SPI_STCFIE, 10, SLAVE_SEL_1); // 25M
 	vTaskResume(xHandler_SPI);
 	cSemaphoreGive(sem_SPI);
 #endif	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+#if ARM_MINI || ARM_CM5
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
 		SPI1_Init(0);
 		vTaskResume(xHandler_SPI);
 	}
+#endif
 	cSemaphoreGive(sem_SPI);
 
 #endif
-	
+#endif	
 	return 1;		
 }
 #endif

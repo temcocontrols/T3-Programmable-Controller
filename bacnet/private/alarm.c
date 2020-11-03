@@ -334,13 +334,18 @@ void generate_common_alarm(U8_T index)
 }
 
 
-void generate_program_alarm(U8_T prg)
+void generate_program_alarm(U8_T type,U8_T prg)
 {
 	S8_T far str[20];
 	memset(str,0,20);
 
 	//if(index == ALARM_PROGRAM)
-		sprintf(str, "PRG %d error",(U16_T)prg);
+	if(type == 0) // dead cycle
+		sprintf(str, "PRG %d error : dead cycle1",(U16_T)prg);
+	else if(type == 1) // dead cycle
+		sprintf(str, "PRG %d error : dead cycle2",(U16_T)prg);
+	else if(type == 2) // run long time
+		sprintf(str, "PRG %d error : takes long time",(U16_T)prg);
 //	else
 //		return;
 		
@@ -348,7 +353,7 @@ void generate_program_alarm(U8_T prg)
 		str[ALARM_MESSAGE_SIZE] = '\0';
 
 	 /*printAlarms=1*/
-	if ( generatealarm(str,255, Station_NUM, VIRTUAL_ALARM, alarm_at_all, ind_alarm_panel, alarm_panel, 0) > 0 )    /* new alarm message*/
+	if( generatealarm(str,255, Station_NUM, VIRTUAL_ALARM, alarm_at_all, ind_alarm_panel, alarm_panel, 0) > 0 )    /* new alarm message*/
 	{
 		alarm_flag = 1;
 	}

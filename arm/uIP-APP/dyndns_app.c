@@ -81,7 +81,8 @@ void dyndns_select_domain(U8_T provider)
 	else if(provider == 2)
 		ptr_ip = resolv_lookup("www.no-ip.com");
 	else if(provider == 3)
-		ptr_ip = resolv_lookup("newfirmware.com");
+	{	
+		ptr_ip = resolv_lookup("newfirmware.com");}
 	if(ptr_ip != NULL)
 	{
 	memcpy(&ip,ptr_ip,4);

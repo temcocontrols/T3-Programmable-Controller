@@ -37,7 +37,7 @@ STR_PIC_CMD far pic_wirte[STACK_PIC];
 
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 #define I2C_STOP_COND 0 // no used
 U8_T tmpdata[50];
 
@@ -157,7 +157,7 @@ U8_T check_write_to_pic(void)
 	}
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 	if(I2C_ByteWrite(pic_wirte[i].cmd, pic_wirte[i].value) == TRUE)
 	{
 		pic_wirte[i].flag = WRITE_PIC_OK; // without doing checksum
@@ -178,7 +178,8 @@ void PIC_initial_data(void)
 
 void PIC_refresh(void)
 {
-	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)||
+		(Modbus.mini_type == MINI_NANO))
 		return;
 	if((Modbus.mini_type == MINI_TINY) && (Modbus.hardRev >= STM_TINY_REV)) 
 	{  // TINY with ARM TOP, do not have PIC
@@ -186,7 +187,7 @@ void PIC_refresh(void)
 		return;
 	}
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 	// 
 	if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{  // NEW ARM'S LB, do not have PIC
@@ -207,9 +208,11 @@ void PIC_refresh(void)
 		return;
 
 	}
+	
+	if(Test[5] == 100) return;
 	check_write_to_pic();
 	if(pic_cmd_index == READ_NULL) return;
-	
+
 	if(pic_cmd_index == GET_VERSION)
 	{		
 		count_read_pic_Rev++;
@@ -218,7 +221,7 @@ void PIC_refresh(void)
 		if(I2C_RdmRead(0x60, GET_VERSION, &tmpdata,1,I2C_STOP_COND) == TRUE)
 #endif
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 		if(I2C_RdmRead(GET_VERSION, tmpdata,1) == TRUE)
 #endif
 		{		
@@ -226,7 +229,7 @@ void PIC_refresh(void)
 		Modbus.PicVer = tmpdata.I2cData[0];	
 #endif
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)			
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)			
 		Modbus.PicVer = tmpdata[0];		
 #endif
 		//Setting_Info.reg.pro_info.frimware_pic = Modbus.PicVer;
@@ -245,7 +248,7 @@ void PIC_refresh(void)
 	{
 		U8_T i;
 #if (ARM_MINI || ASIX_MINI)  // FOR OLD TINY
-		if(Setting_Info.reg.pro_info.firmware_c8051 < 30) // old top board
+		if(Setting_Info.reg.pro_info.firmware_rev < 30) // old top board
 		{
 			if(Modbus.mini_type == MINI_TINY)  //  tiny has 11 inputs
 			{
@@ -294,7 +297,7 @@ void PIC_refresh(void)
 #endif 
 			
 	}
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)  // only for T3_BB_ARM
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)  // only for T3_BB_ARM
 	else if(pic_cmd_index == READ_AO1_FEEDBACK)
 	{
 		U8_T i;
@@ -319,7 +322,12 @@ void PIC_refresh(void)
 		if(Modbus.mini_type == MINI_TINY)  // old tiny, multi-read input
 			pic_cmd_index = READ_AO_FEEDBACK;
 		else  if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))  // new t3_bb_arm, read feedback one by one
+		{
+			if(flag_output == 1)  
 				pic_cmd_index = READ_AO1_FEEDBACK;
+			else
+				pic_cmd_index = READ_NULL;//READ_AO1_FEEDBACK;
+		}
 		else 
 			pic_cmd_index = READ_NULL;
 		
@@ -336,7 +344,7 @@ void PIC_refresh(void)
 //	if(I2C_RdmRead(0x60, READ_AO_FEEDBACK, &tmpdata,24,I2C_STOP_COND) == TRUE)
 //#endif
 //	
-//#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+//#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 //	if(I2C_RdmRead(READ_AO_FEEDBACK, tmpdata,24) == TRUE)
 //#endif
 //	{
@@ -350,7 +358,7 @@ void PIC_refresh(void)
 //				input_raw[i] = Filter(i,(U16_T)(tmpdata.I2cData[i * 2] << 8) + tmpdata.I2cData[i * 2 + 1]);
 //#endif
 //				
-//#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+//#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 //				input_raw[i] = Filter(i,(U16_T)(tmpdata[i * 2] << 8) + tmpdata[i * 2 + 1]);
 //#endif
 //			}
@@ -360,7 +368,7 @@ void PIC_refresh(void)
 //				input_raw[i] = Filter(i,(U16_T)(tmpdata.I2cData[i * 2] << 8) + tmpdata.I2cData[i * 2 + 1]);	
 //#endif
 //				
-//#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+//#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 //				input_raw[i] = Filter(i,(U16_T)(tmpdata[i * 2] << 8) + tmpdata[i * 2 + 1]);
 //#endif
 //				
@@ -380,7 +388,7 @@ void PIC_refresh(void)
 //				}
 //#endif
 //		
-//#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+//#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 //				// NEW ARM DO NOT HAVE PIC chip
 ////				if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 ////				{ // SMALL hardware maybe need fix a little bit	

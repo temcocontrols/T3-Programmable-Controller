@@ -191,11 +191,15 @@ unsigned int Filter(unsigned char channel,unsigned int input)
   signed int xdata siTemp;
 	signed long xdata slTemp;
   unsigned char xdata I;
-
+	
+#if (ARM_MINI || ARM_CM5)
 	if((inputs[channel].range != N0_2_32counts) && 
-		(inputs[channel].range != HI_spd_count))
+		(inputs[channel].range != HI_spd_count) 
+		&& (inputs[channel].range != RPM)
+	)
 	{ // if range is SPD_COUNTER,must sample value faster.
-		if(Setting_Info.reg.pro_info.firmware_c8051 <= 40)
+		// new tiny dont need it, the source value is average value.
+		if(Setting_Info.reg.pro_info.firmware_rev <= 40)
 		{
 			 // top does not have filter in rev40 and lower rev, need add it
 			if(input > 1023)  // invalid value
@@ -229,7 +233,7 @@ unsigned int Filter(unsigned char channel,unsigned int input)
 			}			
 		}
 	}
-
+#endif
 	I = channel;     	
 	siTemp = input;
 	

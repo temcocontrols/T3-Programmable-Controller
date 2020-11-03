@@ -16,9 +16,9 @@ u8 SD_Type = 0;	//SD卡的类型
 u8 SD_SPI_ReadWriteByte(u8 dat)
 {
 	if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM) 
-		|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)) // PB3 PB4 PB5	
+		|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO)) // PB3 PB4 PB5	
 		return SPI3_ReadWriteByte(dat);
-	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
+	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM) || (Modbus.mini_type == MINI_TSTAT10)|| (Modbus.mini_type == MINI_T10P))
 		return SPI1_ReadWriteByte(dat);
 }
 
@@ -26,9 +26,9 @@ u8 SD_SPI_ReadWriteByte(u8 dat)
 void SD_SPI_SpeedLow(void)
 {
 	if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM) 
-		|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)) // PB3 PB4 PB5	
+		|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO)) // PB3 PB4 PB5	
 		SPI3_SetSpeed(SPI_BaudRatePrescaler_256);//设置到低速模式	
-	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
+	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM) || (Modbus.mini_type == MINI_TSTAT10) || (Modbus.mini_type == MINI_T10P))
 		SPI1_SetSpeed(SPI_BaudRatePrescaler_256);//设置到低速模式
 }
 
@@ -36,9 +36,9 @@ void SD_SPI_SpeedLow(void)
 void SD_SPI_SpeedHigh(void)
 {
 	if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM) 
-		|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)) // PB3 PB4 PB5	
+		|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO)) // PB3 PB4 PB5	
 		SPI3_SetSpeed(SPI_BaudRatePrescaler_16);//设置到高速模式	
-	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
+	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM) || (Modbus.mini_type == MINI_TSTAT10) || (Modbus.mini_type == MINI_T10P))
 		SPI1_SetSpeed(SPI_BaudRatePrescaler_16);//设置到高速模式	
 }
 
@@ -65,14 +65,12 @@ void SD_DisSelect(void)
 {
 	if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM)) // PB3 PB4 PB5	
 		SD_CS_BIG = 1;
-	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO))
 		SD_CS_NEW_TINY = 1;
 	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
-	{
 		SD_CS_SMALL = 1;
-	//	TOP_CS = 0;
-	}
-	
+	else if((Modbus.mini_type == MINI_TSTAT10) || (Modbus.mini_type == MINI_T10P))
+		SD_CS_TSTAT10 = 1;
 
  	SD_SPI_ReadWriteByte(0xff);//提供额外的8个时钟
 }
@@ -83,13 +81,12 @@ u8 SD_Select(void)
 {
 	if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM)) // PB3 PB4 PB5	
 		SD_CS_BIG = 0;
-	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO))
 		SD_CS_NEW_TINY = 0;
 	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
-	{
 		SD_CS_SMALL = 0;	
-//		TOP_CS = 1;
-	}
+	else if((Modbus.mini_type == MINI_TSTAT10) || (Modbus.mini_type == MINI_T10P))
+		SD_CS_TSTAT10 = 0;
 //#if ARM_UART_DEBUG
 //	uart1_init(115200);
 //	DEBUG_EN = 1;
@@ -116,7 +113,9 @@ u8 SD_WaitReady(void)
 		if(SD_SPI_ReadWriteByte(0XFF) == 0XFF)
 			return 0;//OK
 		t++;	
-	}while(t < 0XFFFF/*FF*/);//等待 
+		//add watchdog
+		IWDG_ReloadCounter(); 
+	}while(t < 0X1FFF/*FF*/);//等待 
 	return 1;
 }
 
@@ -286,11 +285,10 @@ u8 SD_Initialize(void)
 	u16 retry;  // 用来进行超时计数
 	u8 buf[4];  
 	u16 i;
-
 	if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM) 
-		|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)) // PB3 PB4 PB5	
+		|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO)) // PB3 PB4 PB5	
 		SPI3_Init();
-	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
+	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM) || (Modbus.mini_type == MINI_TSTAT10) || (Modbus.mini_type == MINI_T10P))
 	{
 		SPI1_Init(1);
 	}
@@ -339,7 +337,7 @@ u8 SD_Initialize(void)
 			}
 		}
 		else//SD V1.x/ MMC	V3
-		{
+		{Test[16]++;
 			SD_SendCmd(CMD55, 0, 0X01);		//发送CMD55
 			r1 = SD_SendCmd(CMD41, 0, 0X01);//发送CMD41
 			if(r1 <= 1)

@@ -2,7 +2,7 @@
 
 #include "types.h"
 
-#define MAX_MENU_NUM 20
+#define MAX_MENU_NUM 3
 
 
 typedef struct

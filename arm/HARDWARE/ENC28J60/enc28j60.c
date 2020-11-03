@@ -2,11 +2,13 @@
 #include "spi.h"
 #include "delay.h"
 #include "timerx.h"
-#include "enc28j60.h"	  
+#include "enc28j60.h"	 
+#include "product.h"
 
 static u8 ENC28J60BANK;
 static u32 NextPacketPtr;
 
+void tcpip_intial(void);
 //复位ENC28J60
 //包括SPI初始化/IO初始化等
 void ENC28J60_Reset(void)
@@ -113,14 +115,14 @@ u8 ENC28J60_Read_Op(u8 op, u8 addr)
 //op：操作码
 //addr:寄存器地址
 //data:参数
-void ENC28J60_Write_Op(u8 op, u8 addr, u8 data)
+void ENC28J60_Write_Op(u8 op, u8 addr, u8 _data)
 {
 	u8 dat = 0;	    
 	//ENC28J60_CS = 0;
 	GPIO_ResetBits(GPIOB, GPIO_Pin_12);
 	dat = op | (addr & ADDR_MASK);
 	SPI2_ReadWriteByte(dat);	  
-	SPI2_ReadWriteByte(data);
+	SPI2_ReadWriteByte(_data);
 	//ENC28J60_CS = 1;
 	GPIO_SetBits(GPIOB, GPIO_Pin_12);
 }
@@ -128,7 +130,7 @@ void ENC28J60_Write_Op(u8 op, u8 addr, u8 data)
 //读取ENC28J60接收缓存数据
 //len:要读取的数据长度
 //data:输出数据缓存区(末尾自动添加结束符)
-void ENC28J60_Read_Buf(u32 len, u8* data)
+void ENC28J60_Read_Buf(u32 len, u8* _data)
 {
 	//ENC28J60_CS = 0;
 	GPIO_ResetBits(GPIOB, GPIO_Pin_12);
@@ -136,10 +138,10 @@ void ENC28J60_Read_Buf(u32 len, u8* data)
 	while(len)
 	{
 		len--;			  
-		*data = (u8)SPI2_ReadWriteByte(0);
-		data++;
+		*_data = (u8)SPI2_ReadWriteByte(0);
+		_data++;
 	}
-	*data = '\0';
+	*_data = '\0';
 	//ENC28J60_CS = 1;
 	GPIO_SetBits(GPIOB, GPIO_Pin_12);
 }
@@ -148,26 +150,16 @@ void ENC28J60_Read_Buf(u32 len, u8* data)
 //len:要写入的数据长度
 //data:数据缓存区 
 extern u16 Test[50];
-void ENC28J60_Write_Buf(u32 len, u8* data)
+void ENC28J60_Write_Buf(u32 len, u8* _data)
 {
 	//ENC28J60_CS = 0;
     GPIO_ResetBits(GPIOB, GPIO_Pin_12);	
 	SPI2_ReadWriteByte(ENC28J60_WRITE_BUF_MEM);		 
-//	if(data[52] == 0x10 && data[53] == 0x08 )
-//	{
-//	Test[16] = len;
-//	Test[17]++;
-//	}
-//	if(data[52] == 0x10 && data[53] == 0x00 )
-//	{
-//	Test[18] = len;
-//	Test[19]++;
-//	}
 	while(len)
 	{
 		len--;
-		SPI2_ReadWriteByte(*data);
-		data++;
+		SPI2_ReadWriteByte(*_data);
+		_data++;
 	}
 	//ENC28J60_CS = 1;
 	GPIO_SetBits(GPIOB, GPIO_Pin_12);
@@ -197,21 +189,21 @@ u8 ENC28J60_Read(u8 addr)
 //向ENC28J60指定寄存器写数据
 //addr:寄存器地址
 //data:要写入的数据		 
-void ENC28J60_Write(u8 addr, u8 data)
+void ENC28J60_Write(u8 addr, u8 _data)
 {					  
 	ENC28J60_Set_Bank(addr);		 
-	ENC28J60_Write_Op(ENC28J60_WRITE_CTRL_REG, addr, data);
+	ENC28J60_Write_Op(ENC28J60_WRITE_CTRL_REG, addr, _data);
 }
 
 //向ENC28J60的PHY寄存器写入数据
 //addr:寄存器地址
 //data:要写入的数据		 
-void ENC28J60_PHY_Write(u8 addr, u32 data)
+void ENC28J60_PHY_Write(u8 addr, u32 _data)
 {
 	u16 retry = 0;
 	ENC28J60_Write(MIREGADR, addr);		//设置PHY寄存器地址
-	ENC28J60_Write(MIWRL, data);		//写入数据
-	ENC28J60_Write(MIWRH, data >> 8);		   
+	ENC28J60_Write(MIWRL, _data);		//写入数据
+	ENC28J60_Write(MIWRH, _data >> 8);		   
 	while((ENC28J60_Read(MISTAT) & MISTAT_BUSY) && (retry < 0XFFF))
 		retry++;						//等待写入PHY结束		  
 }
@@ -439,6 +431,7 @@ u8 ENC28J60_Get_EREVID(void)
 	return ENC28J60_Read(EREVID);
 }
 
+
 //#include "uip.h"
 //通过ENC28J60发送数据包到网络
 //len:数据包大小
@@ -460,10 +453,18 @@ void ENC28J60_Packet_Send(u32 len, u8* packet)
 	ENC28J60_Write_Op(ENC28J60_BIT_FIELD_SET, ECON1, ECON1_TXRTS);
 	//复位发送逻辑的问题。参见Rev. B4 Silicon Errata point 12.
 	if((ENC28J60_Read(EIR) & EIR_TXERIF))
+	{
 		ENC28J60_Write_Op(ENC28J60_BIT_FIELD_CLR, ECON1, ECON1_TXRTS);
-
+		// added by chelsea
+	  // hardware error		
+		Test[18]++;
+#if (ARM_MINI || ARM_CM5)
+		tcpip_intial();
+#endif
+	}
 	// 改全双工 -> 半双工
 	
+
 //	if((ENC28J60_Read(EIR)&EIR_TXERIF))
 //		ENC28J60_Write_Op(ENC28J60_BIT_FIELD_CLR,ECON1,ECON1_TXRST); 
 }
@@ -476,10 +477,8 @@ u32 ENC28J60_Packet_Receive(u32 maxlen, u8* packet)
 {
 	u32 rxstat;
 	u32 len;
-	
 	if(ENC28J60_Read(EPKTCNT) == 0)
 		return 0;  //是否收到数据包?	
-	
 	//设置接收缓冲器读指针
 	ENC28J60_Write(ERDPTL, (NextPacketPtr));
 	ENC28J60_Write(ERDPTH, (NextPacketPtr) >> 8);	   
@@ -495,15 +494,29 @@ u32 ENC28J60_Packet_Receive(u32 maxlen, u8* packet)
 	rxstat |= ENC28J60_Read_Op(ENC28J60_READ_BUF_MEM, 0) << 8;
 	//限制接收长度	
 	if (len > maxlen - 1)
+	{Test[16]++;
+		// hardware error		
+	#if (ARM_MINI || ARM_CM5)
+		tcpip_intial();
+	#endif
 		len = maxlen - 1;
-	
+		return 0;
+	}
 	//检查CRC和符号错误
 	// ERXFCON.CRCEN为默认设置,一般我们不需要检查.
 	if((rxstat & 0x80) == 0)
+	{Test[17]++;
+		// hardware error		
+		#if (ARM_MINI || ARM_CM5)
+		tcpip_intial();
+		#endif
 		len = 0;	//无效
+		return 0;
+	}
 	else
+	{
 		ENC28J60_Read_Buf(len, packet);//从接收缓冲器中复制数据包	    
-	
+	}
 	//RX读指针移动到下一个接收到的数据包的开始位置 
 	//并释放我们刚才读出过的内存
 	ENC28J60_Write(ERXRDPTL, (NextPacketPtr));

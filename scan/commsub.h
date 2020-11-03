@@ -7,7 +7,7 @@
 
 #define SUB_NO  254
 
-
+// ¿©’πIO”≥…‰
 typedef struct
 {
   U8_T sub_index;
@@ -271,7 +271,7 @@ void Com_Tstat(U8_T  cmd,U8_T addr,U8_T port);
 void internal_sub_deal(U8_T cmd_index,U8_T tst_addr_index,U8_T *sub_net_buf);
 void vStartCommSubTasks( U8_T uxPriority);
 void Comm_Tstat_task(void);
-void remap_table(U8_T index,U8_T type,U8_T port);
+void remap_table(U8_T index,U8_T type);
 void update_remote_map_table(U8_T id,U16_T reg,U16_T value,U8_T *buf);
 U16_T count_output_reg(U8_T * sub_index,U8_T map_type,U8_T point);
 U8_T get_index_from_id(U8_T id,U8_T *index);

@@ -117,6 +117,7 @@ extern u32	timestart;
 #endif
 extern uint32_t run_time;
 
+
 void scan_led(void);
 extern uint16_t far Test[50];
 void TIM6_IRQHandler(void)//1ms
@@ -146,11 +147,16 @@ void TIM6_IRQHandler(void)//1ms
 
 	if(count_1s < 1000 / SWTIMER_INTERVAL)
 	{
+#if ARM_MINI
+		handler_cov_timer_seconds(1);
+#endif
 		count_1s++;
 	}
 	else	
 	{
 		run_time++;
+
+
 #if 0
 	  timestart++;
 #endif

@@ -30,7 +30,7 @@ struct __FILE
 FILE __stdout;
        
 //定义_sys_exit()以避免使用半主机模式    
-_sys_exit(int x) 
+void _sys_exit(int x) 
 { 
 	x = x; 
 }
@@ -110,7 +110,7 @@ void uart1_init(u32 bound)
 //	GPIO_SetBits(GPIOC, GPIO_Pin_2);
 #endif
 
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI
 	//RS485_TXEN	PA.8
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;				//PA.8
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;		//普通推挽输出
@@ -126,14 +126,14 @@ void uart1_init(u32 bound)
 	
 	//Usart1 NVIC 配置
   NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 3;	//抢占优先级3
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;			//子优先级3
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;	//抢占优先级3
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;			//子优先级3
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;				//IRQ通道使能
 	NVIC_Init(&NVIC_InitStructure);								//根据指定的参数初始化VIC寄存器
   
 	//USART 初始化设置
 	USART_InitStructure.USART_BaudRate = bound;					//波特率设置
-	USART_InitStructure.USART_StopBits = USART_StopBits_1;		//一个停止位
+//	USART_InitStructure.USART_StopBits = USART_StopBits_1;		//一个停止位
 	
 	if(Modbus.uart_parity[0] == 2)
 	{
@@ -150,6 +150,29 @@ void uart1_init(u32 bound)
 		USART_InitStructure.USART_Parity = USART_Parity_No;			//无奇偶校验位	
 		USART_InitStructure.USART_WordLength = USART_WordLength_8b;	//字长为8位数据格式
 	}
+	// stop bit
+//	USART_StopBits_1        0             
+// 	USART_StopBits_0_5      1          
+// 	USART_StopBits_2        2           
+// 	USART_StopBits_1_5  		3
+	if(Modbus.uart_stopbit[0] == 1)
+	{
+		USART_InitStructure.USART_StopBits = USART_StopBits_0_5;		
+	}
+	else if(Modbus.uart_stopbit[0] == 2)
+	{
+		USART_InitStructure.USART_StopBits = USART_StopBits_2;		
+	}
+	else if(Modbus.uart_stopbit[0] == 3)
+	{
+		USART_InitStructure.USART_StopBits = USART_StopBits_1_5;		
+	}
+	else
+	{
+		USART_InitStructure.USART_StopBits = USART_StopBits_1;		
+	}
+	
+	
 	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;	//无硬件数据流控制
 	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;					//收发模式
 	USART_Init(USART1, &USART_InitStructure); 					//初始化串口
@@ -196,7 +219,7 @@ void uart3_init(u32 bound)
 	//USART 初始化设置
 	USART_InitStructure.USART_BaudRate = bound;					//波特率设置
 	USART_InitStructure.USART_WordLength = USART_WordLength_8b;	//字长为8位数据格式
-	USART_InitStructure.USART_StopBits = USART_StopBits_1;		//一个停止位
+//	USART_InitStructure.USART_StopBits = USART_StopBits_1;		//一个停止位
 
 	if(Modbus.uart_parity[2] == 2)
 	{
@@ -212,6 +235,27 @@ void uart3_init(u32 bound)
 	{
 		USART_InitStructure.USART_Parity = USART_Parity_No;			//无奇偶校验位	
 		USART_InitStructure.USART_WordLength = USART_WordLength_8b;	//字长为8位数据格式
+	}
+	// stop bit
+//	USART_StopBits_1        0             
+// 	USART_StopBits_0_5      1          
+// 	USART_StopBits_2        2           
+// 	USART_StopBits_1_5  		3
+	if(Modbus.uart_stopbit[2] == 1)
+	{
+		USART_InitStructure.USART_StopBits = USART_StopBits_0_5;		
+	}
+	else if(Modbus.uart_stopbit[2] == 2)
+	{
+		USART_InitStructure.USART_StopBits = USART_StopBits_2;		
+	}
+	else if(Modbus.uart_stopbit[2] == 3)
+	{
+		USART_InitStructure.USART_StopBits = USART_StopBits_1_5;		
+	}
+	else
+	{
+		USART_InitStructure.USART_StopBits = USART_StopBits_1;		
 	}
 	
 	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;	//无硬件数据流控制
@@ -255,8 +299,8 @@ void uart2_init(u32 bound)
 	
 	//Usart2 NVIC 配置
   NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 3;	//抢占优先级3
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;			//子优先级3
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;	//抢占优先级3
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 3;			//子优先级3
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;				//IRQ通道使能
 	NVIC_Init(&NVIC_InitStructure);								//根据指定的参数初始化VIC寄存器
   

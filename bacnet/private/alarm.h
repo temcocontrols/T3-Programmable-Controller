@@ -60,7 +60,7 @@ void check_input_alarm(void);
 //void generate_read_AO_FeedBack(void);
 
 void generate_common_alarm(U8_T index);
-void generate_program_alarm(U8_T prg);
+void generate_program_alarm(U8_T type,U8_T prg);
 
 
 #endif

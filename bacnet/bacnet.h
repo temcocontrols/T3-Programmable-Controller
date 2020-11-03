@@ -12,6 +12,7 @@
 //#define BAC_GSM 2
 
 #define BAC_BVLC 3
+#define BAC_IP_CLIENT2 4
 
 
 
@@ -58,7 +59,7 @@
 //#define MAX_APDU 480
 //#endif
 
-//#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+//#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 #define MAX_APDU 600
 //#else
 //#define MAX_APDU 1476
@@ -235,7 +236,7 @@ void uart_send_string(U8_T *p, U16_T length,U8_T port);
 void UART_Init(U8_T port);
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 #include "bitmap.h"
  
 #define BAC_CALENDAR 1
@@ -243,6 +244,8 @@ void UART_Init(U8_T port);
 #define BAC_TRENDLOG 0
 
 #define BAC_PROPRIETARY 1
+
+#define BAC_MSV 1
 
 #define BIP   // TSTAT dont have it
 
@@ -323,7 +326,7 @@ void Count_VAR_Object_Number(void);
 //}BACNET_type;
 typedef enum
 {
- AV,AI,AO,BI,BO,SCHEDULE,CALENDAR,TRENDLOG,TRENDLOG_MUL,BV,TEMCOAV,
+ AV,AI,AO,BI,BO,SCHEDULE,CALENDAR,TRENDLOG,TRENDLOG_MUL,BV,TEMCOAV,MSV,
 }BACNET_type;
 
 #if BAC_PRIVATE
@@ -373,14 +376,17 @@ uint8_t Send_Mstp(uint8_t flag,uint8_t *type);
 #define BACNET_VENDOR_NETIX 	"NETIX Controls"
 #define BACNET_VENDOR_JET			"JetControls"
 #define BACNET_VENDOR_TEMCO	 	"TemcoControls"
+#define BACNET_VENDOR_NEWRON	"Newron Solutions"		
 
 #define BACNET_PRODUCT_NETIX 	"NCCB"
 #define BACNET_PRODUCT_JET		"Jet Product"
 #define BACNET_PRODUCT_TEMCO	"Temco Product"
+#define BACNET_PRODUCT_NEWRON	"NewroNode"		
 		
 #define BACNET_VENDOR_ID_NETIX 1007
 #define BACNET_VENDOR_ID_JET 997
 #define BACNET_VENDOR_ID_TEMCO 148
+#define BACNET_VENDOR_ID_NEWRON	1206
 	
 extern char* bacnet_vendor_name;
 extern char* bacnet_vendor_product;
@@ -392,6 +398,7 @@ extern uint8_t  BIS;
 extern uint8_t  BOS;
 extern uint8_t  BVS;
 extern uint8_t  TemcoVars;
+extern uint8_t  MSVS;
 
 extern uint8_t AI_Index_To_Instance[MAX_AIS];
 extern uint8_t BI_Index_To_Instance[MAX_AIS];

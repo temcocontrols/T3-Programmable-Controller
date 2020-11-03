@@ -11,11 +11,96 @@
 #include "tcpip.h"
 #include "main.h"
 #include "datetime.h"
+#include "wifi.h"
 
 #define DEFAULT_FILTER 5
 
 extern U8_T far SD_exist;
 
+#if (ARM_MINI || ARM_CM5 )
+extern uint8_t flag_start_scan_network;
+extern uint8_t start_scan_network_count;
+extern uint16_t scan_network_bacnet_count;
+#endif
+
+#if ARM_TSTAT_WIFI
+#define TSTAT_SETPOINT          0
+#define TSTAT_FANSOEED          1
+#define TSTAT_SYSTEM_MODE       2
+//#define TSTAT_BAUDRATE          3
+//#define TSTAT_STATION_NUM       4
+//#define TSTAT_PROTOCOL_SEL      5
+//#define TSTAT_INSTANCE_NUM      6
+//#define TSTAT_SCHEDULE_ENABLE   7
+//#define TSTAT_PID1_DAY_SP       8
+//#define TSTAT_PID1_NIGHT_SP     9
+//#define TSTAT_FAN_MODE          10
+//#define TSTAT_FIRMWARE_VER      11
+//#define TSTAT_COOL_HEAT_MODE    12
+//#define TSTAT_TEMPERATURE_UNIT  13
+//#define TSTAT_SYS_MODE          14
+//#define TSTAT_NOT_USED          15
+//#define TSTAT_OVERRIDE_TIMER    16
+//#define TSTAT_PID2_DAY_SP       17
+//#define TSTAT_PID2_NIGHT_SP     18
+//#define TSTAT_OUTPUT_MANUAL_EN  19
+//#define TSTAT_OVERTIME_LEFT     20
+//#define TSTAT_COLOR_WARNNING    21
+
+void initial_tstat10_range(void);
+
+#define TSTAT10_FIXED_AV  3//23
+const uint8 Var_Description[TSTAT10_FIXED_AV][21] = {
+	"setpoint",
+    "fan speed",
+    "system mode"
+	//"baudrate select     ",   	//0
+	//"station number      ",   	//1
+	//"modbus/bacnet switch",//2
+	//"instance number     ",				//3
+	//"schedule enable     ",			//4
+	//"pid1 day setpoint   ",					//5		 
+	//"pid1 night setpoint ",			//6
+	//"fan mode            ",			//7
+	//"firmware version    ", 					//8
+	//"current H/C mode    ",					//9 
+	//"temprature unit     ",//10
+	//"system mode         ",//11
+	//"not used            ",//12
+	//"override timer      ",//13
+	//"pid2 day setpoint   ",//14
+	//"pid2 night setpoint ",//15
+	//"output manual enable",//16
+	//"override timer left ",//17
+	//"color warning       ",//18
+};
+
+const uint8 Var_label[TSTAT10_FIXED_AV][9] = {
+	"SET",
+  "FAN",
+  "SYS"//,
+	//"Baudrate",   //0
+	//"StnNumer",   //1
+	//"Protocol", //2
+	//"Instance",//3
+	//"Inc step",  //4
+	//"DaySP   ",//5					 
+	//"NightSP ",//6
+	//"FanMode ",//7
+	//"FWVER   ",  //8
+	//"CrntMode",//9
+	//"Unit    ", //10 
+	//"SysMode ",  //11
+	//"spare   ",     //12
+	//"OvrdTmr ",//13
+	//"Pid2DSP ",//14  
+	//"Pid2NSP ",//15
+	//"OUTManul",//16 
+	//"ORTLeft ",//17 
+	//"color   ",//18
+	//"varibl20"//19  
+};
+#endif
 BACNET_DATE Local_Date;
 BACNET_TIME Local_Time;
 
@@ -57,7 +142,7 @@ U32_T 				time_since_1970;   /* seconds since the beginning of 2010 */
 
 Str_Special far Write_Special;
 Str_MISC  far 	MISC_Info;
-//Str_Remote_TstDB    far         Remote_tst_db[SUB_NO];// _at_ 0x10000;
+Str_Remote_TstDB    far         Remote_tst_db;// _at_ 0x10000;
 Str_Panel_Info 		far 		Panel_Info;
 Str_Setting_Info    far 		Setting_Info;
 //In_aux				far			in_aux[MAX_IO_POINTS];//_at_ 0x17500; 
@@ -88,6 +173,9 @@ Str_totalizer_point     far     	totalizers[MAX_TOTALIZERS];// _at_ 0x12500;
 Str_monitor_point		far			monitors[MAX_MONITORS];// _at_ 0x12800;
 Str_monitor_point		far			backup_monitors[MAX_MONITORS];// _at_ 0x2e000;
 
+multiple_struct msv_data[MAX_MSV][STR_MSV_MULTIPLE_COUNT];
+
+Str_Email_point Email_Setting;
 //U32_T far count_max_time[MAX_MONITORS];
 //U32_T far max_monitor_time[MAX_MONITORS];
 
@@ -108,7 +196,7 @@ Wr_one_day					far		wr_times[MAX_WR][MAX_SCHEDULES_PER_WEEK];//_at_ 0x29000 ;//_
 U8_T far wr_time_on_off[MAX_WR][MAX_SCHEDULES_PER_WEEK][8];
 Str_annual_routine_point	far	 	annual_routines[MAX_AR];// _at_ 0x2a000;//_at_ 0x16500;
 U8_T                   		far     ar_dates[MAX_AR][AR_DATES_SIZE];//_at_ 0x2b000 ;//_at_ 0x17000;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 UN_ID far ID_Config[254];
 U8_T far ID_Config_Sche[254];
 #endif
@@ -131,18 +219,16 @@ Byte Station_NUM;
 U8_T MAX_MASTER;
 U8_T panel_number;
 
-S8_T far panelname[20];
+U8_T far panelname[20];
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 
 NETWORK_POINTS    far  		  network_points_list_bacnet[MAXNETWORKPOINTS];	 /* points wanted by others */
 Byte              far			  number_of_network_points_bacnet; 
 
 NETWORK_POINTS    far  		  network_points_list_modbus[MAXNETWORKPOINTS];	 /* points wanted by others */
 Byte              far			  number_of_network_points_modbus; 
-
-
 
 REMOTE_POINTS		  far  		  remote_points_list_bacnet[MAXREMOTEPOINTS];  /* points from other panels used localy */
 Byte              far			  number_of_remote_points_bacnet;
@@ -152,7 +238,10 @@ Byte              far			  number_of_remote_points_bacnet;
 REMOTE_POINTS		  far  		  remote_points_list_modbus[MAXREMOTEPOINTS];  /* points from other panels used localy */
 Byte              far			  number_of_remote_points_modbus;
 
-
+U16_T Last_Contact_Network_points_bacnet[MAXNETWORKPOINTS];
+U16_T Last_Contact_Network_points_modbus[MAXNETWORKPOINTS];
+U16_T Last_Contact_Remote_points_bacnet[MAXREMOTEPOINTS];
+U16_T Last_Contact_Remote_points_modbus[MAXREMOTEPOINTS];
 
 
 U8_T remote_panel_num;
@@ -346,7 +435,40 @@ void init_panel(void)
 		}
 
 #endif
-			sprintf((S8_T *)&ptr.pin->label,"IN%d",(U16_T)(i + 1));
+		sprintf((S8_T *)&ptr.pin->label,"IN%d",(U16_T)(i + 1));
+
+#if ARM_TSTAT_WIFI
+//		if(i == 8)
+//		{
+//			ptr.pin->digital_analog = 1;   //TSTAT10 最顶端的温度显示;
+//			ptr.pin->range = R10K_40_120DegC;
+//		}
+    //TSTAT 10 初始化 多态 用于TSTAT10 界面的默认显示;
+		memset(msv_data,0,MAX_MSV * STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
+		msv_data[1][0].status = 1;
+		msv_data[1][0].msv_value = 0;
+    strcpy(msv_data[1][0].msv_name, "Auto");
+		msv_data[1][1].status = 1;
+    msv_data[1][1].msv_value = 1;
+    strcpy(msv_data[1][1].msv_name, "On");
+		msv_data[1][2].status = 1;
+    msv_data[1][2].msv_value = 2;
+    strcpy(msv_data[1][2].msv_name, "Off");
+		
+		msv_data[2][0].status = 1;
+    msv_data[2][0].msv_value = 0;
+    strcpy(msv_data[2][0].msv_name, "Auto");
+		msv_data[2][1].status = 1;
+    msv_data[2][1].msv_value = 1;
+    strcpy(msv_data[2][1].msv_name, "Cool");
+		msv_data[2][2].status = 1;
+    msv_data[2][2].msv_value = 2;
+    strcpy(msv_data[2][2].msv_name, "Heat");
+		write_page_en[25] = 1;
+		
+		initial_tstat10_range();
+
+#endif
 	}
 	memset(outputs,'\0', MAX_OUTS *sizeof(Str_out_point) );
 	ptr.pout = outputs;
@@ -385,12 +507,12 @@ void init_panel(void)
 		}
 		else  if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
 		{
-			if((i >= 0) && (i < 6))
+			if((i >= 0) && (i < 8))
 			{
 				ptr.pout->range = 1; // off-on
 				ptr.pout->digital_analog = 0;
 			}
-			else if((i >= 6) && (i < 14))
+			else if((i >= 8) && (i < 14))
 			{
 				ptr.pout->range = 4;  // 0-100%
 				ptr.pout->digital_analog = 1;
@@ -412,11 +534,16 @@ void init_panel(void)
 		ptr.pout->auto_manual = 0;
 	} 
 	memset(controllers,'\0',MAX_CONS*sizeof(Str_controller_point));
+	ptr.pcon = controllers;
+	for( i = 0; i < MAX_CONS; i++, ptr.pcon++ )
+	{
+		ptr.pcon->repeats_per_min = 1;
+	}
 	memset(programs,'\0',MAX_PRGS *sizeof(Str_program_point));
 	ptr.pprg = programs;
 	for( i = 0; i < MAX_PRGS; i++, ptr.pprg++ )
 	{
-		ptr.pprg->on_off = 1;
+		ptr.pprg->on_off = 1;  
 		ptr.pprg->auto_manual = 0;
 		ptr.pprg->bytes = 0;
 //		memcpy(ptr.pprg->description,'\0',21);	
@@ -430,15 +557,64 @@ void init_panel(void)
 //	total_length = 0;
 	memset(vars,'\0',MAX_VARS*sizeof(Str_variable_point));
 	ptr.pvar = vars;
+
 	for( i=0; i < MAX_VARS; i++, ptr.pvar++ )
 	{
+
 		ptr.pvar->value = 0;
 		ptr.pvar->auto_manual = 0;
 		ptr.pvar->digital_analog = 1; //analog point 
 		ptr.pvar->unused = 2; 
 		ptr.pvar->range = 0;
 //		memcpy(ptr.pvar->description,'\0',21);
+#if ARM_TSTAT_WIFI
+		if(i < TSTAT10_FIXED_AV)
+		{
+			memcpy(ptr.pvar->description,&Var_Description[i][0],21);  
+			memcpy(ptr.pvar->label,&Var_label[i][0],9);
+
+			switch(i)
+			{
+         case TSTAT_SETPOINT:	        
+					ptr.pvar->value = 0;   
+					ptr.pvar->digital_analog = 1;
+					ptr.pvar->range = 1; //deg.c
+					ptr.pvar->value = 20 * 1000;
+				break;
+				case TSTAT_FANSOEED:            
+					ptr.pvar->value = 0;  
+					ptr.pvar->range = 102; //默认选第二个MSV 						 
+				 break;
+				case TSTAT_SYSTEM_MODE:         
+					ptr.pvar->value = 0; 
+					ptr.pvar->range = 103; //默认选第二个MSV 				 
+				 break;
+				//case TSTAT_BAUDRATE:	        ptr.pvar->value = uart0_baudrate * 1000; break;
+    //            case TSTAT_STATION_NUM:         ptr.pvar->value = Station_NUM * 1000;break;
+    //            case TSTAT_PROTOCOL_SEL:	    ptr.pvar->value = Modbus.com_config[0] * 1000;	break;
+    //            case TSTAT_INSTANCE_NUM:        ptr.pvar->value = Instance * 1000;break;
+    //            case TSTAT_SCHEDULE_ENABLE:     ptr.pvar->value = 1000;break;// schedule_on_off
+    //            case TSTAT_PID1_DAY_SP:         ptr.pvar->value = 0;break;// daysetp
+    //            case TSTAT_PID1_NIGHT_SP:       ptr.pvar->value = 0;break;// nightsetp
+    //            case TSTAT_FAN_MODE:            ptr.pvar->value = 0;break;// fan mode
+    //            case TSTAT_FIRMWARE_VER:        ptr.pvar->value = SW_REV * 1000;break;
+    //            case TSTAT_COOL_HEAT_MODE:      ptr.pvar->value = 0;break;// cooling mode
+    //            case TSTAT_TEMPERATURE_UNIT:    ptr.pvar->value = 0;break;// degree
+    //            case TSTAT_SYS_MODE:            ptr.pvar->value = 0;break;//system mode auto/heat/cool
+    //            case TSTAT_NOT_USED:            ptr.pvar->value = 0;break;//keypad lock/unlock
+    //            case TSTAT_OVERRIDE_TIMER:      ptr.pvar->value = 0;break;//override timer
+    //            case TSTAT_PID2_DAY_SP:         ptr.pvar->value = 0;break;//pid2 day setpoint
+    //            case TSTAT_PID2_NIGHT_SP:       ptr.pvar->value = 0;break;//pid2 night setpoint
+    //            case TSTAT_OUTPUT_MANUAL_EN:    ptr.pvar->value = 0;break;//output auto manual
+    //            case TSTAT_OVERTIME_LEFT:       ptr.pvar->value = 0;break;//override_timer_time
+    //            case TSTAT_COLOR_WARNNING:      ptr.pvar->value = 0;break;//fan_speed_user
+				default:
+					break;
+			}
+		}
+#endif
 	}
+	
 
 	memset( control_groups,'\0', MAX_GRPS * sizeof( Control_group_point) );
 //	memset( aux_groups,'\0', MAX_GRPS * sizeof( Aux_group_point) );
@@ -458,26 +634,25 @@ void init_panel(void)
 	memset(custom_tab,0,MAX_TBLS * sizeof(Str_table_point));	
 
 	memset(points_header,0,MAXREMOTEPOINTS * sizeof(POINTS_HEADER));
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	memset(network_points_list_modbus,0,MAXNETWORKPOINTS * sizeof(NETWORK_POINTS));
 	
 	ptr.pnp = network_points_list_modbus;
 	number_of_network_points_modbus = 0;
 	
-	for(i = 0; i < MAXNETWORKPOINTS; i++ )
+	for(i = 0; i < MAXNETWORKPOINTS; i++,ptr.pnp++ )
 	{
 		ptr.pnp->point_value = DEFUATL_REMOTE_NETWORK_VALUE;
 		ptr.pnp->decomisioned = 0;
-		
+
 	}
 	
-
 	memset(network_points_list_bacnet,0,MAXNETWORKPOINTS * sizeof(NETWORK_POINTS));
 	
 	ptr.pnp = network_points_list_bacnet;
 	number_of_network_points_bacnet = 0;
 	
-	for(i = 0; i < MAXNETWORKPOINTS; i++ )
+	for(i = 0; i < MAXNETWORKPOINTS; i++,ptr.pnp++ )
 	{
 		ptr.pnp->point_value = DEFUATL_REMOTE_NETWORK_VALUE;
 		ptr.pnp->decomisioned = 0;
@@ -490,37 +665,40 @@ void init_panel(void)
 		remote_points_list_bacnet[i].point_value = DEFUATL_REMOTE_NETWORK_VALUE;
 		remote_points_list_bacnet[i].decomisioned = 0;
 	}
-	number_of_remote_points_modbus = 0;	
 	number_of_remote_points_bacnet = 0;
 	remote_bacnet_index	= 0;
-	
+
 #endif
+
+
+
 	for(i = 0; i < MAXREMOTEPOINTS; i++ )
 	{
 		memset(&remote_points_list_modbus[i],0,sizeof(REMOTE_POINTS));
 		remote_points_list_modbus[i].point_value = DEFUATL_REMOTE_NETWORK_VALUE;
 		remote_points_list_modbus[i].decomisioned = 0;
-	}
+	}	
+	number_of_remote_points_modbus = 0;
 	remote_modbus_index = 0;
 
 	memset( weekly_routines,'\0',MAX_WR*sizeof(Str_weekly_routine_point));
 	ptr.pwr = weekly_routines;
-	for( i = 0; i < MAX_WR; i++, ptr.pwr++ )
+	for(i = 0; i < MAX_WR; i++, ptr.pwr++)
 	{
-		ptr.pwr->value = 1;
-		ptr.pwr->auto_manual = 1;
+		ptr.pwr->value = 0;
+		ptr.pwr->auto_manual = 0;
 	}
 
 	memset(wr_times,'\0',MAX_WR*9*sizeof(Wr_one_day ));
-//	memset(wr_time_on_off,0xff,MAX_WR*9*sizeof(Wr_one_day ));
+	memset(wr_time_on_off,0xff,MAX_WR*9*sizeof(Wr_one_day ));
 	memset( annual_routines,'\0',MAX_AR*sizeof(Str_annual_routine_point));
-	for( i=0; i<MAX_AR; i++, ptr.panr++ )
+	for( i = 0; i < MAX_AR; i++, ptr.panr++ )
 	{
-		ptr.panr->value = 1;
-		ptr.panr->auto_manual = 1;
+		ptr.panr->value = 0;
+		ptr.panr->auto_manual = 0;
 	}
 	memset( ar_dates,'\0',MAX_AR*46*sizeof(S8_T));
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	memset( ID_Config, 0, 254 * sizeof(UN_ID));
 	memset( ID_Config_Sche, 0, 254);
 	
@@ -548,7 +726,6 @@ void init_panel(void)
 
 	memset( read_mon_point_buf,'\0',MAX_MON_POINT * sizeof(Str_mon_element) );
 	memset( write_mon_point_buf,'\0',MAX_MON_POINT  * 2 * MAX_MONITORS * sizeof(Str_mon_element) );
-	
 
 
 	ptr.pmon = monitors;
@@ -608,7 +785,7 @@ void init_panel(void)
 //	memset(chip_info,0,12);
 	init_info_table();
 
-//	memset(Remote_tst_db,0,sizeof(Str_Remote_TstDB) * SUB_NO);
+	memset(&Remote_tst_db,0,sizeof(Str_Remote_TstDB) );
 	memset(panelname,0,20);
 	memset(SD_block_num,0,MAX_MONITORS * 2 * 4);
 	MISC_Info.reg.flag = 0x55ff;
@@ -645,18 +822,23 @@ void init_panel(void)
 	memset(extio_points,0,MAX_EXTIO * sizeof(Str_Extio_point));
 	
 //	memset(NT_bacnet_tb,0,MAXNETWORKPOINTS * sizeof(STR_BAC_TB));
-#if !(ARM_WIFI)
+#if !(ARM_TSTAT_WIFI)
 	memset(dyndns_domain_name,0,MAX_DOMAIN_SIZE);
 	memset(dyndns_password,0,MAX_PASSWORD_SIZE);
 	memset(dyndns_username,0,MAX_USERNAME_SIZE);
 #endif
 	memset(panelname,0,20);
+  memset(&Email_Setting, 0, sizeof(Str_Email_point));
+
+#if (ARM_MINI || ARM_TSTAT_WIFI )	
+	memset(&SSID_Info,0,sizeof(STR_SSID));
+#endif	
 
 }
 
 void Initial_Panel_Info(void)
 {
-
+  uint8 temp[2];
 	memset(&Panel_Info,0,sizeof(Str_Panel_Info));
 	memset(&Setting_Info,0,sizeof(Str_Setting_Info));
 
@@ -706,11 +888,16 @@ void Initial_Panel_Info(void)
 
 #endif	
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	Panel_Info.reg.instance = Instance;
 	Panel_Info.reg.instance_hi = Instance >> 16;
 	Panel_Info.reg.modbus_port = Modbus.tcp_port;
 	Panel_Info.reg.hw = Modbus.hardRev;
+
+    E2prom_Read_Byte(EEP_TIME_ZONE_LO, &temp[0]); //fandu add timezone 需要从EEP里读取
+    E2prom_Read_Byte(EEP_TIME_ZONE_HI, &temp[1]);
+    timezone = temp[1] * 256 + temp[0];
+
 	Setting_Info.reg.time_zone = timezone;
 	Setting_Info.reg.tcp_port = Modbus.tcp_port;	
 	Setting_Info.reg.update_sntp_last_time = swap_double(update_sntp_last_time);
@@ -733,7 +920,8 @@ void Initial_Panel_Info(void)
 
 #endif
 
-	Setting_Info.reg.backlight = Modbus.backlight;
+//	Setting_Info.reg.backlight = Modbus.backlight;
+	Setting_Info.reg.LCD_time_off_delay = Modbus.LCD_time_off_delay;
 	
 	Setting_Info.reg.mac_addr[0] = Modbus.mac_addr[0];
 	Setting_Info.reg.mac_addr[1] = Modbus.mac_addr[1];
@@ -772,8 +960,12 @@ void Initial_Panel_Info(void)
 
 	Setting_Info.reg.en_dyndns = Modbus.en_dyndns;
 
-	Setting_Info.reg.pro_info.firmware_c8051 = chip_info[1];
-	Setting_Info.reg.pro_info.frimware_sm5964 = chip_info[2];
+	Setting_Info.reg.pro_info.firmware_rev = chip_info[1]; // firmware
+	Setting_Info.reg.pro_info.hardware_rev = chip_info[2];  // hardware
+	if(chip_info[1] >= 42 && chip_info[2] == 1)
+		Setting_Info.reg.specila_flag |= 0x01;
+	else
+		Setting_Info.reg.specila_flag &= 0xfe;
 
 	Setting_Info.reg.en_sntp = Modbus.en_sntp;
 	Setting_Info.reg.en_time_sync_with_pc = Modbus.en_time_sync_with_pc;
@@ -783,7 +975,10 @@ void Initial_Panel_Info(void)
 		Setting_Info.reg.update_time_sync_pc = 0;
 	
 	Setting_Info.reg.network_number = Modbus.network_number;
-	Setting_Info.reg.panel_type = PM_MINIPANEL;
+	if(Modbus.mini_type >= 1 && Modbus.mini_type <= 4)
+		Setting_Info.reg.panel_type = PRODUCT_MINI_BIG;
+	else
+		Setting_Info.reg.panel_type = PRODUCT_MINI_ARM;
 
 	Setting_Info.reg.pro_info.harware_rev = Modbus.hardRev;
 	
@@ -794,6 +989,14 @@ void Initial_Panel_Info(void)
 	Setting_Info.reg.com_config[0] = Modbus.com_config[0];
 	Setting_Info.reg.com_config[1] = Modbus.com_config[1];
 	Setting_Info.reg.com_config[2] = Modbus.com_config[2];
+	
+	Setting_Info.reg.uart_parity[0] = Modbus.uart_parity[0];
+	Setting_Info.reg.uart_parity[1] = Modbus.uart_parity[1];
+	Setting_Info.reg.uart_parity[2] = Modbus.uart_parity[2];
+	
+	Setting_Info.reg.uart_stopbit[0] = Modbus.uart_stopbit[0];
+	Setting_Info.reg.uart_stopbit[1] = Modbus.uart_stopbit[1];
+	Setting_Info.reg.uart_stopbit[2] = Modbus.uart_stopbit[2];
 
 //	Setting_Info.reg.refresh_flash_timer = Modbus.refresh_flash_timer;
 	Setting_Info.reg.en_plug_n_play = Modbus.external_nodes_plug_and_play;
@@ -823,7 +1026,7 @@ void Initial_Panel_Info(void)
 	else 
 		Panel_Info.reg.product_type = PRODUCT_MINI_BIG;
 
-#if !(ARM_WIFI)
+#if !(ARM_TSTAT_WIFI )
 	memcpy(Setting_Info.reg.sntp_server,sntp_server,30);
 #endif
 	
@@ -832,9 +1035,12 @@ void Initial_Panel_Info(void)
 //	Setting_Info.reg.network_ID[2] = Modbus.network_ID[2];
 	
 	Setting_Info.reg.zigbee_module_id = Modbus.zigbee_module_id;
-#if ARM_MINI
+#if ( ARM_MINI || ARM_TSTAT_WIFI)   //Tstat10 也需要此项
 	Setting_Info.reg.MAX_MASTER = MAX_MASTER;
 #endif
+	
+
+
 }
 
 
@@ -862,11 +1068,10 @@ void update_timers( void )
 	
 	year = Rtc.Clk.year;
 	
-	if( ( year & '\x03' ) == '\x0')
+	if(year % 4)
 		month_length[1] = 29;
 	else
 		month_length[1] = 28;
-
 	/* seconds since the beginning of the day */   
 
 	ora_current_sec = 3600L * Rtc.Clk.hour;
@@ -881,7 +1086,7 @@ void update_timers( void )
 			Rtc.Clk.day_of_year += month_length[i];		
 		}
 	}
-	Rtc.Clk.day_of_year += ( Rtc.Clk.day - 1 );
+	Rtc.Clk.day_of_year +=  Rtc.Clk.day;
 /*	timestart = 0;*/ /* seconds since the beginning of the year */
 	timestart = 86400L * Rtc.Clk.day_of_year; /* 86400L = 3600L * 24;*/
 	timestart += ora_current_sec;
@@ -893,23 +1098,23 @@ void update_timers( void )
 	for( i = 70; i < year; i++ )
 	{
 		time_since_1970 += 31536000L;
-		if(!( i & 3 ) )
+		if(i % 4 == 0)  // leap year
 			time_since_1970 += 86400L;
 	}
   	
 	time_since_1970 += timestart;
 	
 
-	if(timezone >= 0)
-		time_since_1970 -= (U16_T)timezone * 36;
-	else
-		time_since_1970 -= (S16_T)timezone * 36;
+//	if(timezone >= 0)
+//		time_since_1970 -= (U16_T)timezone * 36;
+//	else
+//		time_since_1970 -= (S16_T)timezone * 36;
 
 
-	if(Daylight_Saving_Time)
-	{
-		time_since_1970 += 3600;
-	}
+//	if(Daylight_Saving_Time)
+//	{
+//		time_since_1970 += 3600;
+//	}
 	
 	timestart = 0; /* seconds since the beginning */ 
 
@@ -929,13 +1134,13 @@ U32_T get_current_time(void)
 {
 
 #if (ASIX_MINI || ASIX_CM5)
-//	if(Daylight_Saving_Time)  // timezone : +8 ---> 800
-//		return time_since_1970 + timestart - (S16_T)timezone * 36 - 3600;
-//	else
-		return time_since_1970 + timestart;// - (S16_T)timezone * 36;
+	if(Daylight_Saving_Time)  // timezone : +8 ---> 800
+		return time_since_1970 + timestart - (S16_T)timezone * 36 - 3600;
+	else
+		return time_since_1970 + timestart - (S16_T)timezone * 36;
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if(Daylight_Saving_Time)  // timezone : +8 ---> 800
 	{
 		return RTC_GetCounter() - (S16_T)timezone * 36 - 3600;
@@ -969,9 +1174,9 @@ extern U16_T count_send_whois;
 //extern xSemaphoreHandle sem_mstp;
 void Send_whois_to_mstp(void)
 {
-#if (ARM_MINI || ARM_CM5)
+#if (ARM_MINI || ARM_CM5 )
 	U8_T count;
-	if(Modbus.com_config[2] == BACNET_MASTER)
+	if(Modbus.com_config[2] == BACNET_MASTER || Modbus.com_config[0] == BACNET_MASTER)
 	{
 // avoid sending out who_is frequently, interval is at least 30s
 // count_send_whois is increased per 5ms
@@ -1014,9 +1219,8 @@ void Send_whois_to_mstp(void)
 extern uint8_t Master_Scan_Network_Count;
 void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,uint8_t * pdu,uint8_t pdu_len,uint8_t protocal,uint8_t temcoproduct)
 {
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
-	U8_T i;
-	
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+	U8_T i;	
 	if(device_id == 0)
 	{	
 		return;
@@ -1025,30 +1229,30 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 	{
 		if(protocal == BAC_IP)
 		{// it is customer device or old version product of temco
+			if(temcoproduct != 1)
 				panel = src->mac[3];
 		}
 		else
 			return;
 	}	
 	
-	if(panel == 255)
-	{	
-		if(protocal == BAC_IP && temcoproduct == 1)
-//after adding preperiatary object,default panel is 255, need get panel number from preperialtary object1 
-			;
-		else
-			return;
-	}
+//	if(panel == 255)
+//	{	
+//		if(protocal == BAC_IP && temcoproduct == 1)
+////after adding preperiatary object,default panel is 255, need get panel number from preperialtary object1 
+//			;
+//		else
+//			return;
+//	}
 	if(remote_panel_num > MAX_REMOTE_PANEL_NUMBER) 
 		return ;
-	
-#if (ARM_MINI || ASIX_MINI)
+#if (ARM_MINI || ARM_CM5)	
 	if((panel < panel_number) && (protocal == BAC_IP))
 	{
 		Modbus.network_master = 0;
 		Master_Scan_Network_Count = 0;
 	}
-#endif	
+#endif
 	//if(Master_node)
 	{
 		for(i = 0;i < remote_panel_num;i++)
@@ -1065,7 +1269,7 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 		{
 			remote_panel_db[remote_panel_num].device_id = device_id;
 			remote_panel_db[remote_panel_num].protocal = protocal;	
-			remote_panel_db[remote_panel_num].product_model = 0;
+			remote_panel_db[remote_panel_num].product_model = 8;
 			memcpy(&remote_panel_db[remote_panel_num].address,src->mac,6);
 
 			remote_panel_db[remote_panel_num].time_to_live = RMP_TIME_TO_LIVE;
@@ -1074,9 +1278,9 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 				memcpy(remote_panel_db[remote_panel_num].remote_iam_buf,pdu,pdu_len);	
 
 			remote_panel_db[remote_panel_num].remote_iam_buf_len = pdu_len;
-#if (ARM_MINI || ASIX_MINI)
 			if(protocal == BAC_IP)
-			{						
+			{	
+				remote_panel_db[remote_panel_num].panel = panel;					
 				if(src->len == 1)  //  sub device,mstp device
 				{
 					remote_panel_db[remote_panel_num].sub_id = src->adr[0];
@@ -1086,16 +1290,14 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 					remote_panel_db[remote_panel_num].sub_id = src->adr[3];//?????????
 				}
 				else  // src->len == 0
-					remote_panel_db[remote_panel_num].sub_id = panel;
-				
+					remote_panel_db[remote_panel_num].sub_id = panel;				
 				
 			}
 			else // BAC_MSTP
-#endif
 			{
 				remote_panel_db[remote_panel_num].panel = panel_number;//Modbus.network_ID[2];
 				remote_panel_db[remote_panel_num].sub_id = panel;
-				
+				remote_panel_db[remote_panel_num].product_model = 0;
 			}
 			
 			if(protocal == BAC_IP && src->len == 0 && temcoproduct == 1)
@@ -1103,28 +1305,29 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 			{
 				if(panel == 255)
 				{
-					Test[39]++;				
-//					Test[31 + Test[39]] = src->mac[3];
-//					Test[41 + Test[39]] = device_id;
-					remote_panel_db[remote_panel_num].sub_id = 0;
-					remote_panel_db[remote_panel_num].panel = 0;
+					remote_panel_db[remote_panel_num].sub_id = src->mac[3];
+					remote_panel_db[remote_panel_num].panel = src->mac[3];
 					remote_panel_db[remote_panel_num].product_model = 1;  // temco product
+					
 				}
+				
 			}
+			
+			remote_panel_db[remote_panel_num].retry_reading_panel = 0;
 			remote_panel_num++;
-			Test[30] = remote_panel_num;
+			Test[30] = remote_panel_num;			
 		}
 	}
 #endif
 }
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 void Check_Remote_Panel_Table(void)
 {
 	STR_REMOTE_PANEL_DB * ptr;
 	U8_T i;
 	static U8_T count = 0;
-	if(count++ >= 60)
+	if(count++ >= 180)
 	{
 		count = 0;
 		ptr = &remote_panel_db[0];
@@ -1136,6 +1339,8 @@ void Check_Remote_Panel_Table(void)
 				if(remote_panel_num > 0)
 				{
 				// delete this point
+				Test[48]++;
+				Test[49] = ptr->panel;
 				memcpy(ptr,ptr+1,(remote_panel_num - i - 1) * sizeof(STR_REMOTE_PANEL_DB));
 				memset(&remote_panel_db[remote_panel_num - 1],0,sizeof(STR_REMOTE_PANEL_DB));
 				remote_panel_num--;
@@ -1202,6 +1407,7 @@ U32_T Get_device_id_by_panel(uint8 panel,uint8 sub_id,uint8_t protocal)
 		}
 	}
 	// if device is 0, need GET_PANEL_INFO to get panel first
+
 	return 0;
 }
 
@@ -1246,40 +1452,55 @@ S8_T Get_rmp_index_by_panel(U8_T panel,U8_T sub_id,U8_T *index,U8_T protocal)
 	return -1;
 }
 
+
+// 1 - modbus points
+// 2 - bacnet points
+U8_T check_point_type(Point_Net * point)
+{
+	U8_T point_type;
+	point_type = (point->point_type & 0x1f) + (point->network_number & 0x60);
+
+	if(point_type == VAR + 1) // point type of T3-IO is VAR
+		return 1;
+	if((point_type <= MB_REG + 1) 
+		&& (point_type >= MB_COIL_REG + 1))
+		return 1;	
+	if((point_type >= BAC_FLOAT_ABCD + 1) && (point_type <= BAC_FLOAT_DCBA + 1))
+		return 1;
+	
+	return 0;
+}
+
 S8_T get_point_info_by_instacne(Point_Net * point)
 {
 	U8_T i;
 	STR_REMOTE_PANEL_DB *ptr;
 	U32_T instance;
-
 	// modbus points do not have instance
-	if(((point->point_type & 0x1f) <= MB_REG + 1)
-		&& ((point->point_type & 0x1f) != BAC_BV + 1)
-		&& ((point->point_type & 0x1f) != BAC_BI + 1))
-		return -1;	
-	
+	if(check_point_type(point) == 1) return -1;
 	if(point->network_number & 0x80)  // first bit is 1, new structure, it is for instance
 	{
 		instance = (U32_T)((point->network_number & 0x7f) << 16) + (U16_T)(point->panel << 8) + point->sub_id;
 		// find panel , sub id and protocal by instance
 		if(instance == 0)
 			return 0;	
-
 		ptr = remote_panel_db;
-
 		for(i = 0;i < remote_panel_num;i++,ptr++)
 		{
 			if(ptr->device_id == instance)
 			{
 				point->panel = ptr->panel;
 				point->sub_id = ptr->sub_id;
-				
 				return 0;
 			}
 		}
+		// if not in current database, try to scan network
+#if (ARM_MINI || ARM_CM5 )
+			flag_start_scan_network = 1;
+			start_scan_network_count = 0;
+#endif
 		point->panel = 0;
 	}
-	
 	return -1;	
 }
 
@@ -1289,7 +1510,7 @@ S8_T get_point_info_by_instacne(Point_Net * point)
 void Send_SUB_I_Am(uint8_t index)
 {
 
-#if ARM_MINI 
+#if ARM_MINI || ARM_CM5
 	uint8_t pos;
 	uint8_t mtu[50];
 	uint8_t len;
@@ -1379,5 +1600,36 @@ void check_mstp_timeout(void)
 	timeout[2]++;
 }
 
-
+#if 1//ARM_TSTAT_WIFI
+uint8 count_lcd_time_off_delay;
+void Check_LCD_time_off(void)
+{
+//	if(Modbus.backlight == 1)
+	{
+		if((Modbus.LCD_time_off_delay != 0) && (Modbus.LCD_time_off_delay != 255))
+		{
+			count_lcd_time_off_delay++;
+			if(count_lcd_time_off_delay > Modbus.LCD_time_off_delay)
+			{
+				count_lcd_time_off_delay = 0;
+				BACKLIT = 0;
+			}
+		}
+		else if(Modbus.LCD_time_off_delay == 255)
+		{
+			count_lcd_time_off_delay = 0;
+			BACKLIT = 1;
+		}
+		else if(Modbus.LCD_time_off_delay == 0)
+		{
+			count_lcd_time_off_delay++;
+			if(count_lcd_time_off_delay > 5)
+			{
+				count_lcd_time_off_delay = 0;
+				BACKLIT = 0;
+			}
+		}
+	}
+}
+#endif
 

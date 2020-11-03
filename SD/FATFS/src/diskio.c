@@ -1,6 +1,6 @@
 #include "product.h"
 
-#if STORE_TO_SD
+#if (SD_BUS == SPI_BUS_TYPE)
 
 
 #include "sdcard.h"
@@ -43,9 +43,15 @@ DSTATUS disk_initialize (
 		default:
 			res = 1;
 			break;
-	}		 
+	}	
+
+#if (SD_BUS == SPI_BUS_TYPE)	
 	if(res)
 		return  STA_NOINIT;
+#else
+	if(res != SD_OK)
+		return  STA_NOINIT;
+#endif
 	else
 		return 0;									//初始化成功
 }
@@ -74,10 +80,10 @@ DRESULT disk_read (
     
 	if (!count)
 		return RES_PARERR;				//count不能等于0，否则返回参数错误
-	
+
 	switch(drv)
 	{
-		case SD_CARD://SD卡
+		case SD_CARD://SD卡			
 			res = SD_ReadDisk(buff, sector, count);
 			break;
 		
@@ -97,6 +103,7 @@ DRESULT disk_read (
 	}
 	
    //处理返回值，将SPI_SD_driver.c的返回值转成ff.c的返回值
+	Test[25] = res;
     if(res == 0x00)
 			return RES_OK;	 
     else

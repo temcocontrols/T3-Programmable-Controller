@@ -115,6 +115,7 @@ extern "C" {
         void);
     bool Device_Set_Object_Instance_Number(
         uint32_t object_id);
+		void Store_Instance_To_Eeprom(uint32_t Instance);
     bool Device_Valid_Object_Instance_Number(
         uint32_t object_id);
     unsigned Device_Object_List_Count(
@@ -184,10 +185,10 @@ extern "C" {
     void Device_Set_Database_Revision(
         uint8_t revision);
 
-    bool Device_Valid_Object_Name(
-        const char *object_name,
-        int *object_type,
-        uint32_t * object_instance);
+//    bool Device_Valid_Object_Name(
+//        const char *object_name,
+//        int *object_type,
+//        uint32_t * object_instance);
     char *Device_Valid_Object_Id(
         int object_type,
         uint32_t object_instance);
@@ -226,7 +227,17 @@ extern "C" {
     unsigned index);
 	bool Device_Object_Name(
     uint32_t object_instance,
+    BACNET_CHARACTER_STRING * object_name);
+
+bool Device_Object_Name_Copy(
+    BACNET_OBJECT_TYPE object_type,
+    uint32_t object_instance,
     BACNET_CHARACTER_STRING * object_name);	
+
+bool Device_Valid_Object_Name(
+    BACNET_CHARACTER_STRING * object_name1,
+    int *object_type,
+    uint32_t * object_instance);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

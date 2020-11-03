@@ -50,11 +50,13 @@
 #include "flash.h"
 
 
+
 void Send_Time_Sync_To_Network(void);
 void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* Rtc,U8_T source);
 UN_Time Rtc2;
 extern 	TimeInfo t;
 U32_T get_current_timestamp(void);
+void uart_send_string(U8_T *p, U16_T length,U8_T port);
 //U8_T AlarmSync(uint8_t add_delete,uint8_t index,char *mes,uint8_t panel);
 
 /** @file ptransfer.c  Encode/Decode Private Transfer data */
@@ -62,9 +64,11 @@ U32_T get_current_timestamp(void);
 	handler roution for private transfer
 	created by chelsea
 */
+void check_SD_PnP(void);
 
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI 
 U16_T Test[50];
+void Check_Pulse_Counter(void);
 #endif
 
 #if BAC_PRIVATE
@@ -81,6 +85,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr);
 //extern uint8_t count_load_prg;
 
 U8_T    	    	far		prg_code[MAX_PRGS][CODE_ELEMENT * MAX_CODE];
+
 
 uint8_t invoke_id;
 extern U8_T far ChangeFlash;
@@ -102,24 +107,39 @@ U8_T  MSTP_Transfer_Len;
 
 
 
+u8 flag_writing_code;
+u8 count_wring_code;
+// 避免写code的时候执行出问题，写完后再执行
+u8 check_whehter_running_code(void)
+{
+	if(flag_writing_code)  // 正在写code
+	{
+		if(count_wring_code-- > 0)
+			return 0;
+		else
+			flag_writing_code = 0;
+	}
+	return 1;
+}
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+
+#if 1//(ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 #include "tcpip.h"
 extern xTaskHandle xHandler_Output;
 extern xTaskHandle Handle_Scan;
 
-extern uint8_t write_page_en[25];
+extern uint8_t write_page_en[26];
 void refresh_zone(void);
-void responseCmd(U8_T type,U8_T* pData);
+//void responseCmd(U8_T type,U8_T* pData);
 void udpate_zone_table(uint8 i);
-
+U16_T crc16(U8_T *p, U8_T length);
 
 U8_T 	far bacnet_to_modbus[300];
 void Get_Pkt_Bac_to_Modbus(Str_user_data_header * header)
 {  
-	u8_t buf[300];
-	u16 len;
-	u16 crc_check; 
+	uint8_t buf[300];
+	uint16_t len;
+	uint16_t crc_check; 
 	//  for read command
 	buf[0] = Modbus.address;
 	if(header->command == READ_BACNET_TO_MDOBUS)
@@ -154,7 +174,13 @@ void Get_Pkt_Bac_to_Modbus(Str_user_data_header * header)
 	crc_check = crc16(buf, len);
 	buf[len] = HIGH_BYTE(crc_check);
 	buf[len + 1] = LOW_BYTE(crc_check);
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	responseCmd(4/*BAC_TO_MODBUS*/,buf);	// get bacnet_to_modbus
+#endif
+	
+#if ASIX_MINI || ASIX_CM5
+	responseCmd(4,buf,NULL);	// get bacnet_to_modbus
+#endif
 
 }
 
@@ -242,13 +268,15 @@ void change_panel_number_in_code(U8_T old, U8_T new_panel)
 			{
 				if(prg_code[i][j] == 0x9e)	// REMOTE_POINT_PRG
 				{
-
+					U8_T point_type;
 					// it is not in 9D x x x x , 9e x VAR panel x network
+					point_type = (prg_code[i][j + 2] & 0x1f) + (prg_code[i][j + 5] & 0x60);
 					if(j > 4 && (prg_code[i][j - 1] != 0x9d) && (prg_code[i][j - 2] != 0x9d) \
 					&& (prg_code[i][j - 3] != 0x9d) && (prg_code[i][j - 4] != 0x9d)	\
 					&& (
-					((prg_code[i][j + 2] & 0x1f) == VAR + 1) ||
-					(((prg_code[i][j + 2] & 0x1f) >= MB_COIL_REG + 1) && ((prg_code[i][j + 2] & 0x1f) <= BAC_BO + 1))
+					(point_type == VAR + 1) ||
+					((point_type >= MB_COIL_REG + 1) && (point_type <= BAC_BO + 1)) ||
+					((point_type >= BAC_FLOAT_ABCD + 1) && (point_type <= BAC_FLOAT_DCBA + 1))
 						)
 					&& (prg_code[i][j + 3] == old) \
 					// old panel number
@@ -294,17 +322,91 @@ void change_panel_number_in_code(U8_T old, U8_T new_panel)
 	}
 	
 	if(changed)	{
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		write_page_en[15] = 1;
 #endif
 		Flash_Write_Mass();	// write into flash now
 	}
-	
-	
 
 }
 
+void change_panel_number_in_trendlog(U8_T old, U8_T new_panel)
+{
+	U8_T i;
+	U16_T j;
+	U8_T changed = 0;
 
+	// change panel number in program
+	for( i = 0; i < MAX_PRGS; i++ )
+	{
+		if( swap_word(programs[i].real_byte) > 0)
+		{
+			for(j = 0;j < swap_word(programs[i].real_byte);j++)
+			{
+				if(prg_code[i][j] == 0x9e)	// REMOTE_POINT_PRG
+				{
+					U8_T point_type;
+					// it is not in 9D x x x x , 9e x VAR panel x network
+					point_type = (prg_code[i][j + 2] & 0x1f) + (prg_code[i][j + 5] & 0x60);
+					
+					if(j > 4 && (prg_code[i][j - 1] != 0x9d) && (prg_code[i][j - 2] != 0x9d) \
+					&& (prg_code[i][j - 3] != 0x9d) && (prg_code[i][j - 4] != 0x9d)	\
+					&& (
+					(point_type == VAR + 1) ||
+					((point_type >= MB_COIL_REG + 1) && (point_type <= BAC_BO + 1)) ||
+					((point_type >= BAC_FLOAT_ABCD + 1) && (point_type <= BAC_FLOAT_DCBA + 1))
+					)
+					&& (prg_code[i][j + 3] == old) \
+					// old panel number
+					//&& (prg_code[i][j + 5] == Setting_Info.reg.network_number) 
+					)
+					{
+						prg_code[i][j + 3] = new_panel;
+						changed = 1;
+					}
+						
+				}
+			}
+		}
+	}
+
+	
+	// change panel number in monitor
+	for( i = 0; i < MAX_MONITORS; i++ )
+	{
+		for( j = 0; j < MAX_POINTS_IN_MONITOR; j++ )
+		{
+			if(monitors[i].inputs[j].panel == old)
+			{
+				monitors[i].inputs[j].panel = new_panel;
+				if(monitors[i].inputs[j].sub_id == old)
+					monitors[i].inputs[j].sub_id = new_panel;
+				changed = 1;
+			}
+		}  
+	}
+	
+	// change panel number in graphic
+
+	for( i = 0; i < MAX_ELEMENTS; i++ )
+	{
+		if(group_data[i].reg.nMain_Panel == old)
+		{
+			group_data[i].reg.nMain_Panel = new_panel;
+			if(group_data[i].reg.nSub_Panel == old)
+				group_data[i].reg.nSub_Panel = new_panel;
+			changed = 1;
+		}
+	}
+	
+	if(changed)	{
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+		write_page_en[15] = 1;
+#endif
+		Flash_Write_Mass();	// write into flash now
+	}
+
+}
 
 extern unsigned char far Handler_Transmit_Buffer[2][MAX_PDU];
 
@@ -322,7 +424,7 @@ void Tansfer_Mstp_pdu( uint8_t * pdu,uint16_t pdu_len)
 #endif
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 
 uint8_t Send_Mstp(uint8_t flag,uint8_t * type)
 {
@@ -366,12 +468,12 @@ uint8_t Send_Mstp(uint8_t flag,uint8_t * type)
 	}
 }
 
-uint8_t count_hold_on_bip_to_mstp;
+uint8_t count_hold_on_bip_to_mstp;  // 当yabe或者T3000软件正在访问时，不要读写下面的设备
 
 // BIP TO MSTP
 void Transfer_Bip_To_Mstp_pdu( uint8_t * pdu,uint16_t pdu_len)
 {
-#if (ARM_MINI || ASIX_MINI)
+#if (ARM_MINI || ASIX_MINI || ARM_CM5)
 	U8_T i;
 	U8_T start = 0;
 	if(pdu_len < 7) 
@@ -387,8 +489,7 @@ void Transfer_Bip_To_Mstp_pdu( uint8_t * pdu,uint16_t pdu_len)
 			return;
 		}
 	}
-	
-	
+
 	MSTP_Transfer_Len = pdu_len + 4;
 	TransmitPacket_panel = pdu[5];
 	TransmitPacket[0] = pdu[0];
@@ -405,10 +506,11 @@ void Transfer_Bip_To_Mstp_pdu( uint8_t * pdu,uint16_t pdu_len)
 	
 
 	flag_mstp_source = 1;   // T3000 or BIP client
-
+	
 	if(Send_Private_Flag == 0)
 	{
 		Send_Private_Flag = 2; 
+
 		// source is bip client,if it is private 
 		memcpy(&TransmitPacket[11],&pdu[7],pdu_len - 7);
 	}
@@ -417,7 +519,7 @@ void Transfer_Bip_To_Mstp_pdu( uint8_t * pdu,uint16_t pdu_len)
 
 void Transfer_Mstp_To_Bip_pdu(uint8_t src,uint8_t * pdu,uint16_t pdu_len)
 {
-#if (ARM_MINI || ASIX_MINI)
+#if (ARM_MINI || ASIX_MINI || ARM_CM5)
 	MSTP_Send_buffer[0] = 0x81;
 	MSTP_Send_buffer[1] = 0x0a;
 	MSTP_Send_buffer[2] = (uint8_t)((pdu_len - 2) >> 8);
@@ -430,14 +532,19 @@ void Transfer_Mstp_To_Bip_pdu(uint8_t src,uint8_t * pdu,uint16_t pdu_len)
 	MSTP_Send_buffer[9] = src; //  SADR
 	memcpy(&MSTP_Send_buffer[10],&pdu[12],pdu_len - 12);
 
-
-		// wait send_mstp_flag free
+	// wait send_mstp_flag free
 	//Send_mstp_Flag = 1;
-	send_mstp_index1 = 0;
-	rec_mstp_index1 = 0;
+//	send_mstp_index1 = 0;
+//	rec_mstp_index1 = 0;
+	if(rec_mstp_index1 < 9)
+	{
 	memcpy(mstp_bac_buf1[rec_mstp_index1].buf,MSTP_Send_buffer, pdu_len - 2);
 	mstp_bac_buf1[rec_mstp_index1].len = pdu_len -2;
-	rec_mstp_index1++;
+	}
+	if(rec_mstp_index1 < 10)
+		rec_mstp_index1++;
+	else
+		rec_mstp_index1 = 0;
 #endif
 }
 
@@ -506,8 +613,7 @@ void Handler_Complex_Ack(
 	S8_T far network_point_index;	
 //	U8_T far remote_bacnet_index;	
 	
-#if (ARM_MINI || ARM_CM5)
-#if (ARM_MINI || ASIX_MINI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 	if(protocal == BAC_MSTP)
 	{ 	
 		if(flag_mstp_source == 1) // source is BIP client, T3000 or yabe or other panel...
@@ -525,13 +631,17 @@ void Handler_Complex_Ack(
 	//		uip_send((char *)MSTP_Send_buffer, apdu_len + 6);	
 
 			//Send_mstp_Flag = 1;
-			send_mstp_index1 = 0;
-			rec_mstp_index1 = 0;
-			memcpy(mstp_bac_buf1[rec_mstp_index1].buf,MSTP_Send_buffer, apdu_len + 6);
-			mstp_bac_buf1[rec_mstp_index1].len = apdu_len + 6;
-			rec_mstp_index1++;
-
-
+#if (ARM_MINI || ARM_CM5)	
+			if(rec_mstp_index1 < 9)
+			{
+				memcpy(mstp_bac_buf1[rec_mstp_index1].buf,MSTP_Send_buffer, apdu_len + 6);
+				mstp_bac_buf1[rec_mstp_index1].len = apdu_len + 6;
+			}
+			if(rec_mstp_index1 < 10)
+				rec_mstp_index1++;
+			else
+				rec_mstp_index1 = 0;
+#endif
 
     /* since object property == object_id, decode the application data using
        the appropriate decode function */
@@ -539,8 +649,7 @@ void Handler_Complex_Ack(
 		else if(flag_mstp_source == 2)
 		{ //  packet's source is from T3-BB,dont need transfer to BIP client		
 			if(apdu[1] == invokeid_mstp && invokeid_mstp >= 0)
-			{			
-				
+			{	
 				flag_receive_rmbp	= 1;	
 //				BACNET_DEVICE_OBJECT_PROPERTY_REFERENCE value;
 //				bacapp_decode_context_device_obj_property_ref(apdu,0,&value);
@@ -548,9 +657,28 @@ void Handler_Complex_Ack(
 //				decode_context_real(&apdu[11], 10, &val_ptr);	
 				if(apdu[2] == 0x12)  // ptransfer
 				{// only for temoc private bac_to_modbus 
+/*
+30 49 12 09 00 19 00 
+2e 
+65 1b 
+14 00 5e 00 00 0a 00 
+00 9d 00 00 00 01 00 00 00 4d 00 00 00 10 00 09 00 03 00 00 
+2f
+*/				Test[14]++;
+					if(apdu[12] == READ_BACNET_TO_MDOBUS)	
+					{
+						uint8_t len;
+						uint16_t reg;								
+
+						len = apdu[10];
+						if(len == apdu[15] * 2)
+						{							
 					remote_panel_db[remote_mstp_panel_index].sn = 
-						apdu[19] + ((U16_T)apdu[21] << 24) + ((U32_T)apdu[23] << 16) + ((U32_T)apdu[25] << 24);
-					remote_panel_db[remote_mstp_panel_index].product_model = apdu[33];
+						apdu[18] + ((U16_T)apdu[20] << 8) + ((U32_T)apdu[22] << 16) + ((U32_T)apdu[24] << 24);
+					remote_panel_db[remote_mstp_panel_index].product_model = apdu[32];
+					
+						}
+					}
 				}
 				else
 				{
@@ -562,12 +690,14 @@ void Handler_Complex_Ack(
 					else if(apdu[11] == 0x91)  // decode ON/OFF
 					{
 						val_ptr = apdu[12];					
-					}		
+					}	
 
 					add_remote_point(remote_points_list_bacnet[remote_bacnet_index].tb.RP_bacnet.panel,
-					remote_points_list_bacnet[remote_bacnet_index].tb.RP_bacnet.object,
-					0,remote_points_list_bacnet[remote_bacnet_index].tb.RP_bacnet.instance,
-					val_ptr * 1000,2);
+					remote_points_list_bacnet[remote_bacnet_index].tb.RP_bacnet.object + 
+					(U8_T)((remote_points_list_bacnet[remote_bacnet_index].tb.RP_bacnet.instance & 0xff00) >> 3),
+					0,
+					remote_points_list_bacnet[remote_bacnet_index].tb.RP_bacnet.instance & 0xff,
+					val_ptr * 1000,2,0);
 				}
 				
 			}			
@@ -575,6 +705,7 @@ void Handler_Complex_Ack(
 			
 		flag_mstp_source = 0;
 	}
+#if (ARM_MINI || ARM_CM5)	
 	else if(protocal == BAC_IP)
 	{	
 // response from ptranfer reading
@@ -616,6 +747,7 @@ void Handler_Complex_Ack(
 					return;
 				}
 			}
+			
 			add_network_point( network_points_list_bacnet[network_point_index].point.panel,
 			network_points_list_bacnet[network_point_index].point.sub_id,
 			network_points_list_bacnet[network_point_index].point.point_type - 1,
@@ -629,9 +761,9 @@ void Handler_Complex_Ack(
 		{ // PROPRIETARY_BACNET_OBJECT_TYPE panel number
 			//char index;
 			//index = get_rbp_index_by_invoke_id(remote_panel_db[0].device_id);
-			
+// read VARX or REGX	
 			if(temcovar_panel_invoke == invokeid_bip)
-			{
+			{	
 				if(apdu[11] == 0x44) // decode real
 				{
 					apdu[11] = 0xac;
@@ -639,7 +771,25 @@ void Handler_Complex_Ack(
 					flag_receive_netp_temcovar = 1;
 					temcovar_panel = val_ptr;
 				}
-			}
+			}						
+//			if(temcoreg_panel_invoke == invokeid_bip)
+//			{
+//				if(apdu[13] == READ_BACNET_TO_MDOBUS)
+//				{
+//					uint8_t len;
+//					uint16_t reg;
+//									
+
+//					len = apdu[11];
+//					reg = apdu[14] * 256 + apdu[15];
+//					if(len == apdu[16] * 2)
+//					{
+//						flag_receive_netp_temcoreg = 1;
+//						memcpy(&temcoreg,&apdu[19],len);
+//					}
+//					
+//				}				
+//			}
 		}
 		
 	}
@@ -704,7 +854,7 @@ U8_T Get_current_panel(void)
 
 
 extern xSemaphoreHandle sem_mstp;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 
 uint16_t get_reg_from_list(uint8_t type,uint8_t index,uint8_t * len)
 {
@@ -720,6 +870,7 @@ uint16_t get_reg_from_list(uint8_t type,uint8_t index,uint8_t * len)
 		case OUT + 1:
 			reg = MODBUS_OUTPUT_FIRST + 2 * index;
 			break;
+		
 		default:
 		break;
 	}
@@ -739,7 +890,7 @@ int WriteRemotePoint(uint8_t object_type,uint32_t object_instance,uint8_t panel,
 	{	
 		if(protocal == BAC_MSTP)
 		{
-			if(Modbus.com_config[2] == BACNET_MASTER)
+			if(Modbus.com_config[2] == BACNET_MASTER || Modbus.com_config[0] == BACNET_MASTER)
 			{
 //				if(cSemaphoreTake(sem_mstp, 200) == 1)
 				if(count_hold_on_bip_to_mstp > 0)									
@@ -762,11 +913,11 @@ int WriteRemotePoint(uint8_t object_type,uint32_t object_instance,uint8_t panel,
 				return 1;//invokeid_mstp;
 			}
 		}
-#if (ARM_MINI || ASIX_MINI)
+#if (ARM_MINI || ASIX_MINI || ARM_CM5)
 		else if(protocal == BAC_IP_CLIENT)
 		{
 			Send_bip_Flag = 1;	
-//		count_send_bip = 0;
+			count_send_bip = 0;
 			Get_address_by_panel(panel,Send_bip_address);						
 			Send_bip_count = MAX_RETRY_SEND_BIP;			
 
@@ -794,8 +945,8 @@ int GetRemotePoint(uint8_t object_type,uint32_t object_instance,uint8_t panel,ui
 	U8_T invokeid_bip;
 //	U8_T invokeid_mstp;
 	invokeid_bip = -1;
-
 	deviceid = Get_device_id_by_panel(panel,sub_id,protocal);
+	Test[24] = deviceid;
 	if(deviceid > 0)
 	{	
 		if(protocal == BAC_MSTP)
@@ -810,12 +961,12 @@ int GetRemotePoint(uint8_t object_type,uint32_t object_instance,uint8_t panel,ui
 			invokeid_mstp = Send_Read_Property_Request(deviceid,object_type,object_instance,PROP_PRESENT_VALUE,0,protocal);
 			return invokeid_mstp;
 		}
-#if !(ARM_WIFI)
+#if !(ARM_TSTAT_WIFI )
 		else if(protocal == BAC_IP_CLIENT)
 		{
 			Send_bip_Flag = 1;	
+			count_send_bip = 0;
 			Get_address_by_panel(panel,Send_bip_address);	
-			
 			Send_bip_count = MAX_RETRY_SEND_BIP;
 			
 			if(object_type == VAR + 1 || object_type == IN + 1 || object_type == OUT + 1)
@@ -824,7 +975,7 @@ int GetRemotePoint(uint8_t object_type,uint32_t object_instance,uint8_t panel,ui
 				uint16_t reg;
 				uint8_t len;
 				reg = get_reg_from_list(object_type,object_instance,&len);
-				invokeid_bip = GetPrivateBacnetToModbusData(deviceid,reg,len,databuf);
+				invokeid_bip = GetPrivateBacnetToModbusData(deviceid,reg,len,databuf,BAC_IP_CLIENT);
 			}
 			else if(object_type == BAC_AV + 1)
 			{
@@ -906,7 +1057,7 @@ void handler_conf_private_trans_ack(
 		U8_T remote_i;
 		U32_T device_id;
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)		
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )		
 		device_id = ptr->reg.instance * 65536L + ptr->reg.instance_hi;
 #else
 		device_id = swap_word(ptr->reg.instance_hi) * 65536L + swap_word(ptr->reg.instance);
@@ -971,7 +1122,7 @@ typedef struct
 
 Str_modbus_reg bacnet_to_modbus_struct; 
 
-int GetPrivateBacnetToModbusData(uint32_t deviceid, uint16_t start_reg, int16_t readlength, uint16_t *data_out)
+int GetPrivateBacnetToModbusData(uint32_t deviceid, uint16_t start_reg, int16_t readlength, uint16_t *data_out,uint8_t protocal)
 {
     int n_ret = 0;
 
@@ -1080,10 +1231,11 @@ int WritePrivateBacnetToModbusData(uint32_t deviceid, int16_t start_reg, uint16_
     private_data_len = bacapp_encode_application_data(&test_value[0], &data_value);
     private_data.serviceParameters = &test_value[0];
     private_data.serviceParametersLen = private_data_len;
-
+#if !(ARM_TSTAT_WIFI )
 		Send_bip_Flag = 1;
+		count_send_bip = 0;
 		Send_bip_count = MAX_RETRY_SEND_BIP;	
-		//Set_broadcast_bip_address();
+#endif
     status = address_get_by_device(deviceid, &max_apdu, &dest);
     if (status)
     {
@@ -1163,10 +1315,11 @@ int Send_Ptransfer_to_Sub(U8_T *p, U16_T length,U8_T port)
 	
 
 	if(count_hold_on_bip_to_mstp > 0)									
-					return -1;
+		return -1;
 	flag_mstp_source = 2;   // T3-CONTROLLER
 	Send_Private_Flag = 3;   // send normal bacnet packet
 	TransmitPacket_panel = p[0];
+
 	return Send_ConfirmedPrivateTransfer(&dest,&private_data,BAC_MSTP);
 }
 
@@ -1199,95 +1352,113 @@ void handler_private_transfer(
 		uint8_t flag_write_pic;
 		
 		uint8_t flag_read_monitor;
-	
+		uint8_t delay_write_setting;
+		
 	 U8_T j;
 
 	 int iLen;   /* Index to current location in data */
    int tag_len;
 	 uint8_t tag_number;
 	 uint32_t len_value_type;
-
 //   decode ptransfer
-	len = ptransfer_decode_apdu(&apdu[0], apdu_len, &invoke_id, &rec_data);
+		delay_write_setting = 0;
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+		if(protocal < 0xa0)  // mstp or bip
+#endif
+		{
+			len = ptransfer_decode_apdu(&apdu[0], apdu_len, &invoke_id, &rec_data);
+			iLen = 0;
+		//ok	
+				/* Error code is returned for read and write operations */
 
+			tag_len =
+					decode_tag_number_and_value(&rec_data.serviceParameters[iLen],
+					&tag_number, &len_value_type);
+			iLen += tag_len;
 
-	iLen = 0;
-//ok	
-    /* Error code is returned for read and write operations */
+			if(tag_number == BACNET_APPLICATION_TAG_OCTET_STRING)
+			{
+				decode_octet_string(&rec_data.serviceParameters[iLen], len_value_type,&Temp_CS);
 
-	tag_len =
-			decode_tag_number_and_value(&rec_data.serviceParameters[iLen],
-			&tag_number, &len_value_type);
-	iLen += tag_len;
-
-	if(tag_number == BACNET_APPLICATION_TAG_OCTET_STRING)
-	{
-		decode_octet_string(&rec_data.serviceParameters[iLen], len_value_type,&Temp_CS);
-
-	}
-	private_data.vendorID =  rec_data.vendorID;
-	private_data.serviceNumber = rec_data.serviceNumber;
-
-   //bacapp_decode_application_data(rec_data.serviceParameters,
-   //    rec_data.serviceParametersLen, &rec_data_value);	
-	 command = Temp_CS.value[2];
-	if( command  == READMONITORDATA_T3000 || command  == UPDATEMEMMONITOR_T3000
-		|| command == READPIC_T3000 || command == WRITEPIC_T3000)
-	{
-		 header_len = 26;//18;
-
-		 Graphi_data->command = Temp_CS.value[2];
-		 Graphi_data->index = Temp_CS.value[3];	  // monitor table index
-		 Graphi_data->sample_type = Temp_CS.value[4];  // 1 - an 0 - digital
-
-		 memcpy(Graphi_data->comm_arg.string,&Temp_CS.value[5],4);  // size oldest_time most_recent_time
-		 memcpy(Graphi_data->comm_arg.string + 4,&Temp_CS.value[9],4);
-		 memcpy(Graphi_data->comm_arg.string + 8,&Temp_CS.value[13],4);
-
-		 Graphi_data->comm_arg.monupdate.size = swap_double(Graphi_data->comm_arg.monupdate.size);
-		 Graphi_data->comm_arg.monupdate.most_recent_time = swap_double(Graphi_data->comm_arg.monupdate.most_recent_time);
-		 Graphi_data->comm_arg.monupdate.oldest_time = swap_double(Graphi_data->comm_arg.monupdate.oldest_time);
-   
-		 Graphi_data->special = Temp_CS.value[17];
-		 Graphi_data->total_seg = Temp_CS.value[22] + ((U16_T)Temp_CS.value[23] << 8) + ((U32_T)Temp_CS.value[24] << 16) + ((U32_T)Temp_CS.value[25] << 24);
-		 Graphi_data->seg_index = Temp_CS.value[18] + ((U16_T)Temp_CS.value[19] << 8) + ((U32_T)Temp_CS.value[20] << 16) + ((U32_T)Temp_CS.value[21] << 24);
-	}
-	else
-	{
-		
-		private_header.total_length = Temp_CS.value[1] * 256 + Temp_CS.value[0];
-	
-		private_header.command = Temp_CS.value[2];
-		private_header.point_start_instance = Temp_CS.value[3];
-		private_header.point_end_instance = Temp_CS.value[4];
-		
-		private_header.entitysize = (U16_T)((Temp_CS.value[6] & 0x01)	<< 8)	+ Temp_CS.value[5];
-		
-		if(private_header.command == WRITEPROGRAMCODE_T3000 || private_header.command == READPROGRAMCODE_T3000)
-		{  // the fisrt 7 bits is for code_packet_index;
-			packet_index = (Temp_CS.value[6] & 0xfe) >> 1;
+			}
+			private_data.vendorID =  rec_data.vendorID;
+			private_data.serviceNumber = rec_data.serviceNumber;
 		}
-		header_len = USER_DATA_HEADER_LEN;			
-	}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+		else  // TEMCO modbus private
+		{
+			if((apdu[7] + apdu[8] * 256) > (MAX_APDU - 6)) 
+				return;
+			memcpy(&Temp_CS.value[0],&apdu[7],apdu[7] + apdu[8] * 256);	
+
+		}
+#endif
+			 //bacapp_decode_application_data(rec_data.serviceParameters,
+			 //    rec_data.serviceParametersLen, &rec_data_value);	
+		command = Temp_CS.value[2];
+		if( command  == READMONITORDATA_T3000 || command  == UPDATEMEMMONITOR_T3000
+			|| command == READPIC_T3000 || command == WRITEPIC_T3000)
+		{
+			 header_len = 26;//18;
+
+			 Graphi_data->command = Temp_CS.value[2];
+			 Graphi_data->index = Temp_CS.value[3];	  // monitor table index
+			 Graphi_data->sample_type = Temp_CS.value[4];  // 1 - an 0 - digital
+
+			 memcpy(Graphi_data->comm_arg.string,&Temp_CS.value[5],4);  // size oldest_time most_recent_time
+			 memcpy(Graphi_data->comm_arg.string + 4,&Temp_CS.value[9],4);
+			 memcpy(Graphi_data->comm_arg.string + 8,&Temp_CS.value[13],4);
+
+			 Graphi_data->comm_arg.monupdate.size = swap_double(Graphi_data->comm_arg.monupdate.size);
+			 Graphi_data->comm_arg.monupdate.most_recent_time = swap_double(Graphi_data->comm_arg.monupdate.most_recent_time);
+			 Graphi_data->comm_arg.monupdate.oldest_time = swap_double(Graphi_data->comm_arg.monupdate.oldest_time);
+		 
+			 Graphi_data->special = Temp_CS.value[17];
+			 Graphi_data->total_seg = Temp_CS.value[22] + ((U16_T)Temp_CS.value[23] << 8) + ((U32_T)Temp_CS.value[24] << 16) + ((U32_T)Temp_CS.value[25] << 24);
+			 Graphi_data->seg_index = Temp_CS.value[18] + ((U16_T)Temp_CS.value[19] << 8) + ((U32_T)Temp_CS.value[20] << 16) + ((U32_T)Temp_CS.value[21] << 24);
+		}
+		else
+		{
+			
+			private_header.total_length = Temp_CS.value[1] * 256 + Temp_CS.value[0];
+			private_header.command = Temp_CS.value[2];
+			private_header.point_start_instance = Temp_CS.value[3];
+			private_header.point_end_instance = Temp_CS.value[4];
+			
+			private_header.entitysize = (U16_T)((Temp_CS.value[6] & 0x01)	<< 8)	+ Temp_CS.value[5];
+		
+			if(private_header.command == WRITEPROGRAMCODE_T3000 || private_header.command == READPROGRAMCODE_T3000)
+			{  // the fisrt 7 bits is for code_packet_index;
+				packet_index = (Temp_CS.value[6] & 0xfe) >> 1;
+			}
+			header_len = USER_DATA_HEADER_LEN;			
+		}
 	
-//ok
+		
 	if(command > 100)   // write command
 	{
 		transfer_len = 0;
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+		if(protocal < 0xa0)  // mstp or bip
+		{}
+		else
+		{
+			memcpy(&temp,&apdu[0],14);
+		}
+#endif
 		if(command ==  WRITEPRGFLASH_COMMAND)   // other commad
 		{		
 			ChangeFlash = 2;
 		} 
 		else
 		{
-
 			if((command != WRITETIME_COMMAND) && 
 				(command != WRITE_SETTING))
 			{
 				ChangeFlash = 1;	
 			}
 		// TBD: add more write command
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			if(command - WRITEOUTPUT_T3000 < MAX_POINT_TYPE)
 			{
 				write_page_en[command - WRITEOUTPUT_T3000] = 1;	
@@ -1308,12 +1479,15 @@ void handler_private_transfer(
 			{
 				write_page_en[GRP_POINT] = 1;	
 			}
-			
+			if(command == WRITE_SCHEDULE_FLAG) 
+			{
+				write_page_en[24] = 1; // store schedule flag
+			}
 			
 #endif	
 			switch(command)
 			{
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 				case WRITE_BACNET_TO_MDOBUS:
 					ptr = (uint8_t *)(&bacnet_to_modbus);				
 					break;
@@ -1352,21 +1526,27 @@ void handler_private_transfer(
 					if(private_header.point_end_instance <= MAX_WR)
 					ptr = (uint8_t *)(wr_times[private_header.point_start_instance]);
 					break;
+				case WRITE_SCHEDULE_FLAG: 
+					if(private_header.point_end_instance <= MAX_WR)
+					ptr = (uint8_t *)(wr_time_on_off[private_header.point_start_instance]);
+					break;
 				case WRITEANNUALSCHEDULE_T3000:
 					if(private_header.point_end_instance <= MAX_AR)
 					ptr = (uint8_t *)(ar_dates[private_header.point_start_instance]);
 					break;
 				case WRITETIME_COMMAND:
 					ptr = (uint8_t *)(Rtc2.all);
-					break;					   	
+					break;
 				case WRITECONTROLLER_T3000:
 					if(private_header.point_end_instance <= MAX_CONS)
 					ptr = (uint8_t *)&controllers[private_header.point_start_instance];
 					break;
+
 				case WRITEMONITOR_T3000 :
 					if(private_header.point_end_instance <= MAX_MONITORS)
 					ptr = (uint8_t *)&monitors[private_header.point_start_instance];
 					break;
+
 			 	case WRITESCREEN_T3000  :   //CONTROL_GROUP
 					if(private_header.point_end_instance <= MAX_GRPS)
 					ptr = (uint8_t *)&control_groups[private_header.point_start_instance];
@@ -1375,11 +1555,13 @@ void handler_private_transfer(
 					if(private_header.point_end_instance <= MAX_ELEMENTS)
 					ptr = (uint8_t *)(&group_data[private_header.point_start_instance]);
 					break;
+
 				case WRITEREMOTEPOINT:
 					if(private_header.point_end_instance <= MAXREMOTEPOINTS)
 					ptr = (uint8_t *)(&remote_points_list_modbus[private_header.point_start_instance]);
 					break;
 					break;
+//
 				case WRITE_SETTING:
 					ptr = (uint8_t *)(&Setting_Info.all[0]);
 					break;
@@ -1418,7 +1600,7 @@ void handler_private_transfer(
 				// update database
 				 
 					break;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 				case WRITE_ZONE_T3000:
 					ptr = (uint8_t *)(&ID_Config[private_header.point_start_instance]);
 					break;
@@ -1469,41 +1651,51 @@ void handler_private_transfer(
 					}
 					break;
 #endif
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+				case WRITE_MSV_COMMAND:			
+					write_page_en[25] = 1;
+					ptr = (uint8_t *)&msv_data[private_header.point_start_instance];
+					break;				
+			case WRITE_EMAIL_ALARM:
+					write_page_en[4] = 1;
+					ptr = (uint8_t *)&Email_Setting;	
+					break;
+#endif
 				default:
 					break;	
 					
 			} 
+				
 			// write
 			if(ptr != NULL)	
 			{	 
-//				TST_INFO old_tst_info;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+				status = true;
+				//				TST_INFO old_tst_info;
+#if 1//(ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 				if(command == WRITE_BACNET_TO_MDOBUS)
 				{
 					memcpy(ptr,&Temp_CS.value[header_len],private_header.total_length - header_len);
 					// WRITE_BACNET_TO_MDOBUS
-					//memcpy(&Test[6],&bacnet_to_modbus,8);
 					Get_Pkt_Bac_to_Modbus(&private_header);
 				}
 				else
 #endif
 				if(private_header.total_length  == private_header.entitysize * (private_header.point_end_instance - private_header.point_start_instance + 1) + header_len)
 				{	// check is length is correct 
-					
 					if(command != WRITEOUTPUT_T3000)
 						memcpy(ptr,&Temp_CS.value[header_len],private_header.total_length - header_len);
-						
 					if(command == WRITEVARIABLE_T3000)
 					{
 //						Count_Object_Number(OBJECT_ANALOG_VALUE);
 //						Count_Object_Number(OBJECT_BINARY_VALUE);
 						Count_VAR_Object_Number();
-					}
+					}	
+					
 					if(command == WRITEWEEKLYROUTINE_T3000)          /* write weekly routines*/	
 					{		
 						check_weekly_routines();						
 					}
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 					if(command == WRITEUSER_T3000)
 					{
 						//if(Modbus.network_master == 1)
@@ -1524,14 +1716,16 @@ void handler_private_transfer(
 								break;
 							}
 						}
-						for(k = private_header.point_start_instance;k <= private_header.point_end_instance;k++)
-						{
-							for(j = 0;j < MAX_SCHEDULES_PER_WEEK;j++)
-							{
-								Check_wr_time_on_off(k,j,0);
-							}
-								
-						}
+
+
+//						for(k = private_header.point_start_instance;k <= private_header.point_end_instance;k++)
+//						{
+//							for(j = 0;j < MAX_SCHEDULES_PER_WEEK;j++)
+//							{
+//								Check_wr_time_on_off(k,j,0);
+//							}
+//						}
+
 					}
 #endif
 					if(command == WRITEANNUALROUTINE_T3000)           /* write annual routines*/					
@@ -1554,22 +1748,27 @@ void handler_private_transfer(
 #endif
 
 						}	
-#if (ARM_MINI || ASIX_MINI)
+#if (ARM_MINI || ASIX_MINI || ARM_TSTAT_WIFI)
 						for(i = private_header.point_start_instance;i <= private_header.point_end_instance;i++)
-						{								
+						{					
 							if(inputs[i].auto_manual == 1)  // manual
 							{
-								if((inputs[i].range == HI_spd_count) || (inputs[i].range == N0_2_32counts))
+								if((inputs[i].range == HI_spd_count) || (inputs[i].range == N0_2_32counts)
+									|| (inputs[i].range == RPM)	)
 								{							
 									if(swap_double(inputs[i].value) == 0) 
 									{
 										high_spd_counter[i] = 0; // clear high spd count	
+#if ARM_TSTAT_WIFI
+										high_spd_counter_tempbuf[i] = 0;
+#endif
+										Input_RPM[i] = 0;
 										clear_high_spd[i] = 1;
-
 									}											
 								}
 							}							
 						}	
+					
 #endif
 						Count_IN_Object_Number();
 					}
@@ -1579,9 +1778,10 @@ void handler_private_transfer(
 
 						// suspend output task			
 						// if expasion io
+#if (ARM_MINI || ASIX_MINI || ARM_CM5)
 						vTaskSuspend(Handle_Scan);	// dont not read expansion io
 						// if local io
-#if (ARM_MINI || ASIX_MINI || ARM_CM5)
+
 						vTaskSuspend(xHandler_Output);  // do not control local io
 #endif
 						memcpy(ptr,&Temp_CS.value[header_len],private_header.total_length - header_len);
@@ -1590,7 +1790,10 @@ void handler_private_transfer(
 						//i = private_header.point_start_instance;
 						//if(private_header.point_start_instance == private_header.point_end_instance)
 						{		
-							check_output_priority_array(i);
+							check_output_priority_array(i,0);
+#if OUTPUT_DEATMASTER
+			clear_dead_master();
+#endif
 							// if extern io, write extern output
 #if  T3_MAP	
 							//if(outputs[i].sub_product == PM_T38AI8AO6DO || outputs[i].sub_product == PM_T36CTA || outputs[i].sub_product == PM_T3LC )  // new T3
@@ -1605,11 +1808,11 @@ void handler_private_transfer(
 						// if local io	
 #if (ARM_MINI || ASIX_MINI || ARM_CM5)
 						vTaskResume(xHandler_Output); 
-#endif
-						// if expasion io						
-						vTaskResume(Handle_Scan);							
-						
 
+						// if expasion io		
+						
+						vTaskResume(Handle_Scan);							
+#endif
 //						Count_Object_Number(OBJECT_ANALOG_OUTPUT);
 //						Count_Object_Number(OBJECT_BINARY_OUTPUT);
 						Count_OUT_Object_Number();
@@ -1618,7 +1821,7 @@ void handler_private_transfer(
 					if(command == WRITEEXT_IO_T3000)
 						update_extio_to_database();
 #endif
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 					if(command == WRITE_ZONE_T3000)
 					{
 						if(ID_Config_Sche[private_header.point_start_instance] != ID_Config[private_header.point_start_instance].Str.schedule)
@@ -1633,10 +1836,10 @@ void handler_private_transfer(
 #endif
 					if(command == WRITEPROGRAMCODE_T3000)
 					{	
-					
+						flag_writing_code = 1;
+						count_wring_code = 5;
 						programs[private_header.point_start_instance].bytes = swap_word(prg_code[private_header.point_start_instance][1] * 256 + 
-							prg_code[private_header.point_start_instance][0]);
-			
+							prg_code[private_header.point_start_instance][0]);			
 						
 						if(/*packet_index == 0 && */programs[private_header.point_start_instance].bytes == 0)
 						{
@@ -1647,8 +1850,7 @@ void handler_private_transfer(
 							//programs[private_header.point_start_instance].real_byte = swap_word(private_header.total_length - header_len + CODE_ELEMENT * packet_index);
 							programs[private_header.point_start_instance].real_byte = swap_word((swap_word(programs[private_header.point_start_instance].bytes) / CODE_ELEMENT + 1) * CODE_ELEMENT);
 					
-						}
-												
+						}												
 						if(private_header.total_length - header_len + CODE_ELEMENT * packet_index > CODE_ELEMENT * MAX_CODE)
 						{
 							programs[private_header.point_start_instance].real_byte = 0;
@@ -1662,6 +1864,7 @@ void handler_private_transfer(
 							if(Code_total_length >= MAX_CODE_SIZE)
 									Code_total_length = MAX_CODE_SIZE;
 						}
+						
 					}
 					
 #if 1//STORE_TO_SD
@@ -1669,18 +1872,18 @@ void handler_private_transfer(
 					{ 
 //						char i;	
 //						i = private_header.point_start_instance;
-//						if(private_header.point_start_instance == private_header.point_end_instance)
+//						if(private_header.point_start_instance == private_header.point_end_instance)							
 							dealwithMonitor(private_header.point_start_instance);
 					}					
 #endif
 
-#if !(ARM_WIFI)
+
 					else if(command == WRITETIME_COMMAND)
 					{ 
 						// update current panel	
 						Get_RTC_by_timestamp(swap_double(Rtc2.NEW.timestamp),&t,&Rtc,1);
 						// time sync with PC 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 						Setting_Info.reg.update_time_sync_pc = 0;
 						//flag_Updata_Clock = 1;
 						//Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);
@@ -1702,19 +1905,27 @@ void handler_private_transfer(
 						TimeSync(); 
 #endif
 
+#if ARM_MINI 
 						Send_Time_Sync_To_Network();
+#endif
 						
 #endif
 
 					}
-#endif
 					else if(command == WRITE_SETTING)
 					{	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 						write_page_en[24] = 1;
 #endif
 						// deal with writen_setting
-						dealwith_write_setting(&Setting_Info);
+						// 如果当前是串口，延时操作波特率的修改
+						//if(protocal < 0xa0)
+							dealwith_write_setting(&Setting_Info);
+//						else
+//						{
+//							// delay_write_setting
+//							delay_write_setting = 1;
+//						}
 					}
 					else if(command == WRITEALARM_T3000)
 					{
@@ -1723,32 +1934,33 @@ void handler_private_transfer(
 //						for(i = private_header.point_start_instance;i <= private_header.point_end_instance;i++ )
 //							AlarmSync(1,i,0,Station_NUM);
 					}
+
 					else if(command == WRITEGROUPELEMENTS_T3000)
 					{
 						// check whether exist remote point, if exist, add it to remote point list
 						U8_T i/*,j*/;
 						Point_Net point; 
-						S32_T value;						
+						S32_T value;		
+						
 						for(i = private_header.point_start_instance;i < private_header.point_end_instance;i++)
 						{  
-							point.number = group_data[i].reg.nPoint_number;
-							point.point_type = group_data[i].reg.nPoint_type;
-							point.panel = group_data[i].reg.nMain_Panel;
-							point.sub_id = group_data[i].reg.nSub_Panel;
-							point.network_number = Setting_Info.reg.network_number;	
-	
-							if(get_net_point_value(&point,&value,1))
-							{		
-#if (ASIX_MINI || ASIX_CM5)
-								remote_points_list_modbus[i].point_value = value;
-#else
-								remote_points_list_modbus[i].point_value = my_honts_arm(value);
-#endif
-							} 						
+							if(i < MAX_ELEMENTS) 
+							{
+								point.number = group_data[i].reg.nPoint_number;
+								point.point_type = group_data[i].reg.nPoint_type;
+								point.panel = group_data[i].reg.nMain_Panel;
+								point.sub_id = group_data[i].reg.nSub_Panel;
+								point.network_number = Setting_Info.reg.network_number;	
+								
+						//		if(point.panel == 0)
+								// add points to network points table
+								get_net_point_value(&point,&value,1,1);
+							}							
 						}
 							
 						check_graphic_element();
 					}
+
 					else if(command == WRITEREMOTEPOINT)
 					{	// write remote point value
 						put_net_point_value(&(remote_points_list_modbus[private_header.point_start_instance].point), \
@@ -1848,17 +2060,16 @@ void handler_private_transfer(
 				{
 						temp[6] |= (packet_index << 1);
 				}				
-			}
-		
+			}		
 		}
 
 		switch(command)
 		{
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if 1//(ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			case READ_BACNET_TO_MDOBUS:
 			// get packet (transfer bacnet to modbus )	
 				Get_Pkt_Bac_to_Modbus(&private_header);
-				ptr = (uint8_t *)(&bacnet_to_modbus[0]);			
+				ptr = (uint8_t *)(&bacnet_to_modbus[0]);
 				break;
 #endif
 			case READOUTPUT_T3000:
@@ -1896,6 +2107,10 @@ void handler_private_transfer(
 		 	case READANNUALSCHEDULE_T3000:    /* read annual schedule*/
 				if(private_header.point_end_instance <= MAX_AR)
 				ptr = (uint8_t *)&ar_dates[private_header.point_start_instance];				
+				break;
+			case READ_SCHEDULE_FLAG:
+				if(private_header.point_end_instance <= MAX_WR)
+				ptr = (uint8_t *)&wr_time_on_off[private_header.point_start_instance];	
 				break;
 			case READTIME_COMMAND:
 				// if daylight_saving_time
@@ -1976,7 +2191,7 @@ void handler_private_transfer(
 //				UpdateMonitor(Graphi_data);
 //				ptr = (char *)(Graphi_data->asdu);
 //				break;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			case GET_PANEL_INFO:   // other commad
 				Initial_Panel_Info();	
 				Panel_Info.reg.protocal = protocal;
@@ -1985,6 +2200,9 @@ void handler_private_transfer(
 #endif
 			case READ_SETTING:	
 				Initial_Panel_Info();
+#if ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI
+				//check_SD_PnP();
+#endif
 			  ptr = (uint8_t *)(Setting_Info.all);
 				break;
 			case READVARUNIT_T3000:
@@ -1993,7 +2211,7 @@ void handler_private_transfer(
 			case READEXT_IO_T3000:					
 					ptr = (uint8_t *)(extio_points);	
 					break;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			case READ_ZONE_T3000:		
 					refresh_zone();
 					ptr = (uint8_t *)(ID_Config);	
@@ -2003,11 +2221,11 @@ void handler_private_transfer(
 				if(private_header.point_end_instance <= MAX_ALARMS)
 				ptr = (uint8_t *)(&alarms[private_header.point_start_instance]);
 				break;
-			case READUNIT_T3000:
+			case READUNIT_T3000: // digital customer range
 				if(private_header.point_end_instance <= MAX_DIG_UNIT)
 				ptr = (uint8_t *)(&digi_units[private_header.point_start_instance]);
 				break;
-			case READTABLE_T3000:
+			case READTABLE_T3000: // analog customer range
 				ptr = (uint8_t *)(&custom_tab[private_header.point_start_instance]);
 				break;
 			case READUSER_T3000:
@@ -2027,26 +2245,40 @@ void handler_private_transfer(
 //			case READWEATHER_T3000:
 //					ptr = (char *)(&weather);
 //					break;
-//			case READ_TSTAT_DB:
-//				{					
-//					U8_T i;	
-//					for(i = private_header.point_start_instance;i <= private_header.point_end_instance;i++)
-//					{
-//						Remote_tst_db[i].sn[0] = (U8_T)(scan_db[i].sn >> 0);
-//						Remote_tst_db[i].sn[1] = (U8_T)(scan_db[i].sn >> 8);
-//						Remote_tst_db[i].sn[2] = (U8_T)(scan_db[i].sn >> 16);
-//						Remote_tst_db[i].sn[3] = (U8_T)(scan_db[i].sn >> 24);
-//						Remote_tst_db[i].product_type = scan_db[i].product_model;
-//						Remote_tst_db[i].modbus_id = scan_db[i].id;
-//						Remote_tst_db[i].ip_addr[0] = Modbus.ip_addr[0];
-//						Remote_tst_db[i].ip_addr[1] = Modbus.ip_addr[1];
-//						Remote_tst_db[i].ip_addr[2] = Modbus.ip_addr[2];
-//						Remote_tst_db[i].ip_addr[3] = Modbus.ip_addr[3];
-//						Remote_tst_db[i].port = Modbus.tcp_port;
-//					}
-//					ptr =  (char *)(&Remote_tst_db[private_header.point_start_instance]);
-//				}			
-//				break;
+			case READ_TSTAT_DB:
+				{					
+					U8_T i,index;	
+					index = 0; 
+					
+					for(i = 0;i < sub_no;i++)
+					{	 
+						if((scan_db[i].product_model >= CUSTOMER_PRODUCT) || (current_online[scan_db[i].id / 8] & (1 << (scan_db[i].id % 8))))	  	 // in database but not on_line
+						{
+							if(scan_db[i].product_model != PRODUCT_MINI_BIG)
+							{
+								Remote_tst_db.sub[index].modbus_id = (U16_T)scan_db[i].id;
+								Remote_tst_db.sub[index].instance = 0;
+								Remote_tst_db.sub[index].protocal = 0;								
+								index++;
+							}	
+						}						
+					}
+					
+					for(i = 0;i < remote_panel_num;i++)
+					{
+						if(remote_panel_db[i].protocal == BAC_MSTP )
+						{
+							Remote_tst_db.sub[index].protocal = 1;
+							Remote_tst_db.sub[index].modbus_id = 0;
+							Remote_tst_db.sub[index].instance = remote_panel_db[i].device_id;
+							index++;
+						}
+					}
+					Remote_tst_db.number = index;
+					
+					ptr = (char *)(&Remote_tst_db);
+				}			
+				break;
 			case READ_MISC:
 				{
 					char i;
@@ -2065,53 +2297,101 @@ void handler_private_transfer(
 				}
 				ptr = (uint8_t *)(MISC_Info.all);	
 				break;
-
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+			case READ_MSV_COMMAND:	
+				ptr = (uint8_t *)&msv_data[private_header.point_start_instance];	
+				break;
+			case READ_EMAIL_ALARM:
+				ptr = (uint8_t *)&Email_Setting;	
+				break;
+#endif
 			default:
 				break;
 		}
 
 		if(ptr != NULL)	
 		{
-			memcpy(&temp[header_len],ptr,transfer_len);
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			if(protocal < 0xa0)  // mstp or bip
+#endif
+				memcpy(&temp[header_len],ptr,transfer_len);
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			else
+			{
+				memcpy(&temp,&apdu[0],14);
+				memcpy(&temp[14],ptr,transfer_len);
+			}
+#endif
 		}
-		
 		status = bacapp_parse_application_data(BACNET_APPLICATION_TAG_OCTET_STRING,	temp, &data_value);
 	} 
+	
+
 #if 0	
 	if(command == WRITEPIC_T3000)
 	{
 		status = flag_write_pic;
 	}
 #endif	
-  if(status == true)
-	{	
-	   	memset(temp,0,MAX_APDU);
-	    private_data_len = 
-	        bacapp_encode_application_data(&temp[0],&data_value);
-		
-	    private_data.serviceParameters = &temp[0];
-	    private_data.serviceParametersLen = private_data_len;
-   		len = uptransfer_encode_apdu(&apdu[0], &private_data);
-			
-	}
-#if 0		
-	if(command == WRITEPIC_T3000)
+	if((command == WRITEPRGFLASH_COMMAND) || (command == CLEAR_MONITOR))
 	{
-		if(flag_write_pic == 1)
-			Send_UnconfirmedPrivateTransfer(src,&private_data,protocal);
+		status = true;
 	}
-	else 
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+	if(protocal < 0xa0)  // mstp or bip
 #endif
-		if(command == READMONITORDATA_T3000)
 	{
-		if(flag_read_monitor == 1)
+		if(status == true)
 		{
-			Send_UnconfirmedPrivateTransfer(src,&private_data,protocal);
+				memset(temp,0,MAX_APDU);
+				private_data_len = 
+						bacapp_encode_application_data(&temp[0],&data_value);
+			
+				private_data.serviceParameters = &temp[0];
+				private_data.serviceParametersLen = private_data_len;
+				len = uptransfer_encode_apdu(&apdu[0], &private_data);
+#if 0		
+			if(command == WRITEPIC_T3000)
+			{
+				if(flag_write_pic == 1)
+					Send_UnconfirmedPrivateTransfer(src,&private_data,protocal);
+			}
+			else 
+#endif
+			if(command == WRITEPRGFLASH_COMMAND)
+			{
+				Send_UnconfirmedPrivateTransfer(src,&private_data,protocal);
+			}
+			if(command == READMONITORDATA_T3000)
+			{
+				if(flag_read_monitor == 1)
+				{
+					Send_UnconfirmedPrivateTransfer(src,&private_data,protocal);
+				}
+			}
+			else
+			{
+				Send_UnconfirmedPrivateTransfer(src,&private_data,protocal);
+			}
 		}
 	}
-	else
-		Send_UnconfirmedPrivateTransfer(src,&private_data,protocal);
-
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+	else  // Temco private modbus
+	{
+		U16_T crc_check;
+		Test[23]++;
+		// send data via temco private modbus
+		uart_init_send_com(protocal - 0xa0);
+		crc_check = crc16(temp, transfer_len + 14);
+		temp[transfer_len + 14] = HIGH_BYTE(crc_check);
+		temp[transfer_len + 15] = LOW_BYTE(crc_check);
+		uart_send_string(temp,transfer_len + 16,protocal - 0xa0);
+		
+		// 回复完再修改
+//		if(delay_write_setting == 1)
+//			dealwith_write_setting(&Setting_Info);
+	}
+#endif
 
   return;
 

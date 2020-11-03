@@ -17,8 +17,10 @@ const uint8 pro_info[20] __attribute__((at(0x08008200))) = {'T','e','m','c','o',
 const uint8 pro_info[20] __attribute__((at(0x08008200))) = {'T','e','m','c','o','C','M','5','_' ,'A','R','M', 0 , 0 , 0 ,SW_REV % 100, SW_REV / 100,  0, 0, 0};
 #endif
 
-#if ARM_WIFI
-const uint8 pro_info[20] __attribute__((at(0x08008200))) = {'T','e','m','c','o','T','S','T','A','T','8',0,0,0,0,(SW_REV)&0xff , (SW_REV>>8)&0xff,  0, 0, 0}; 
+#if ARM_TSTAT_WIFI
+const uint8 pro_info[20] __attribute__((at(0x08008200))) = {'T','e','m','c','o','P','I','D','1','0',0,0,0,0,0,(SW_REV)&0xff , (SW_REV>>8)&0xff,  0, 0, 0}; 
+//const uint8 pro_info[20] __attribute__((at(0x08008200))) = {'T','e','m','c','o','T','S','T','A','T','8',0,0,0,0,(SW_REV)&0xff , (SW_REV>>8)&0xff,  0, 0, 0}; 
+
 #endif	
 
 	

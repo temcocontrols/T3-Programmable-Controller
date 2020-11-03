@@ -82,6 +82,7 @@
 #include "uip.h"
 #include "uipopt.h"
 #include "uip_arch.h"
+#include "tcpip.h"
 
 
 
@@ -420,6 +421,7 @@ extern u8 IP_Change;
 extern uint32_t run_time;
 extern u8 flag_tcpip_initial;
 void tcpip_intial(void);
+// reset per 1 day
 void Check_TCP_UDP_Socket(void)
 {
 	char c;
@@ -433,11 +435,11 @@ void Check_TCP_UDP_Socket(void)
 	
 	for(c = 0; c < UIP_UDP_CONNS; ++c) 
 	{
-		if(c < 6)
-		{
-//			Test[34 + c] = HTONS(uip_udp_conns[c].lport);
-//			Test[44 + c] = HTONS(uip_udp_conns[c].rport);
-		}
+//		if(c < 9)
+//		{
+//			Test[31 + c] = HTONS(uip_udp_conns[c].lport);
+//			Test[41 + c] = HTONS(uip_udp_conns[c].rport);
+//		}
 		
 		if(uip_udp_conns[c].lport == HTONS(1234))
 			flag_udp_scan_lport = 1;
@@ -454,7 +456,8 @@ void Check_TCP_UDP_Socket(void)
 		{
 			//tcpip_intial();
 			// intial tcpip
-			flag_tcpip_initial = 1;
+			//flag_tcpip_initial = 1;
+			Test[29]++;
 		}
 	}
 	
@@ -540,36 +543,7 @@ uip_connect(uip_ipaddr_t *ripaddr, u16_t rport)
 /*---------------------------------------------------------------------------*/
 #if UIP_UDP
 extern U16_T far Test[50];
-void udp_inital(U16_T lport);
-//void Check_UDP_Socket(void)
-//{
-//	char c;
-//	for(c = 0; c < 6; ++c) 
-//	{
-//		Test[34 + c] = HTONS(uip_udp_conns[c].lport);
-//		Test[44 + c] = HTONS(uip_udp_conns[c].rport);
-////		if(uip_udp_conns[c].lport != 0)
-////		{
-////			if(uip_udp_time_to_live[c] > 0)
-////				uip_udp_time_to_live[c]--;
-////			else //if(uip_udp_time_to_live[c] == 0)  // delete connect
-////			{
-////				Test[30]++;		
-////				uip_udp_conns[c].lport = 0;
-//////				switch(uip_udp_conn->lport)
-//////				{
-//////				case HTONS(1234/*UDP_SCAN_LPORT*/):
-//////				case HTONS(47808/*UDP_BACNET_LPORT*/):
-//////				case HTONS(40005/*UDP_BIP_SEND_LPORT*/):
-//////					udp_inital(uip_udp_conn->lport);
-//////					break;
-//////				default:					
-//////					break;
-//////				}
-////			}
-////		}
-//	}
-//}
+
 
 struct uip_udp_conn *
 uip_udp_new(uip_ipaddr_t *ripaddr, u16_t rport)
@@ -601,7 +575,7 @@ uip_udp_new(uip_ipaddr_t *ripaddr, u16_t rport)
   if(conn == 0) { 
     return 0;
   }
-  
+	
 	
   conn->lport = HTONS(lastport);
   conn->rport = rport;
@@ -1241,19 +1215,14 @@ uip_process(u8_t flag)
 			
 			// added by chelsea, only compare whether same subnet
 			uip_ipaddr_copy(&ip, BUF->srcipaddr);	
-			//memcpy(&Test[8],&ip,4);
 			memcpy(&temp,&uip_netmask,4);
 			ip[0] |= (255 - temp[0]);
 			ip[1] |= (255 - temp[1]);
 			ip[2] |= (255 - temp[2]);
 			ip[3] |= (255 - temp[3]);
-			//ip[3] = 127;
-//			Test[7]++;
-//			memcpy(&Test[18],&ip,4);
-			//memcpy(&Test[18],&uip_hostaddr_submask,4);
-			//if(uip_ipaddr_cmp(BUF->destipaddr, all_ones_addr))
-			if(!uip_ipaddr_cmp(ip, uip_hostaddr_submask))
-			{ // if in differnet subnet, response broadcast.
+			
+			if((!uip_ipaddr_cmp(ip, uip_hostaddr_submask)) && (HTONS(uip_udp_conn->lport) == UDP_SCAN_LPORT))
+			{ // if in differnet subnet, response broadcast, only for temco scan port 1234
 				uip_ipaddr_copy(uip_udp_conn->ripaddr, all_ones_addr);
 			}
 			else
@@ -1379,7 +1348,6 @@ uip_process(u8_t flag)
   /* No matching connection found, so we send a RST packet. */
   UIP_STAT(++uip_stat.tcp.synrst);
  reset:
-
   /* We do not send resets in response to resets. */
   if(BUF->flags & TCP_RST) {
     goto drop;
@@ -1427,7 +1395,6 @@ uip_process(u8_t flag)
   /* Swap IP addresses. */
   uip_ipaddr_copy(BUF->destipaddr, BUF->srcipaddr);
   uip_ipaddr_copy(BUF->srcipaddr, uip_hostaddr);
-  
   /* And send out the RST packet! */
   goto tcp_send_noconn;
 
@@ -1450,7 +1417,7 @@ uip_process(u8_t flag)
     if(uip_conns[c].tcpstateflags == UIP_TIME_WAIT) {
       if(uip_connr == 0 ||
 	 uip_conns[c].timer > uip_connr->timer) {
-	uip_connr = &uip_conns[c];
+	 uip_connr = &uip_conns[c];
       }
     }
   }
@@ -2057,6 +2024,14 @@ void
 uip_send(const void *data, int len)
 {
   if(len > 0) { 
+		u16_t count;
+		// added by chelsea
+		// 确保上一包已经发送完毕
+		count = 0;
+		while((uip_slen != 0) && (count++ < 500)) 
+			delay_ms(1);
+		
+		if(count >= 501)	{Test[26]++;return;}
     uip_slen = len;
     if(data != uip_sappdata) {
       memcpy(uip_sappdata, (data), uip_slen);

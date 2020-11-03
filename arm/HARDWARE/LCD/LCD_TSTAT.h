@@ -82,7 +82,7 @@
 #define SCH_COLOR  0xffff//0XB73F
 #define SCH_BACK_COLOR  0x3bef//0x43f2//0x14E9
 
-#define TSTAT8_BACK_COLOR1  0x7E19
+#define TSTAT8_BACK_COLOR1  0x3cef//0x7E19
 #define TSTAT8_BACK_COLOR   0x7E19//
 #define TSTAT8_MENU_COLOR2  0x7e17
 #define TANGLE_COLOR        0xbe9c
@@ -101,10 +101,10 @@
 #define HC_CFG_HEAT			2
 
 
-#define	LONG_PRESS_TIMER_SPEED_100	70
-#define	LONG_PRESS_TIMER_SPEED_50	50
-#define	LONG_PRESS_TIMER_SPEED_10	30
-#define	LONG_PRESS_TIMER_SPEED_1	10
+#define	LONG_PRESS_TIMER_SPEED_100	200
+#define	LONG_PRESS_TIMER_SPEED_50	100
+#define	LONG_PRESS_TIMER_SPEED_10	50
+#define	LONG_PRESS_TIMER_SPEED_1	20
 
 
 #define KEY_SPEED_1			(0x0000)
@@ -114,10 +114,12 @@
 #define KEY_SPEED_MASK		(0x00ff)
 #define KEY_FUNCTION_MASK	(0xff00)
 
-#define	KEY_UP_MASK			(1 << 1)
-#define	KEY_DOWN_MASK		(1 << 2)
-#define	KEY_LEFT_MASK		(1 << 3)
-#define	KEY_RIGHT_MASK		(1 << 0)
+#define	KEY_UP_MASK			2//(1 << 1)
+#define	KEY_DOWN_MASK		4//(1 << 2)
+#define	KEY_LEFT_MASK		8//(1 << 3)
+#define	KEY_RIGHT_MASK		1//(1 << 0)
+#define	KEY_LEFT_RIGHT_MASK		9//(1 << 0)
+
 
 void vStartKeyTasks( unsigned char uxPriority);
 void vStartMenuTask(unsigned char uxPriority);
@@ -125,8 +127,10 @@ void vStartMenuTask(unsigned char uxPriority);
 
 #ifndef TSTAT7_ARM
 
+#define MAX_SCOROLL 16
+
 extern uint8 *scroll;
-extern uint8 scroll_ram[20][15];
+extern uint8 scroll_ram[5][MAX_SCOROLL];
 extern uint8 fan_flag;
 extern uint8 display_flag;
 extern uint8 schedule_hour_minute; //indicate current display item is "hour" or "minute"
@@ -156,6 +160,8 @@ extern uint16 const rightdown[];
 extern uint16 const rightup[];
 extern uint16 const cmnct_send[]; 
 extern uint16 const cmnct_rcv[]; 
+extern uint16 const wifinocnnct[];
+extern uint16 const wificonnect[];
 
 typedef struct   
 {
@@ -178,8 +184,9 @@ void disp_icon(uint16 cp, uint16 pp, uint16 const *icon_name, uint16 x,uint16 y,
 void disp_null_icon(uint16 cp, uint16 pp, uint16 const *icon_name, uint16 x,uint16 y,uint16 dcolor, uint16 bgcolor);
 void disp_str(uint8 form, uint16 x,uint16 y,uint8 *str,uint16 dcolor,uint16 bgcolor);	
 void display_SP(int16 setpoint);
+void display_screen_value(uint8 type);
 void display_fanspeed(int16 speed);
-void display_mode(void);
+void display_mode(uint8 heat_cool_user);
 void display_fan(void);
 void display_icon(void);
 void display_value(uint16 pos,int16 disp_value, uint8 disp_unit);

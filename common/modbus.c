@@ -6,13 +6,23 @@
 #include <string.h>
 
 
-void Sync_timestamp(S16_T newTZ,S16_T oldTZ,S8_T newDLS,S8_T oldDLS);
+void f(S16_T newTZ,S16_T oldTZ,S8_T newDLS,S8_T oldDLS);
 void Write_ZIGBEE_ID(U16_T newid);
 void clear_sd(void);
+void Set_AO_raw(uint8 i,float value);
 
-#if ARM_WIFI
+#if  ARM_TSTAT_WIFI    
+extern u16 voltage_occ;
+U8_T far clear_high_spd[HI_COMMON_CHANNEL];
+#endif
+
+#if ARM_TSTAT_WIFI || ARM_MINI
+extern uint8 flag_connect_AP;
+extern uint8_t flag_set_wifi;
 
 #include "wifi.h"
+bool ESP8266_JoinAP_DEF( char * pSSID, char * pPassWord );
+
 
 extern uint8_t modbus_wifi_buf[500];
 extern uint16_t modbus_wifi_len;
@@ -21,6 +31,7 @@ extern uint16_t modbus_wifi_len;
 
 #if (ASIX_MINI || ASIX_CM5)
 #include "pic.h"
+void Sync_timestamp(S16_T newTZ,S16_T oldTZ,S8_T newDLS,S8_T oldDLS);
 
 #endif
 
@@ -29,7 +40,7 @@ extern uint16_t modbus_wifi_len;
 
 extern U8_T 	far bacnet_to_modbus[300];
 
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI 
 bit flagLED_ether_tx;
 bit flagLED_ether_rx;
 bit flagLED_uart0_rx;
@@ -42,6 +53,8 @@ bit flagLED_uart2_tx;
 #endif
 
 #define UIP_HEAD  6
+
+U16_T PT1K_para;
 
 U16_T far uart0_sendbyte_num;
 U16_T far uart1_sendbyte_num;
@@ -60,15 +73,26 @@ U8_T far uart2_dealwithTag;
 U8_T far uart2_data_buffer[MAX_BUF_LEN];
 U8_T far uart2_transmit_finished;
 
-#if ARM_MINI || ARM_CM5 || ARM_WIFI
+#if ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI 
 void UART_Init(U8_T port);
 u32 Rtc_Set(u16 syear, u8 smon, u8 sday, u8 hour, u8 min, u8 sec,u8 flag);
 void modubs_sub1_uart_int_hander(void);
-//extern u8 tcp_server_sendbuf[300];
-extern u16 tcp_server_sendlen;
-extern uint8_t write_page_en[25];
+
+extern uint8_t write_page_en[26];
 #endif
 
+#if ARM_MINI || ARM_CM5
+extern u8 tcp_server_sendbuf[300];
+extern u16 tcp_server_sendlen;
+#endif
+
+#if ARM_TSTAT_WIFI
+u8 tcp_server_sendbuf[300];
+u16 tcp_server_sendlen;
+u8 IP_Change;
+#endif
+
+void SoftReset(void);
 //void Reset_Zigbee_Moudle(void);
 //void bip_Init(U16_T localPort);
 void TCP_IP_Init(void);
@@ -94,6 +118,10 @@ extern uint8 flag_response_zigbee;
 
 void write_user_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData) ;
 U16_T read_user_data_by_block(U16_T addr);
+
+void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type) ;
+U16_T read_wifi_data_by_block(U16_T addr);
+
 void test_alarm(uint8_t test);
 
 #if 0
@@ -115,6 +143,9 @@ U16_T far mstp_network;
 STR_MODBUS far Modbus;
 
 
+
+STR_EX_MODULE far ex_moudle;
+
 bit Mac_Address_write_enable = FALSE;
 
 U8_T uart0_baudrate;
@@ -128,8 +159,8 @@ U8_T test_adc_flag;
 
 
 uint32_t run_time;
-uint8_t tcp_connect_num;
-uint8_t udp_connect_num;
+uint32_t run_time_last;
+uint8_t reboot_counter; // reboot counter in 5 minutes
 
 xTaskHandle xdata Handle_MainSerial;
 
@@ -153,8 +184,10 @@ bit flag_gsm_initial;
 U32_T far high_spd_counter[HI_COMMON_CHANNEL];
 U32_T far high_spd_counter_tempbuf[HI_COMMON_CHANNEL];
 U8_T far high_spd_en[HI_COMMON_CHANNEL];
-
-U8_T subnet_rec_package_size; 
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+U32_T far Input_RPM[HI_COMMON_CHANNEL];
+#endif
+U16_T subnet_rec_package_size; 
 
 
 
@@ -184,6 +217,8 @@ U8_T far subnet_response_buf[MAX_BUF_LEN];
 U8_T SERIAL_RECEIVE_TIMEOUT;
 U8_T SNWriteflag; 
 U8_T far rand_read_ten_count;
+
+U16_T max_buf[3];
 unsigned short TransID = 1;
 
 //bit  fix_tstat_position = 1;
@@ -240,7 +275,6 @@ void vStartMainSerialTasks( U8_T uxPriority)
 #if ARM_MINI
 	Modbus_IO_Init();
 #endif
-
 	sTaskCreate( main_dealwithData, "mainserailtask", MainSerialSTACK_SIZE, NULL, uxPriority, &Handle_MainSerial );
 }
 
@@ -269,12 +303,15 @@ void initSerial(void)
 	main_rece_size = 0;
 	main_dealwithTag = 0;
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	uart2_rece_count = 0;
 	uart2_dealwithTag = 0;
 	uart2_rece_size = 0;
+
 #endif
-	
+	max_buf[0] = 250;
+	max_buf[1] = 250;
+	max_buf[2] = 250;
 #if (ASIX_MINI || ASIX_CM5)
 	vSemaphoreCreateBinary(sem_subnet_tx_uart0);
 	vSemaphoreCreateBinary(sem_subnet_tx_uart1);
@@ -282,7 +319,7 @@ void initSerial(void)
 	vSemaphoreCreateBinary(sem_response_modbus);
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 
 	sem_subnet_tx_uart0 = vSemaphoreCreateBinary(0);
 	sem_subnet_tx_uart1 = vSemaphoreCreateBinary(0);
@@ -293,10 +330,11 @@ void initSerial(void)
 	flag_sem_response_modbus = 0;
 #if (ARM_MINI || ASIX_MINI )
 	//main_dealwithTag = 1;
-	if(Modbus.com_config[0] == MODBUS_SLAVE)
+	if(Modbus.com_config[0] == MODBUS_SLAVE || Modbus.com_config[0] == BACNET_SLAVE || Modbus.com_config[0] == BACNET_MASTER)
 	{
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)
+		|| (Modbus.mini_type == MINI_NANO))
 				UART0_TXEN_TINY = RECEIVE;
 		else
 				UART0_TXEN_BIG = RECEIVE;	
@@ -324,7 +362,7 @@ void initSerial(void)
 
 #if ARM_CM5
 
-	if(Modbus.com_config[0] == MODBUS_SLAVE)
+	if(Modbus.com_config[0] == MODBUS_SLAVE || Modbus.com_config[0] == BACNET_SLAVE || Modbus.com_config[0] == BACNET_MASTER)
 	{	
 		UART0_TXEN = RECEIVE;			
 	}
@@ -335,8 +373,14 @@ void initSerial(void)
 	
 #endif
 	
-#if ARM_WIFI
-	UART0_TXEN_BIG = RECEIVE;
+#if ARM_TSTAT_WIFI 
+	if(Modbus.com_config[0] == MODBUS_SLAVE || Modbus.com_config[0] == 0)
+	{
+		UART0_TXEN_BIG = RECEIVE;
+		uart0_rece_count = 0;
+		uart0_dealwithTag = 0;
+		uart0_rece_size = 0;
+	}
 #endif
 
 //// 	check if during ISP mode if the address has been changed
@@ -455,7 +499,7 @@ U16_T crc16(U8_T *p, U8_T length)
 
 // for mstp
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 
 u8 UART_Get_SendCount(void)
 {
@@ -502,7 +546,7 @@ void uart_init_send_com(U8_T port)
 		if(Modbus.com_config[1] == MODBUS_SLAVE) 		
 	   		uart1_transmit_finished = 0;
 		// ONLY FOR NEW ARM, choose ZIGBEE or RS232 by anaolog switch
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		if((Modbus.mini_type == MINI_BIG_ARM) || (Modbus.mini_type == MINI_SMALL_ARM))
 		{
 			if(Modbus.com_config[1] == MODBUS_MASTER || Modbus.com_config[1] == 0)
@@ -518,7 +562,8 @@ void uart_init_send_com(U8_T port)
 	   uart0_transmit_finished = 0;
 #endif
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)
+		|| (Modbus.mini_type == MINI_NANO))
 			UART0_TXEN_TINY = SEND;		
 		else
 			UART0_TXEN_BIG = SEND;		
@@ -542,7 +587,7 @@ void uart_init_send_com(U8_T port)
 
 #endif
 
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI 
 //	UART_Init(port);
 //	if(port == 2)
 //	{ 	
@@ -562,7 +607,7 @@ void uart_send_byte(U8_T buffer,U8_T port)
 	U16_T count = 0;
 	if(port > 2) return;
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if(port == PORT_RS485_MAIN)
 	{
 	 USART_ClearFlag(USART3, USART_FLAG_TC); 
@@ -643,13 +688,29 @@ void uart_send_string(U8_T *p, U16_T length,U8_T port)
 {
 	U16_T i;
 	
+	
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	U16_T delay;
 	U16_T count;
+	
+//	if(port == 4) // WIFI
+//	{
+//		memcpy(wifi_send_buf, p, length);
+//    wifi_sendbyte_num = length;
+//		USART_ITConfig(UART4, USART_IT_TXE, ENABLE);
+//		// wait transfer ok
+//		count = 0;
+//		delay = wifi_sendbyte_num;		
+//		while((wifi_sendbyte_num != 0) && (count < delay))
+//		{
+//			count++;
+//			vTaskDelay(2);
+//		}
+//	}
 #endif
 	
-#if !(ARM_WIFI)
+#if !(ARM_TSTAT_WIFI )
 	if(port > 2) return;
 	
 #if (ARM_MINI || ARM_CM5)
@@ -679,8 +740,7 @@ void uart_send_string(U8_T *p, U16_T length,U8_T port)
 		while((uart0_sendbyte_num != 0) && (count < delay))
 		{
 			count++;
-			vTaskDelay(2);
-			//delay_ms(1);	
+			vTaskDelay(2);//delay_ms(1);	
 		}
 	}
 	else	if(port == PORT_ZIGBEE)
@@ -736,9 +796,8 @@ void uart_send_string(U8_T *p, U16_T length,U8_T port)
 							DELAY_Ms(2);  // for minipanel
 						else
 							DELAY_Ms(1);  // for minipanel
-					}
-					
-				}				
+					}					
+				}					
 				
 				else if(uart2_baudrate == UART_9600)
 					DELAY_Ms(2);  // for minipanel
@@ -746,7 +805,10 @@ void uart_send_string(U8_T *p, U16_T length,U8_T port)
 		}
 		else if(Modbus.com_config[2] == MODBUS_SLAVE)
 		{
-			DELAY_Ms(length / 5 + 1);
+			if(uart2_baudrate == UART_9600)
+				DELAY_Ms(length / 4 + 2);
+			else				
+				DELAY_Ms(length / 5 + 1);
 		}
 		else if(Modbus.com_config[2] == BACNET_SLAVE || Modbus.com_config[2] == BACNET_MASTER)
 		{
@@ -805,7 +867,7 @@ void uart_send_string(U8_T *p, U16_T length,U8_T port)
 	
 #endif
 	
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI //for old wifi moudle
 	if(port == 0)
 	{		
 //		memcpy(uart_sendB, p, length);
@@ -817,7 +879,7 @@ void uart_send_string(U8_T *p, U16_T length,U8_T port)
 //		{
 //			count++;
 //			vTaskDelay(2);
-//		}	
+//		}
 		memcpy(uart0_send_buf, p, length);
     uart0_sendbyte_num = length;
 //    uart_num = 0 ;
@@ -837,7 +899,7 @@ void uart_send_string(U8_T *p, U16_T length,U8_T port)
 
 
 
-void set_subnet_parameters(U8_T io, U8_T length,U8_T port)
+void set_subnet_parameters(U8_T io, U16_T length,U8_T port)
 {
 	U16_T temp = 0;
 	subnet_rec_package_size = length;  
@@ -848,7 +910,8 @@ void set_subnet_parameters(U8_T io, U8_T length,U8_T port)
 		memset(uart0_data_buffer,0,subnet_rec_package_size);
 #if (ARM_MINI || ASIX_MINI)
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)
+			|| (Modbus.mini_type == MINI_NANO))
 			UART0_TXEN_TINY = io;	
 		else
 			UART0_TXEN_BIG = io;	
@@ -865,7 +928,7 @@ void set_subnet_parameters(U8_T io, U8_T length,U8_T port)
 		memset(hsurRxBuffer,0,hsurRxCount);
 #endif
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		uart2_rece_count = 0;
 		memset(uart2_data_buffer,0,subnet_rec_package_size);
 #endif
@@ -896,14 +959,11 @@ void set_subnet_parameters(U8_T io, U8_T length,U8_T port)
 
 
 
-U8_T wait_subnet_response(U16_T nDoubleTick,U8_T port)
+U16_T wait_subnet_response(U16_T nDoubleTick,U8_T port)
 {
 	U16_T i, length;
 	U8_T cTaskWokenByPost = FALSE;
-	U16_T far t[3];
 	if(port > 2) return 0;
-
-	
 #if ASIX_CM5
 	if(port == 0)
 	{ 	
@@ -914,12 +974,13 @@ U8_T wait_subnet_response(U16_T nDoubleTick,U8_T port)
 				memcpy(subnet_response_buf,uart0_data_buffer,length);
 				return length;
 			}
+			
 			vTaskDelay(1);
 		}
 	} 
 #endif 
 
-#if (ARM_MINI || ASIX_MINI || ARM_CM5) 
+#if (ARM_MINI || ASIX_MINI || ARM_CM5 || ARM_TSTAT_WIFI) 
 	for(i = 0; i < nDoubleTick; i++)
 	{
 		if(port == 0 )
@@ -928,20 +989,19 @@ U8_T wait_subnet_response(U16_T nDoubleTick,U8_T port)
 			{	
 				memcpy(subnet_response_buf,uart0_data_buffer,length);
 				return length;
-			}		
+			}	
 		}
 		if(port == 2 )
 		{
 #if ASIX_MINI	
-
-				if((length = hsurRxCount) >= subnet_rec_package_size)
-				{		
-					memcpy(subnet_response_buf,hsurRxBuffer,length);
-					return length;
-				}
+			if((length = hsurRxCount) >= subnet_rec_package_size)
+			{		
+				memcpy(subnet_response_buf,hsurRxBuffer,length);
+				return length;
+			}
 #endif
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			if((length = uart2_rece_count) >= subnet_rec_package_size)
 			{	
 				memcpy(subnet_response_buf,uart2_data_buffer,length);				
@@ -961,12 +1021,11 @@ U8_T wait_subnet_response(U16_T nDoubleTick,U8_T port)
 #if ASIX_MINI
 		vTaskDelay(1);
 #endif
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		vTaskDelay(2);
 #endif	
 		
-} 
-	t[port] = i;
+	} 
 #endif
 
 	timeout[port]++;	
@@ -986,7 +1045,7 @@ void zigbee_gsm_modbus_int_hander(void)
 	if(RI1 == 1)
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if(USART_GetITStatus(USART2, USART_IT_RXNE) == SET)
 #endif
 		{
@@ -999,7 +1058,7 @@ void zigbee_gsm_modbus_int_hander(void)
 			uart1_data_buffer[uart1_rece_count++] = SBUF1;
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		if(uart1_rece_count < MAX_BUF_LEN - 1)
 			uart1_data_buffer[uart1_rece_count++] = USART_ReceiveData(USART2);      //??????????Y
 #endif
@@ -1033,7 +1092,7 @@ void zigbee_gsm_modbus_int_hander(void)
 	else if(TI1 == 1)
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	else  if( USART_GetITStatus(USART2, USART_IT_TXE) == SET )	
 #endif
 	{
@@ -1044,7 +1103,7 @@ void zigbee_gsm_modbus_int_hander(void)
 		TI1 = 0;
 #endif
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)	
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )	
 
 		USART_SendData(USART2, uart1_send_buf[uart1_send_count++]);
 
@@ -1069,12 +1128,13 @@ void zigbee_gsm_modbus_int_hander(void)
 
 void modubs_main_uart_int_hander()
 {
+
 	if(Modbus.main_port == 0)
 	{		
 #if (ASIX_MINI || ASIX_CM5)
 		if(RI0 == 1)
 #endif 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		if(USART_GetITStatus(USART1, USART_IT_RXNE) == SET)  
 #endif
 		{
@@ -1083,12 +1143,13 @@ void modubs_main_uart_int_hander()
 #endif 
 			flagLED_uart0_rx = 1;
 			com_rx[0]++;
-			if(uart0_rece_count < MAX_BUF_LEN - 1)
+			if(max_buf[0] == 0) {max_buf[0] = 250; } 
+			if(uart0_rece_count < max_buf[0])
 #if (ASIX_MINI || ASIX_CM5)	
 				uart0_data_buffer[uart0_rece_count++] = SBUF0;
 #endif 
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			{
 				USART_ClearFlag(USART1, USART_FLAG_RXNE);
         USART_ClearITPendingBit(USART1, USART_IT_RXNE);
@@ -1105,13 +1166,18 @@ void modubs_main_uart_int_hander()
 			
 			if(uart0_rece_count == 1)
 			{	
-				uart0_rece_size = MAX_BUF_LEN;	
+				uart0_rece_size = 250;	
+				max_buf[0] = uart0_rece_size;
 				uart0_serial_receive_timeout_count = SERIAL_RECEIVE_TIMEOUT;				
 			}
 			else if(uart0_rece_count == 3)
 			{	
 				 if(uart0_data_buffer[1] == CHECKONLINE)
 						uart0_rece_size = 6;
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+				 if(uart0_data_buffer[1] == TEMCO_MODBUS)
+						uart0_rece_size = 16;
+#endif
 			}
 			else if(uart0_rece_count == 4)
 			{
@@ -1138,7 +1204,8 @@ void modubs_main_uart_int_hander()
 			}
 			else if(uart0_rece_count == 7)
 			{
-				if((uart0_data_buffer[1] == READ_VARIABLES) || (uart0_data_buffer[1] == WRITE_VARIABLES))
+				if((uart0_data_buffer[1] == READ_VARIABLES) || (uart0_data_buffer[1] == WRITE_VARIABLES)
+					|| (uart0_data_buffer[1] == READ_COIL) || (uart0_data_buffer[1] == WRITE_COIL))
 				{
 					uart0_rece_size = 8;
 					//dealwithTag = 1;
@@ -1149,13 +1216,35 @@ void modubs_main_uart_int_hander()
 					uart0_serial_receive_timeout_count = main_data_buffer[6] + 8;
 				}
 				else
-					uart0_rece_size = MAX_BUF_LEN;
+				{
+					uart0_rece_size = 250;//MAX_BUF_LEN;
+				}
 			}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+			else if(uart0_rece_count == 14)
+			{
+				if(uart0_data_buffer[1] == TEMCO_MODBUS)
+				{
+					if(uart0_data_buffer[9] < 100)  // read   command < 100
+					{
+						uart0_rece_size = 16;
+					}
+					else  // write
+					{
+						uint16 size;
+						size = //uart0_data_buffer[12] + uart0_data_buffer[13] * 256;
+						 (U16_T)((uart0_data_buffer[13] & 0x01)	<< 8)	+ uart0_data_buffer[12];
+						uart0_rece_size = 16 + size * (uart0_data_buffer[11] - uart0_data_buffer[10] + 1);
+						max_buf[0] = uart0_rece_size;
+					}
+				}
+			}
+#endif
 			else if(uart0_rece_count >= uart0_rece_size)
-			{		
+			{	
 //				uart0_serial_receive_timeout_count = 0;
 				uart0_dealwithTag = VALID_PACKET;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 				uart0_rece_count = 0;
 #endif
 			}
@@ -1165,7 +1254,7 @@ void modubs_main_uart_int_hander()
 		else if(TI0 == 1)
 #endif
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		else  if( USART_GetITStatus(USART1, USART_IT_TXE) == SET  )
 #endif
 		{		
@@ -1176,7 +1265,7 @@ void modubs_main_uart_int_hander()
 			TI0 = 0;
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			USART_SendData(USART1, uart0_send_buf[uart0_send_count++]);
 			Timer_Silence_Reset();
 			if(uart0_send_count >= uart0_sendbyte_num)
@@ -1197,7 +1286,7 @@ void modubs_main_uart_int_hander()
 		if(RI1 == 1)
 #endif
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		if(USART_GetITStatus(USART2, USART_IT_RXNE) == SET)
 #endif
 		{
@@ -1208,7 +1297,7 @@ void modubs_main_uart_int_hander()
 			RI1 = 0;
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 
 #endif			
 			if(uart1_rece_count < MAX_BUF_LEN - 1)
@@ -1216,7 +1305,7 @@ void modubs_main_uart_int_hander()
 				uart1_data_buffer[uart1_rece_count++] = SBUF1;
 #endif
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			{
 			USART_ClearFlag(USART2, USART_FLAG_RXNE);
         USART_ClearITPendingBit(USART2, USART_IT_RXNE);
@@ -1258,7 +1347,7 @@ void modubs_main_uart_int_hander()
 		else if(TI1 == 1)
 #endif 
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		else  if( USART_GetITStatus(USART2, USART_IT_TXE) == SET  )
 #endif
 		{
@@ -1270,7 +1359,7 @@ void modubs_main_uart_int_hander()
 			com_tx[1]++;
 			uart1_transmit_finished = 1;
 			flagLED_uart1_tx = 1; 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			{
 				 USART_SendData(USART2, uart1_send_buf[uart1_send_count++]);
 				 
@@ -1296,7 +1385,8 @@ void modubs_main_uart_int_hander()
 		{
 			com_rx[2]++;
 			flagLED_uart2_rx = 1;
-			if(uart2_rece_count < 250)
+			if(max_buf[2] == 0) {max_buf[2] = 250; } 
+			if(uart2_rece_count < max_buf[2])
 				uart2_data_buffer[uart2_rece_count++] = USART_ReceiveData(USART3);//(USART1->DR);      //??????????Y
 			else
 			{				
@@ -1312,11 +1402,16 @@ void modubs_main_uart_int_hander()
 				 // The timeout is roughly 7.5ms.  (3 ticks of the hearbeat)
 				 uart2_rece_size = 250;
 				 uart2_serial_receive_timeout_count = SERIAL_RECEIVE_TIMEOUT;
+				 max_buf[2] = uart2_rece_size;
 			}
 			else if(uart2_rece_count == 3 )
 			{
 				 if(uart2_data_buffer[1] == CHECKONLINE)
 						uart2_rece_size = 6;
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+				 if(uart2_data_buffer[1] == TEMCO_MODBUS)
+						uart2_rece_size = 14;
+#endif
 			}
 			else if(uart2_rece_count == 4)
 			{
@@ -1329,7 +1424,8 @@ void modubs_main_uart_int_hander()
 			}
 			else if(uart2_rece_count == 7)
 			{
-				if((uart2_data_buffer[1] == READ_VARIABLES) || (uart2_data_buffer[1] == WRITE_VARIABLES))
+				if((uart2_data_buffer[1] == READ_VARIABLES) || (uart2_data_buffer[1] == WRITE_VARIABLES) || 
+					(uart2_data_buffer[1] == READ_COIL) || (uart2_data_buffer[1] == WRITE_COIL))
 				{
 					uart2_rece_size = 8;
 					//dealwithTag = 1;
@@ -1342,6 +1438,26 @@ void modubs_main_uart_int_hander()
 				else
 					uart2_rece_size = 250;
 			}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+			else if(uart2_rece_count == 14)
+			{
+				if(uart2_data_buffer[1] == TEMCO_MODBUS)
+				{
+					if(uart2_data_buffer[9] < 100)  // read
+					{
+						uart2_rece_size = 16;
+					}
+					else  // write
+					{
+						uint16 size;
+						size = (U16_T)((uart2_data_buffer[13] & 0x01)	<< 8)	+ uart2_data_buffer[12];
+						
+						uart2_rece_size = 16 + size * (uart2_data_buffer[11] - uart2_data_buffer[10] + 1);
+						max_buf[2] = uart2_rece_size;
+					}
+				}
+			}
+#endif
 //				else if(uart2_data_buffer[0] == 0x55 && uart2_data_buffer[1] == 0xff && uart2_data_buffer[2] == 0x01 && uart2_data_buffer[5] == 0x00 && uart2_data_buffer[6] == 0x00)
 //				{//bacnet protocal detected
 //						Modbus.com_config[2] = BACNET_SLAVE;
@@ -1387,7 +1503,7 @@ void modubs_main_uart_int_hander()
 
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 
 
 extern uint8_t Receive_Buffer_Data0[512];
@@ -1444,7 +1560,7 @@ void mstp_ptp_int_handler(uint8_t port)
 			 /* we received a byte */
 				data_byte = USART_ReceiveData(USART1);//(USART1->DR);      //??????????Y   
 				FIFO_Put(&Receive_Buffer0, data_byte);
-
+				
 			}
 			
 			if( USART_GetITStatus(USART1, USART_IT_TXE) == SET  )		
@@ -1499,7 +1615,7 @@ void USART3_IRQHandler(void)
 void handle_uart1_RX(void) interrupt 6
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 void USART2_IRQHandler(void) 
 #endif
 {
@@ -1521,7 +1637,7 @@ void modubs_sub1_uart_int_hander(void)
 {
 	U16_T crc_val;
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if(Modbus.sub_port == 0)
 	{
 #endif 
@@ -1529,7 +1645,7 @@ void modubs_sub1_uart_int_hander(void)
 	if(RI0 == 1)
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) == SET)   //????D??
 #endif
 	{	
@@ -1538,13 +1654,12 @@ void modubs_sub1_uart_int_hander(void)
 #if (ASIX_MINI || ASIX_CM5)
 		RI0 = 0;
 #endif
-		
 		if(uart0_rece_count < MAX_BUF_LEN - 1)
 #if (ASIX_MINI || ASIX_CM5)	
 			uart0_data_buffer[uart0_rece_count++] = SBUF0;
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		  uart0_data_buffer[uart0_rece_count++] = USART_ReceiveData(USART1);//(USART1->DR);      //??????????Y     
 #endif
 		else
@@ -1555,9 +1670,44 @@ void modubs_sub1_uart_int_hander(void)
 		// if comport config is not fixed, it is changed to MODBUS_SLAVE automatically
 		if(Modbus.fix_com_config == 0)
 		{
+			/*char i;
+			// check whether include modbus packet
+			if(uart0_rece_count >= 6)
+			{				
+				for(i = 0;i <= uart0_rece_count - 6;i++)
+				{
+					if((uart0_data_buffer[i] == 0xff) && (uart0_data_buffer[i + 1] == 0x19))
+					{
+						crc_val = crc16(uart0_data_buffer, uart0_rece_count - 2);
+						if(crc_val == (uart0_data_buffer[uart0_rece_count - 2] << 8) + uart0_data_buffer[uart0_rece_count - 1])
+						{
+							Modbus.com_config[0] = MODBUS_SLAVE;
+							Count_com_config();
+							uart_serial_restart(0);
+						}		
+					}
+				}
+			}
+			if(uart0_rece_count >= 8)
+			{
+				for(i = 0;i <= uart0_rece_count - 8;i++)
+				{
+					if((uart0_data_buffer[i + 1] == 0xff) && (uart0_data_buffer[i + 7] != 0))
+					{
+						crc_val = crc16(uart0_data_buffer, uart0_rece_count - 2);
+						if(crc_val == (uart0_data_buffer[uart0_rece_count - 2] << 8) + uart0_data_buffer[uart0_rece_count - 1])
+						{
+							Modbus.com_config[0] = MODBUS_SLAVE;
+							Count_com_config();
+							uart_serial_restart(0);
+						}		
+					}
+				}
+			}*/
+			
 			if(((uart0_rece_count == 6) && (uart0_data_buffer[0] == 0xff) && (uart0_data_buffer[1] == 0x19)) \
 			|| ((uart0_rece_count == 8) && (uart0_data_buffer[1] == 0x03) && (uart0_data_buffer[7] != 0))) // receive data
-			{							
+			{						
 				crc_val = crc16(uart0_data_buffer, uart0_rece_count - 2);
 				if(crc_val == (uart0_data_buffer[uart0_rece_count - 2] << 8) + uart0_data_buffer[uart0_rece_count - 1])
 				{
@@ -1572,7 +1722,7 @@ void modubs_sub1_uart_int_hander(void)
 	else if(TI0 == 1)
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		else if(USART_GetITStatus(USART1, USART_IT_TXE) == SET)
 #endif		
 		{
@@ -1580,7 +1730,7 @@ void modubs_sub1_uart_int_hander(void)
 			TI0 = 0;
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			USART_SendData(USART1, uart0_send_buf[uart0_send_count++]);
 			Timer_Silence_Reset();
 
@@ -1599,7 +1749,7 @@ void modubs_sub1_uart_int_hander(void)
 			flagLED_uart0_tx = 1; 
 			com_tx[0]++;
 		}
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	}
 	else if(Modbus.sub_port == 2)
 	{
@@ -1656,6 +1806,7 @@ void modubs_sub1_uart_int_hander(void)
 			uart2_transmit_finished = 1;
 			flagLED_uart2_tx = 1; 
 			com_tx[2]++;
+
 		}
 	}
 #endif
@@ -1667,7 +1818,7 @@ void modubs_sub1_uart_int_hander(void)
 void handle_uart0_RX(void) interrupt 4
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 void USART1_IRQHandler(void)
 #endif
 {
@@ -1676,16 +1827,15 @@ void USART1_IRQHandler(void)
 		Modbus.main_port = 0;
 		modubs_main_uart_int_hander();
 	}
-#if (ARM_MINI || ARM_WIFI)
+#if (ARM_MINI || ARM_TSTAT_WIFI || ARM_CM5)
 	else if(Modbus.com_config[0] == BACNET_SLAVE || Modbus.com_config[0] == BACNET_MASTER)
 	{	
-		Test[10]++;
 		mstp_ptp_int_handler(0);
 	}
 #endif
 	else
 	{
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		Modbus.sub_port = 0;
 #endif
 		modubs_sub1_uart_int_hander();
@@ -1702,7 +1852,8 @@ void uart_serial_restart(U8_T port)
 		uart0_dealwithTag = 0;
 #if (ARM_MINI || ASIX_MINI) 
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)
+		|| (Modbus.mini_type == MINI_NANO))
 			UART0_TXEN_TINY = RECEIVE;
 		else
 			UART0_TXEN_BIG = RECEIVE;
@@ -1712,7 +1863,7 @@ void uart_serial_restart(U8_T port)
 		UART0_TXEN = RECEIVE;
 #endif
 		
-#if ARM_WIFI 
+#if ARM_TSTAT_WIFI  
 		UART0_TXEN_BIG = RECEIVE;
 #endif
 	}
@@ -1752,7 +1903,7 @@ void uart_serial_restart(U8_T port)
 }
 
 
-#if !(ARM_WIFI)
+#if !(ARM_TSTAT_WIFI )
 
 // ------------------------dealwithdata -------------------------
 // the routine dealwith data ,it has three steps.
@@ -1771,7 +1922,6 @@ void main_dealwithData(void)
 	count_lose_master = 0;
 	for( ; ;)
 	{ 	
-
 		vTaskDelay(xDelayPeriod);
 		current_task = 10;
 		task_test.count[10]++;
@@ -1826,7 +1976,7 @@ void main_dealwithData(void)
 			}
 #endif
 			if(Modbus.main_port == 0)	
-			{	
+			{
 				memcpy(main_data_buffer,uart0_data_buffer,MAX_BUF_LEN);
 				main_dealwithTag = uart0_dealwithTag;
 				main_rece_size = uart0_rece_size;
@@ -1837,7 +1987,6 @@ void main_dealwithData(void)
 				main_dealwithTag = uart1_dealwithTag;
 				main_rece_size = uart1_rece_size;
 			}
-
 			if(main_dealwithTag == VALID_PACKET)
 			{	
 				address = ((U16_T)main_data_buffer[2] << 8) + main_data_buffer[3];		
@@ -1846,6 +1995,12 @@ void main_dealwithData(void)
 					if(main_data_buffer[0] ==  Modbus.address || main_data_buffer[0] == 255)
 					{	
 						uart_init_send_com(Modbus.main_port); 
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+						if(main_data_buffer[1] == TEMCO_MODBUS)	// temco private modbus
+						{
+							handler_private_transfer(main_data_buffer,0,NULL,0xa0 + Modbus.main_port);
+						}
+#endif
 #if 0									
 						if(main_data_buffer[1] == 0x12)	// speical commad
 						{
@@ -2032,7 +2187,7 @@ void main_dealwithData(void)
 			if(Modbus.com_config[2] == MODBUS_MASTER || Modbus.com_config[2] == NOUSE)
 			{	 
 				U16_T crc_val;	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 				if(cSemaphoreTake(sem_subnet_tx_uart2, 0) == pdTRUE)
 				{
 					if(flag_resume_rs485 == 0 || flag_resume_rs485 == 2)
@@ -2083,14 +2238,13 @@ void main_dealwithData(void)
 	U16_T far address;
 	U8_T count_lose_master;
 //	U8_T frametype;
-//	
+
 	portTickType xDelayPeriod = ( portTickType ) 25 / portTICK_RATE_MS;
 	task_test.enable[10] = 1;
 	count_lose_master = 0;
 	Modbus.main_port = 0;
-	for( ; ;)
+	for( ; ; )
 	{ 	
-
 		vTaskDelay(xDelayPeriod);
 		current_task = 10;
 		task_test.count[10]++;
@@ -2101,10 +2255,17 @@ void main_dealwithData(void)
 			main_dealwithTag = uart0_dealwithTag;
 			main_rece_size = uart0_rece_size;	
 			if(main_dealwithTag == VALID_PACKET)
-			{	
+			{
 				address = ((U16_T)main_data_buffer[2] << 8) + main_data_buffer[3];		
 				if (checkData(address))
 				{
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+					if(main_data_buffer[1] == TEMCO_MODBUS)	// temco private modbus
+					{
+						handler_private_transfer(main_data_buffer,0,NULL,0xa0 + Modbus.main_port);
+					}
+					else 
+#endif
 					if(main_data_buffer[0] ==  Modbus.address || main_data_buffer[0] == 255)
 					{	
 						uart_init_send_com(0);
@@ -2164,6 +2325,25 @@ U8_T checkData(U8_T address)
 
 	if(main_data_buffer[1] == 0x12)	  // for customer, dont check 
 		return TRUE;
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+	if((main_data_buffer[1] == TEMCO_MODBUS) &&	  // for temco priate modbus
+		((main_data_buffer[2] == 'T')) && 
+		((main_data_buffer[3] == 'E')) && 
+		((main_data_buffer[4] == 'M')) && 
+		((main_data_buffer[5] == 'C')) && 
+		((main_data_buffer[6] == 'O')))
+	{
+		crc_val = crc16(main_data_buffer, main_rece_size - 2);
+		if(crc_val == ((U16_T)main_data_buffer[main_rece_size - 2] << 8 | main_data_buffer[main_rece_size - 1]))
+		{
+			return TRUE;
+		}
+		else
+		{		
+			return FALSE;
+		}
+	}
+#endif
 //	if(main_data_buffer[0] != 255 && main_data_buffer[0] !=  address && main_data_buffer[0] != 0)
 //		return FALSE;
 	if(main_data_buffer[1] == CHECKONLINE)
@@ -2186,7 +2366,8 @@ U8_T checkData(U8_T address)
 			return TRUE;
 		}
 	}
-	if((main_data_buffer[1] != READ_VARIABLES) && (main_data_buffer[1] != WRITE_VARIABLES) && (main_data_buffer[1] != MULTIPLE_WRITE))
+	if((main_data_buffer[1] != READ_VARIABLES) && (main_data_buffer[1] != WRITE_VARIABLES) && (main_data_buffer[1] != MULTIPLE_WRITE)
+		&& (main_data_buffer[1] != READ_COIL) && (main_data_buffer[1] != WRITE_COIL))
 	{	
 		return FALSE;  
 	}
@@ -2241,7 +2422,7 @@ U8_T checkData(U8_T address)
  /*******************************************************************************************************/
 #endif	
 	crc_val = crc16(main_data_buffer, main_rece_size - 2);
-	if(crc_val == ((U16_T)main_data_buffer[main_rece_size - 2] << 8) | main_data_buffer[main_rece_size - 1])
+	if(crc_val == ((U16_T)main_data_buffer[main_rece_size - 2] << 8 | main_data_buffer[main_rece_size - 1]))
 	{
 		return TRUE;
 	}
@@ -2259,7 +2440,7 @@ void main_responseData(void)
 		responseCmd(SERIAL,main_data_buffer,NULL);
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	responseCmd(SERIAL,main_data_buffer);
 #endif
 }
@@ -2270,7 +2451,7 @@ void main_responseData(void)
 void responseCmd(U8_T type,U8_T* pData,MODBUSTCP_SERVER_CONN * pHttpConn)  
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 void responseCmd(U8_T type,U8_T* pData)
 #endif
 {	
@@ -2290,11 +2471,11 @@ void responseCmd(U8_T type,U8_T* pData)
 	{
 		HeadLen = 0;		
 	}
-	else    // TCP packet or wifi
+	else    // TCP packet or wifi 
 	{
 		HeadLen = UIP_HEAD;
 		for(loop = 0;loop < 6;loop++)
-			sendbuf[loop] = 0; 		
+			sendbuf[loop] = 0; 
 	}
 	cmd = pData[HeadLen + 1];
 	StartAdd = (U16_T)(pData[HeadLen + 2] <<8 ) + pData[HeadLen + 3];
@@ -2302,12 +2483,20 @@ void responseCmd(U8_T type,U8_T* pData)
 
 /* add transaction id */ 	
 
-	if(cmd == READ_VARIABLES)
+	if((cmd == READ_VARIABLES) || (cmd == READ_COIL))
 	{			
 		sendbuf[HeadLen] = pData[HeadLen];
 		sendbuf[HeadLen + 1] = pData[HeadLen + 1];
-		sendbuf[HeadLen + 2] = RegNum * 2;
-		memset(&sendbuf[HeadLen + 3],0,RegNum * 2);
+		if(cmd == READ_VARIABLES)
+		{
+			sendbuf[HeadLen + 2] = RegNum * 2;
+		}
+		else if(cmd == READ_COIL)
+		{
+			sendbuf[HeadLen + 2] = (RegNum + 7) / 8;
+		}
+		
+		memset(&sendbuf[HeadLen + 3],0,sendbuf[HeadLen + 2]);
 		
 		read_ok = 1;
 		// zigbee map
@@ -2324,1008 +2513,1259 @@ void responseCmd(U8_T type,U8_T* pData)
 		}
 		else
 		{
-		
-		for(loop = 0 ;loop < RegNum;loop++)
-		{
-			if ( StartAdd + loop >= MODBUS_SERIALNUMBER_LOWORD && StartAdd + loop <= MODBUS_SERIALNUMBER_LOWORD + 3 )
-			{			
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-			//	sendbuf[HeadLen + 3 + loop * 2] = (Test[StartAdd + loop - MODBUS_SERIALNUMBER_LOWORD] >> 8) & 0xFF;;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.serialNum[StartAdd + loop - MODBUS_SERIALNUMBER_LOWORD];
-			//	sendbuf[HeadLen + 3 + loop * 2 + 1] = Test[StartAdd + loop - MODBUS_SERIALNUMBER_LOWORD] & 0xFF;
-			}
-			else if(StartAdd + loop == MODBUS_T3000_PRIVATE)
+			if(cmd == READ_COIL)
 			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = T3000_Private.flag; 	
+				u8 coil_data,j;
+				for(loop = 0 ;loop < RegNum;loop++)
+				{
+					if(StartAdd + loop >= MODBUS_COIL_OUTPUT_START && StartAdd + loop < (MODBUS_COIL_OUTPUT_START + MAX_OUTS / 8))  // BO1-64
+					{
+						coil_data = 0;
+						for(j = 0;j < 8;j++)
+						{
+							if(outputs[(StartAdd + loop - MODBUS_COIL_OUTPUT_START) * 8 + j].control)
+							{
+								coil_data |= (0x01 << j);
+							}
+							else
+							{
+								coil_data &= ~(0x01 << j);
+							}
+						}						
+					}
+					else if(StartAdd + loop >= MODBUS_COIL_INPUT_START && StartAdd + loop <= (MODBUS_COIL_INPUT_START + MAX_INS / 8))  // BI1-64
+					{
+						coil_data = 0;
+						for(j = 0;j < 8;j++)
+						{
+							if(inputs[(StartAdd + loop - MODBUS_COIL_INPUT_START) * 8 + j].control)
+								coil_data |= 0x01 << j;
+							else
+								coil_data &= ~(0x01 << j);
+						}
+					}
+					sendbuf[HeadLen + 3 + loop] = coil_data;
+				}
 			}
-			else if(StartAdd + loop == MODBUS_FIRMWARE_VERSION_NUMBER_LO)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = SW_REV % 100;
-			}
-			else if(StartAdd + loop == MODBUS_FIRMWARE_VERSION_NUMBER_HI)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = SW_REV / 100;			
-			}
-			else if(StartAdd + loop == MODBUS_HARDWARE_REV)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.hardRev;
-			}
-			else if(StartAdd + loop ==  MODBUS_ADDRESS)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.address;		
-			}
-			else if(StartAdd + loop == MODBUS_PRODUCT_MODEL)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-#if (ARM_CM5 || ASIX_CM5)
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = PRODUCT_CM5;
-#endif
-			
-#if ARM_WIFI
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = 9;  // ????????
-#endif
-				
-#if (ARM_MINI || ASIX_MINI)
-			if(Modbus.mini_type == MINI_VAV)
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = PRODUCT_MINI_VAV;
 			else
-			{
-				if(Modbus.mini_type >= 1 && Modbus.mini_type <= 4)
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = PRODUCT_MINI_BIG;
-				else
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = PRODUCT_MINI_ARM;
-			}
-#endif 
-			}
-			else if(StartAdd + loop == MODBUS_ISP_VER)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.IspVer;
-			}
-			else if(StartAdd + loop == MODBUS_PIC)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.PicVer;
-				
-			}
-			else if(StartAdd + loop == MODBUS_SNTP_TIMEZONE)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(timezone >> 8);
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)timezone;
-			}  
-			else if(StartAdd + loop == MODBUS_TIMEZONE_SUMMER)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Daylight_Saving_Time;
-			}
-			else if(StartAdd + loop == MODBUS_SNTP_SERVER1)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  SntpServer[0];
-			}
-			else if(StartAdd + loop == MODBUS_SNTP_SERVER2)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  SntpServer[1];
-			}
-			else if(StartAdd + loop == MODBUS_SNTP_SERVER3)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  SntpServer[2];
-			}
-			else if(StartAdd + loop == MODBUS_SNTP_SERVER4)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  SntpServer[3];
-			}
-			else if(StartAdd + loop == MODBUS_SNTP_EN)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.en_sntp;
-			}
-			else if(StartAdd + loop == MODBUS_UART0_BAUDRATE)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  uart0_baudrate;
-			}
-			else if(StartAdd + loop == MODBUS_UART1_BAUDRATE)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  uart1_baudrate;
-			}
-			else if(StartAdd + loop == MODBUS_UART2_BAUDRATE)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  uart2_baudrate;
-			}
-			else if(StartAdd + loop == MODBUS_EN_NODES_PLUG_N_PLAY)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.external_nodes_plug_and_play;
-			}
-			else if(StartAdd + loop == MODBUS_UPDATE_STATUS)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.update_status;
-			}
-//			else if(StartAdd + loop == MODBUS_PROTOCAL)
-//			{
-//				sendbuf[HeadLen + 3 + loop * 2] = 0;
-//				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.protocal;
-//			}
-			else if(StartAdd + loop == MODBUS_MINI_TYPE)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.mini_type;
-			}
-//			else if(StartAdd + loop == MODBUS_PIC_WATCHDOG)
-//			{
-//				sendbuf[HeadLen + 3 + loop * 2] = 0;
-//				sendbuf[HeadLen + 3 + loop * 2 + 1] =  pic_watchdog;
-//			}	
-			else if(StartAdd + loop == MODBUS_INSTANCE_LO)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(Instance >> 8);
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)Instance;
-			}
-			else if(StartAdd + loop == MODBUS_INSTANCE_HI)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(Instance >> 24);
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(Instance >> 16);
-			}
-			else if(StartAdd + loop == MODBUS_PANEL_NUMBER)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = panel_number;
-			}
-			else if(StartAdd + loop == MODBUS_STATION_NUM)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Station_NUM;
-			}
-#if ARM_MINI	
-			else if(StartAdd + loop == MODBUS_MSTP_MAX_MASTER)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = MAX_MASTER;
-			} 
-#endif
-			else if(StartAdd + loop == MODBUS_EN_USER)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.en_username;
-			}
-			else if(StartAdd + loop == MODBUS_EN_CUS_UNIT)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.cus_unit;
-			}
-			else if(StartAdd + loop == MODBUS_EN_DYNDNS)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.en_dyndns;
-			}
-#if (ASIX_MINI || ASIX_CM5)
-			else if(StartAdd + loop == MODBUS_DYNDNS_PROVIDER)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = dyndns_provider;
-			}
-			else if(StartAdd + loop == MODBUS_DYNDNS_UPDATE)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = dyndns_update_time >> 8;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = dyndns_update_time;
-			}
-#endif
-			else if(StartAdd + loop == MODBUS_RUN_TIME_LO)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = run_time >> 8;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = run_time;
-			}
-			else if(StartAdd + loop == MODBUS_RUN_TIME_HI)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = run_time >> 24;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = run_time >> 16;
-			}
-			else if(StartAdd + loop == MODBUS_TCP_CONNECT_NUM)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = tcp_connect_num;
-			}
-			else if(StartAdd + loop == MODBUS_UDP_CONNECT_NUM)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = udp_connect_num;
-			}
-//			else if(StartAdd + loop == MODBUS_NETWORK)
-//			{
-//				sendbuf[HeadLen + 3 + loop * 2] = Modbus.network_number >> 8;
-//				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.network_number;
-//			}
-			else if(StartAdd + loop == MODBUS_MSTP_NETWORK)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = mstp_network >> 8;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = mstp_network;
-			}
-			else if(StartAdd + loop == MODBUS_BBMD_EN)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = bbmd_en;
-			}
-			else if(StartAdd + loop == MODBUS_BACKLIGHT)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.backlight;
-			}
-			else if(StartAdd + loop == MODBUS_EN_TIME_SYNC_PC)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.en_time_sync_with_pc;
-			}
-			else if(StartAdd + loop >= MODBUS_MAC_1 && StartAdd + loop <= MODBUS_MAC_6)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.mac_addr[StartAdd + loop - MODBUS_MAC_1];
-			}
-			else if(StartAdd + loop == MODBUS_TCP_TYPE)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.tcp_type;
-			}				 
-			else if(StartAdd + loop >= MODBUS_IP_1 && StartAdd + loop <= MODBUS_IP_4)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.ip_addr[StartAdd + loop - MODBUS_IP_1];
-			}
-			else if(StartAdd + loop >= MODBUS_SUBNET_1 && StartAdd + loop <= MODBUS_SUBNET_4)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.subnet[StartAdd + loop - MODBUS_SUBNET_1];
-			}
-			else if(StartAdd + loop >= MODBUS_GETWAY_1 && StartAdd + loop <= MODBUS_GETWAY_4)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.getway[StartAdd + loop - MODBUS_GETWAY_1];
-			} 
-			else if(StartAdd + loop == MODBUS_TCP_LISTEN_PORT)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = Modbus.tcp_port >> 8;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  (U8_T)Modbus.tcp_port;
-			}
-			else if(StartAdd + loop == MODBUS_BIP_PORT)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = Modbus.Bip_port >> 8;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  (U8_T)Modbus.Bip_port;
-			}
-			else if(StartAdd + loop == MODBUS_TOTAL_NO)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  sub_no;
-			}
-			else if(StartAdd + loop >= MODBUS_SUBADDR_FIRST && StartAdd + loop <= MODBUS_SUBADDR_LAST)
-			{  
-				sendbuf[HeadLen + 3 + loop * 2] = (current_online[scan_db[StartAdd + loop  - MODBUS_SUBADDR_FIRST].id / 8] & (1 << (scan_db[StartAdd + loop  - MODBUS_SUBADDR_FIRST].id % 8))) ? 1 : 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  scan_db[StartAdd + loop  - MODBUS_SUBADDR_FIRST].id;
-			}
-//			else if(StartAdd + loop >= MODBUS_CHIP1_HW && StartAdd + loop <= MODBUS_CHIP4_SW)
-//			{
-//			   	sendbuf[HeadLen + 3 + loop * 2] = chip_info[StartAdd + loop - MODBUS_CHIP1_HW] >> 8;	
-//				sendbuf[HeadLen + 3 + loop * 2 + 1] = chip_info[StartAdd + loop - MODBUS_CHIP1_HW];
-//			}
-//			else if(StartAdd + loop >= MODBUS_NETWORK_UART0 && StartAdd + loop <= MODBUS_NETWORK_UART2)
-//			{
-//			  sendbuf[HeadLen + 3 + loop * 2] = Modbus.network_ID[StartAdd + loop - MODBUS_NETWORK_UART0] >> 8;	
-//				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.network_ID[StartAdd + loop - MODBUS_NETWORK_UART0];
-//			}
-			else if(StartAdd + loop >= MODBUS_COM0_TYPE && StartAdd + loop <= MODBUS_COM2_TYPE)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.com_config[StartAdd + loop  - MODBUS_COM0_TYPE];
-			
-			
-			}
-			else if(StartAdd + loop == MODBUS_REFRESH_FLASH)
-			{				
-			 	sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.refresh_flash_timer;
-			}
-			else if(StartAdd + loop == MODBUS_FLASH_TIME_COUNT)
-			{				
-			 	sendbuf[HeadLen + 3 + loop * 2] = count_flash >> 8;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  count_flash;
-			}
-			else if(StartAdd + loop >= MODBUS_OUTPUT_1V && StartAdd + loop <= MODBUS_OUTPUT_10V)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = Modbus.start_adc[StartAdd + loop - MODBUS_OUTPUT_1V + 1] >> 8;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.start_adc[StartAdd + loop - MODBUS_OUTPUT_1V + 1];
-			}
-#if (ARM_MINI || ASIX_MINI)
-			else if(StartAdd + loop >= MODBUS_AO1_FEEDBACK && StartAdd + loop <= MODBUS_AO16_FEEDBACK)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = AO_feedback[StartAdd + loop - MODBUS_AO1_FEEDBACK] >> 8;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  AO_feedback[StartAdd + loop - MODBUS_AO1_FEEDBACK];
-			}
-#endif
-			else if(StartAdd + loop == MODBUS_VCC_ADC)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = Modbus.vcc_adc >> 8;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.vcc_adc; 	
-			}
-			else if(StartAdd + loop == MODBUS_OUTPUT_TEST_VALUE)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = test_adc >> 8;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = test_adc; 	
-			}
-			else if(StartAdd + loop == MODBUS_OUTPUT_TEST_FLAG)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = test_adc_flag; 	
-			}
-			else if(StartAdd + loop == Modbus_Bacnet_Vendor_ID)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Bacnet_Vendor_ID; 	
-			}
-			else if(StartAdd + loop == Modbus_Fix_Com_Config)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.fix_com_config; 	
-			}
-			else if(StartAdd + loop == MODBUS_PANNEL_NAME)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = 0x56; 	
-			}
-			else if(StartAdd + loop >= MODBUS_NAME1 && StartAdd + loop <= MODBUS_NAME_END)
-			{
-				u16 temp = StartAdd + loop - MODBUS_NAME1;  
-				sendbuf[HeadLen + 3 + loop * 2] = panelname[temp * 2];	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  panelname[temp * 2 + 1];
-			}
-			else if(StartAdd + loop == MODBUS_UART0_PARITY)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.uart_parity[0]; 	
-			}
-			else if(StartAdd + loop == MODBUS_UART1_PARITY)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.uart_parity[1]; 	
-			}
-			else if(StartAdd + loop == MODBUS_UART2_PARITY)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.uart_parity[2]; 	
-			}			
-			else if(StartAdd + loop == MODBUS_ZIGBEE_MOUDLE_ID)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = Modbus.zigbee_module_id >> 8;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.zigbee_module_id; 	
-			}
-//			else if(StartAdd + loop == MODBUS_NETWORK_UART0)
-//			{
-//				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-//				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.network_ID[0]; 	
-//			}
-//			else if(StartAdd + loop == MODBUS_NETWORK_UART1)
-//			{
-//				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-//				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.network_ID[1]; 	
-//			}
-//			else if(StartAdd + loop == MODBUS_NETWORK_UART2)
-//			{
-//				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-//				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.network_ID[2]; 	
-//			}
-#if (ARM_MINI || ASIX_MINI)
-			else if(StartAdd + loop == MODBUS_OUTPUT_MODE)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = flag_output; 	
-			}
-#endif 
-			
-#if (ASIX_MINI || ASIX_CM5)	
-			
-
-
-		
-#if USB_HOST
-			else if(StartAdd + loop >= MODBUS_GSM_IP_1 && StartAdd + loop <= MODBUS_GSM_IP_4)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  GSM_remote_IP[StartAdd + loop - MODBUS_GSM_IP_1];
-			}
-			else if(StartAdd + loop == MODBUS_GSM_TCPPORT)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = GSM_remote_tcpport >> 8;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = GSM_remote_tcpport; 	
-			}
-			else if(StartAdd + loop == MODBUS_GSM_SEVER_OR_CLIENT)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = flag_sever_or_client; 	
-			}
-			
-#endif
-#endif
-//  sub infomation block		
-
-/***********************av bv ai bi ai**********************************\*/
-#if BAC_COMMON 
-//			else if(StartAdd + loop >= MODBUS_RI_FIRST && StartAdd + loop <= MODBUS_RI_LAST)
-//		   {
-//		   	U8_T index;
-//				index = (StartAdd + loop - MODBUS_RI_FIRST) / 2;
-//				if((StartAdd + loop - MODBUS_RI_FIRST) % 2 == 0)
-//				{
-//					if(inputs[index].digital_analog == 0)  // digital
-//					{
-//						sendbuf[HeadLen + 3 + loop * 2] = 0;
-//						sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-//					}
-//					else
-//					{
-//						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(inputs[index].value) >> 24);
-//						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(inputs[index].value) >> 16);
-//					}
-//				}
-//				else
-//				{
-//					if(inputs[index].digital_analog == 0)  // digital
-//					{
-//						if(inputs[index].range >= ON_OFF  && inputs[index].range <= HIGH_LOW)
-//						{  // inverse logic
-//							if(inputs[index].control == 1)
-//							{
-//								sendbuf[HeadLen + 3 + loop * 2] = 0;
-//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-//							}
-//							else
-//							{
-//								sendbuf[HeadLen + 3 + loop * 2] = 0;
-//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-//							}
-//						}	
-//						else
-//						{
-//							if(inputs[index].control == 1)
-//							{
-//								sendbuf[HeadLen + 3 + loop * 2] = 0;
-//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-//							}
-//							else
-//							{
-//								sendbuf[HeadLen + 3 + loop * 2] = 0;
-//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-//							}
-//						}	
-//					}
-//					else  // analog
-//					{
-//						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(inputs[index].value) >> 8);
-//						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(inputs[index].value));
-//					}	
-//				}
-//					
-//		   }
-//			 else if(StartAdd + loop >= MODBUS_RV_FIRST && StartAdd + loop <= MODBUS_RV_LAST) 
-//			{
-//				U8_T index;
-//				index = (StartAdd + loop - MODBUS_RV_FIRST) / 2;
-//				if((StartAdd + loop - MODBUS_RV_FIRST) % 2 == 0)   // high word
-//				{
-//					if(vars[index].digital_analog == 0)  // digital
-//					{
-//						sendbuf[HeadLen + 3 + loop * 2] = 0;
-//						sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-//					}
-//					else
-//					{
-//						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(vars[index].value) >> 24);
-//						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(vars[index].value) >> 16);
-//					}
-//				}
-//				else   // low word
-//				{
-//					if(vars[index].digital_analog == 0)  // digital
-//					{
-//						if(vars[index].range >= ON_OFF  && vars[index].range <= HIGH_LOW)
-//						{  // inverse logic
-//							if(vars[index].control == 1)
-//							{
-//								sendbuf[HeadLen + 3 + loop * 2] = 0;
-//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-//							}
-//							else
-//							{
-//								sendbuf[HeadLen + 3 + loop * 2] = 0;
-//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-//							}
-//						}	
-//						else
-//						{
-//							if(vars[index].control == 1)
-//							{
-//								sendbuf[HeadLen + 3 + loop * 2] = 0;
-//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-//							}
-//							else
-//							{
-//								sendbuf[HeadLen + 3 + loop * 2] = 0;
-//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-//							}
-//						}	
-//					}
-//					else  // analog
-//					{
-//						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(vars[index].value) >> 8);
-//						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(vars[index].value));
-//					}	
-//				}
-//				
-//			} 
-#endif
-/*******************************************************************\*/
-
-
-
-
-			
-/*  END SUB TSTAT */
-/******************************end for tstst resigter ************************************************/
-		   //  input block
-		   else if(StartAdd + loop >= MODBUS_OUTPUT_FIRST && StartAdd + loop <= MODBUS_OUTPUT_LAST)
-		   {
-				U8_T index;			 
-
-				index = (StartAdd + loop - MODBUS_OUTPUT_FIRST) / 2;
-				if((StartAdd + loop - MODBUS_OUTPUT_FIRST) % 2 == 0)  // high word
+			{ // READ_VARIABLES 
+				for(loop = 0 ;loop < RegNum;loop++)
 				{
-					if(outputs[index].digital_analog == 0) // digtial
+					if ( StartAdd + loop >= MODBUS_SERIALNUMBER_LOWORD && StartAdd + loop <= MODBUS_SERIALNUMBER_LOWORD + 3 )
+					{			
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+					//	sendbuf[HeadLen + 3 + loop * 2] = (Test[StartAdd + loop - MODBUS_SERIALNUMBER_LOWORD] >> 8) & 0xFF;;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.serialNum[StartAdd + loop - MODBUS_SERIALNUMBER_LOWORD];
+					//	sendbuf[HeadLen + 3 + loop * 2 + 1] = Test[StartAdd + loop - MODBUS_SERIALNUMBER_LOWORD] & 0xFF;
+					}
+					else if(StartAdd + loop == MODBUS_T3000_PRIVATE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = T3000_Private.flag; 	
+					}
+					else if(StartAdd + loop == MODBUS_FIRMWARE_VERSION_NUMBER_LO)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = SW_REV % 100;
+					}
+					else if(StartAdd + loop == MODBUS_FIRMWARE_VERSION_NUMBER_HI)
 					{
 						sendbuf[HeadLen + 3 + loop * 2] = 0;
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = SW_REV / 100;			
 					}
-					else
-					{
-				    sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(outputs[index].value) >> 24);
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(outputs[index].value) >> 16);
-					}
-				}
-				else // low word
-				{
-					if(outputs[index].digital_analog == 0) // digtial
-					{
-						if((outputs[index].range >= ON_OFF  && outputs[index].range <= HIGH_LOW)
-							||(outputs[index].range >= custom_digital1 // customer digital unit
-							&& outputs[index].range <= custom_digital6
-							&& digi_units[outputs[index].range - custom_digital1].direct == 1))
-						{  // inverse logic
-							if(outputs[index].control == 1)
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-							}
-							else
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-							}
-						}	
-						else
-						{
-							if(outputs[index].control == 1)
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-							}
-							else
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-							}
-						}	
-					}
-					else  // analog
-					{
-						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(outputs[index].value) >> 8);
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(outputs[index].value));
-					}
-				}
-				
-		   }
-		   else if(StartAdd + loop >= MODBUS_OUTPUT_SWICH_FIRST && StartAdd + loop <= MODBUS_OUTPUT_SWICH_LAST)
-		   {
-		   		U8_T index;
-				index = (StartAdd + loop - MODBUS_OUTPUT_SWICH_FIRST); 
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = outputs[index].switch_status;		
-		   }
-		   else if(StartAdd + loop >= MODBUS_OUTPUT_RANGE_FIRST && StartAdd + loop <= MODBUS_OUTPUT_RANGE_LAST)
-		   {
-		   		U8_T index;
-				index = (StartAdd + loop - MODBUS_OUTPUT_RANGE_FIRST);
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = outputs[index].range;
-	
-		   }
-		   else if(StartAdd + loop >= MODBUS_OUTPUT_AM_FIRST && StartAdd + loop <= MODBUS_OUTPUT_AM_LAST)
-		   {
-		   		U8_T index;
-				index = (StartAdd + loop - MODBUS_OUTPUT_AM_FIRST);
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = outputs[index].auto_manual;
-	
-		   }
-		   else if(StartAdd + loop >= MODBUS_OUTPUT_AD_FIRST && StartAdd + loop <= MODBUS_OUTPUT_AD_LAST)
-		   {
-		   		U8_T index;
-				index = (StartAdd + loop - MODBUS_OUTPUT_AD_FIRST);
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = outputs[index].digital_analog;
-	
-		   }
-// end output
-// start input
-		   else if((StartAdd + loop >= MODBUS_INPUT_FIRST && StartAdd + loop <= MODBUS_INPUT_LAST) 
-				 || (StartAdd + loop >= MODBUS_RI_FIRST && StartAdd + loop <= MODBUS_RI_LAST))
-			 {
-		   	U8_T index;
-				U16_T base; 
-					if((StartAdd + loop >= MODBUS_INPUT_FIRST && StartAdd + loop <= MODBUS_INPUT_LAST))
-						base = MODBUS_INPUT_FIRST;
-					else
-						base = MODBUS_RI_FIRST;
-					 
-				index = (StartAdd + loop - base) / 2;
-				if((StartAdd + loop - base) % 2 == 0)
-				{
-					if(inputs[index].digital_analog == 0)  // digital
+					else if(StartAdd + loop == MODBUS_HARDWARE_REV)
 					{
 						sendbuf[HeadLen + 3 + loop * 2] = 0;
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.hardRev;
 					}
-					else
+					else if(StartAdd + loop ==  MODBUS_ADDRESS)
 					{
-						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(inputs[index].value) >> 24);
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(inputs[index].value) >> 16);
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.address;		
 					}
-				}
-				else
-				{
-					if(inputs[index].digital_analog == 0)  // digital
+					else if(StartAdd + loop == MODBUS_PRODUCT_MODEL)
 					{
-						if((inputs[index].range >= ON_OFF  && inputs[index].range <= HIGH_LOW)
-							||(inputs[index].range >= custom_digital1 // customer digital unit
-							&& inputs[index].range <= custom_digital6
-							&& digi_units[inputs[index].range - custom_digital1].direct == 1))
-						{  // inverse logic
-							if(inputs[index].control == 1)
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-							}
-							else
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-							}
-						}	
-						else
-						{
-							if(inputs[index].control == 1)
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-							}
-							else
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-							}
-						}	
-					}
-					else  // analog
-					{
-						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(inputs[index].value) >> 8);
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(inputs[index].value));
-					}	
-				}
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+		#if (ARM_CM5 || ASIX_CM5)
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = PRODUCT_CM5;
+		#endif
 					
-		   }
-		   else if(StartAdd + loop >= MODBUS_INPUT_FILTER_FIRST && StartAdd + loop <= MODBUS_INPUT_FILTER_LAST)
-		   {
-		   		U8_T index;
-					index = (StartAdd + loop - MODBUS_INPUT_FILTER_FIRST);
-					sendbuf[HeadLen + 3 + loop * 2] = 0;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = inputs[index].filter;	
-		   }
-		   else if(StartAdd + loop >= MODBUS_INPUT_CAL_FIRST && StartAdd + loop <= MODBUS_INPUT_CAL_LAST)
-		   {
-					U8_T index;
-					index = (StartAdd + loop - MODBUS_INPUT_CAL_FIRST);
-					sendbuf[HeadLen + 3 + loop * 2] = inputs[index].calibration_hi;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = inputs[index].calibration_lo;	
-		   }
-		   else if(StartAdd + loop >= MODBUS_INPUT_RANGE_FIRST && StartAdd + loop <= MODBUS_INPUT_RANGE_LAST)
-		   {
-					U8_T index;
-					index = (StartAdd + loop - MODBUS_INPUT_RANGE_FIRST);
-					sendbuf[HeadLen + 3 + loop * 2] = inputs[index].digital_analog;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = inputs[index].range;
-		   }
-			 else if(StartAdd + loop >= MODBUS_INPUT_AM_FIRST && StartAdd + loop <= MODBUS_INPUT_AM_LAST)
-		   {
-					U8_T index;
-					index = (StartAdd + loop - MODBUS_INPUT_AM_FIRST);
-					sendbuf[HeadLen + 3 + loop * 2] = 0;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = inputs[index].auto_manual; 	
-		   }
-		   else if(StartAdd + loop >= MODBUS_INPUT_CAL_SIGN_FIRST && StartAdd + loop <= MODBUS_INPUT_CAL_SIGN_LAST)
-		   {
-					U8_T index;
-					index = (StartAdd + loop - MODBUS_INPUT_CAL_SIGN_FIRST);
-					sendbuf[HeadLen + 3 + loop * 2] = 0;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = inputs[index].calibration_sign;
-	
-		   }
-		   else if(StartAdd + loop >= MODBUS_INPUT_HI_SPD_COUNTER_FIRST && StartAdd + loop <= MODBUS_INPUT_HI_SPD_COUNTER_LAST)
-		   {
-					U8_T index;
-					index = (StartAdd + loop - MODBUS_INPUT_HI_SPD_COUNTER_FIRST) / 2;
-					if((StartAdd + loop - MODBUS_INPUT_HI_SPD_COUNTER_FIRST) % 2 == 0)
-					{
-						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(high_spd_counter[index] >> 24);
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(high_spd_counter[index] >> 16);
-					}
+		#if ARM_TSTAT_WIFI 
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = 10;  // ????????
+		#endif
+						
+		#if (ARM_MINI || ASIX_MINI)
+					if(Modbus.mini_type == MINI_VAV)
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = PRODUCT_MINI_VAV;
 					else
 					{
-						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(high_spd_counter[index] >> 8);
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)high_spd_counter[index];
-					}				
-		   }
-		   else if(StartAdd + loop >= MODBUS_INPUT_HI_SPD_EN_FIRST && StartAdd + loop <= MODBUS_INPUT_HI_SPD_EN_LAST)
-		   {
-					sendbuf[HeadLen + 3 + loop * 2] = 0;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = high_spd_en[StartAdd + loop - MODBUS_INPUT_HI_SPD_EN_FIRST];
-		   }
-			 else if(StartAdd + loop >= MODBUS_INPUT_TYPE_FIRST && StartAdd + loop <= MODBUS_INPUT_TYPE_LAST)
-		   {
-					sendbuf[HeadLen + 3 + loop * 2] = 0;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = input_type[StartAdd + loop - MODBUS_INPUT_TYPE_FIRST];
-		   }
-// end input
-// start variable
-			 else if((StartAdd + loop >= MODBUS_VAR_FIRST && StartAdd + loop <= MODBUS_VAR_LAST) ||
-				(StartAdd + loop >= MODBUS_RV_FIRST && StartAdd + loop <= MODBUS_RV_LAST)) 
-			{
-				U8_T index;
-				U16_T base;
-				
-			 if(StartAdd + loop >= MODBUS_VAR_FIRST && StartAdd + loop <= MODBUS_VAR_LAST)
-				 base = MODBUS_VAR_FIRST;
-			 else 
-				 base = MODBUS_RV_FIRST;
-			 
-				index = (StartAdd + loop - base) / 2;
-				if((StartAdd + loop - base) % 2 == 0)   // high word
-				{
-					if(vars[index].digital_analog == 0)  // digital
+						if(Modbus.mini_type >= 1 && Modbus.mini_type <= 4)
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = PRODUCT_MINI_BIG;
+						else
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = PRODUCT_MINI_ARM;
+					}
+		#endif 
+					}
+					else if(StartAdd + loop == MODBUS_ISP_VER)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.IspVer;
+					}
+					else if(StartAdd + loop == MODBUS_PIC)
 					{
 						sendbuf[HeadLen + 3 + loop * 2] = 0;
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.PicVer;
 					}
-					else
+					else if(StartAdd + loop == MODBUS_SNTP_TIMEZONE)
 					{
-						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(vars[index].value) >> 24);
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(vars[index].value) >> 16);
+						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(timezone >> 8);
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)timezone;
+					}  
+					else if(StartAdd + loop == MODBUS_TIMEZONE_SUMMER)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Daylight_Saving_Time;
 					}
-				}
-				else   // low word
-				{
-					if(vars[index].digital_analog == 0)  // digital
+					else if(StartAdd + loop == MODBUS_SNTP_SERVER1)
 					{
-						if((vars[index].range >= ON_OFF  && vars[index].range <= HIGH_LOW)
-							||(vars[index].range >= custom_digital1 // customer digital unit
-							&& vars[index].range <= custom_digital6
-							&& digi_units[vars[index].range - custom_digital1].direct == 1))
-						{  // inverse logic
-							if(vars[index].control == 1)
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
-							}
-							else
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-							}
-						}	
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  SntpServer[0];
+					}
+					else if(StartAdd + loop == MODBUS_SNTP_SERVER2)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  SntpServer[1];
+					}
+					else if(StartAdd + loop == MODBUS_SNTP_SERVER3)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  SntpServer[2];
+					}
+					else if(StartAdd + loop == MODBUS_SNTP_SERVER4)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  SntpServer[3];
+					}
+					else if(StartAdd + loop == MODBUS_SNTP_EN)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.en_sntp;
+					}
+					else if(StartAdd + loop == MODBUS_UART0_BAUDRATE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  uart0_baudrate;
+					}
+					else if(StartAdd + loop == MODBUS_UART1_BAUDRATE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  uart1_baudrate;
+					}
+					else if(StartAdd + loop == MODBUS_UART2_BAUDRATE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  uart2_baudrate;
+					}
+					else if(StartAdd + loop == MODBUS_EN_NODES_PLUG_N_PLAY)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.external_nodes_plug_and_play;
+					}
+					else if(StartAdd + loop == MODBUS_UPDATE_STATUS)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.update_status;
+					}
+		//			else if(StartAdd + loop == MODBUS_PROTOCAL)
+		//			{
+		//				sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.protocal;
+		//			}
+					else if(StartAdd + loop == MODBUS_MINI_TYPE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.mini_type;
+					}
+		//			else if(StartAdd + loop == MODBUS_PIC_WATCHDOG)
+		//			{
+		//				sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//				sendbuf[HeadLen + 3 + loop * 2 + 1] =  pic_watchdog;
+		//			}	
+					else if(StartAdd + loop == MODBUS_INSTANCE_LO)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(Instance >> 8);
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)Instance;
+					}
+					else if(StartAdd + loop == MODBUS_INSTANCE_HI)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(Instance >> 24);
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(Instance >> 16);
+					}
+					else if(StartAdd + loop == MODBUS_PANEL_NUMBER)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = panel_number;
+					}
+					else if(StartAdd + loop == MODBUS_STATION_NUM)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Station_NUM;
+					}
+		#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+					else if(StartAdd + loop == MODBUS_MSTP_MAX_MASTER)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = MAX_MASTER;
+					} 
+					else if(StartAdd + loop == MODBUS_EX_MOUDLE_EN)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = ex_moudle.enable;
+					}
+					else if(StartAdd + loop == MODBUS_EX_MOUDLE_FLAG12)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = (u8)(ex_moudle.flag >> 8);
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = (u8)(ex_moudle.flag);
+					}
+					else if(StartAdd + loop == MODBUS_EX_MOUDLE_FLAG34)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = (u8)(ex_moudle.flag >> 24);
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = (u8)(ex_moudle.flag >> 16);
+					}
+		#endif
+					else if(StartAdd + loop == MODBUS_EN_USER)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.en_username;
+					}
+					else if(StartAdd + loop == MODBUS_EN_CUS_UNIT)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.cus_unit;
+					}
+					else if(StartAdd + loop == MODBUS_EN_DYNDNS)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.en_dyndns;
+					}
+		#if (ASIX_MINI || ASIX_CM5)
+					else if(StartAdd + loop == MODBUS_DYNDNS_PROVIDER)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = dyndns_provider;
+					}
+					else if(StartAdd + loop == MODBUS_DYNDNS_UPDATE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = dyndns_update_time >> 8;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = dyndns_update_time;
+					}
+		#endif
+					else if(StartAdd + loop == MODBUS_RUN_TIME_LO)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = (run_time + run_time_last) >> 8;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = (run_time + run_time_last);
+					}
+					else if(StartAdd + loop == MODBUS_RUN_TIME_HI)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = (run_time + run_time_last) >> 24;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = (run_time + run_time_last) >> 16;
+					}
+
+					else if(StartAdd + loop == MODBUS_MSTP_NETWORK)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = mstp_network >> 8;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = mstp_network;
+					}
+					else if(StartAdd + loop == MODBUS_BBMD_EN)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = bbmd_en;
+					}
+//					else if(StartAdd + loop == MODBUS_BACKLIGHT)
+//					{
+//						sendbuf[HeadLen + 3 + loop * 2] = 0;
+//						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.backlight;
+//					}
+					else if(StartAdd + loop == MODBUS_LCD_TIME_OFF_DELAY)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.LCD_time_off_delay;
+					}
+					else if(StartAdd + loop == MODBUS_EN_TIME_SYNC_PC)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.en_time_sync_with_pc;
+					}
+					else if(StartAdd + loop >= MODBUS_MAC_1 && StartAdd + loop <= MODBUS_MAC_6)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.mac_addr[StartAdd + loop - MODBUS_MAC_1];
+					}
+					else if(StartAdd + loop == MODBUS_TCP_TYPE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.tcp_type;
+					}				 
+					else if(StartAdd + loop >= MODBUS_IP_1 && StartAdd + loop <= MODBUS_IP_4)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.ip_addr[StartAdd + loop - MODBUS_IP_1];
+					}
+					else if(StartAdd + loop >= MODBUS_SUBNET_1 && StartAdd + loop <= MODBUS_SUBNET_4)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.subnet[StartAdd + loop - MODBUS_SUBNET_1];
+					}
+					else if(StartAdd + loop >= MODBUS_GETWAY_1 && StartAdd + loop <= MODBUS_GETWAY_4)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.getway[StartAdd + loop - MODBUS_GETWAY_1];
+					} 
+					else if(StartAdd + loop == MODBUS_TCP_LISTEN_PORT)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = Modbus.tcp_port >> 8;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  (U8_T)Modbus.tcp_port;
+					}
+					else if(StartAdd + loop == MODBUS_BIP_PORT)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = Modbus.Bip_port >> 8;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  (U8_T)Modbus.Bip_port;
+					}
+					else if(StartAdd + loop == MODBUS_DEAD_MASTER)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = Modbus.dead_master >> 8;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  (U8_T)Modbus.dead_master;
+					}
+#if ARM_TSTAT_WIFI
+					else if(StartAdd + loop == MODBUS_DISALBE_TSTAT10_DIS)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)Modbus.disable_tstat10_display;
+					}
+#endif
+					else if(StartAdd + loop == MODBUS_TOTAL_NO)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  sub_no;
+					}
+					else if(StartAdd + loop >= MODBUS_SUBADDR_FIRST && StartAdd + loop <= MODBUS_SUBADDR_LAST)
+					{  
+						sendbuf[HeadLen + 3 + loop * 2] = (current_online[scan_db[StartAdd + loop  - MODBUS_SUBADDR_FIRST].id / 8] & (1 << (scan_db[StartAdd + loop  - MODBUS_SUBADDR_FIRST].id % 8))) ? 1 : 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  scan_db[StartAdd + loop  - MODBUS_SUBADDR_FIRST].id;
+					}			
+					else if(StartAdd + loop == MODBUS_INPUT_MOUDLE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  chip_info[2] ? 2 : 0;
+					}
+					else if(StartAdd + loop == MODBUS_TOP_FW)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  chip_info[1];
+					}
+					else if(StartAdd + loop == MODBUS_TOP_HW)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  chip_info[0];
+					}
+		//			else if(StartAdd + loop >= MODBUS_CHIP1_HW && StartAdd + loop <= MODBUS_CHIP4_SW)
+		//			{
+		//			   	sendbuf[HeadLen + 3 + loop * 2] = chip_info[StartAdd + loop - MODBUS_CHIP1_HW] >> 8;	
+		//				sendbuf[HeadLen + 3 + loop * 2 + 1] = chip_info[StartAdd + loop - MODBUS_CHIP1_HW];
+		//			}
+		//			else if(StartAdd + loop >= MODBUS_NETWORK_UART0 && StartAdd + loop <= MODBUS_NETWORK_UART2)
+		//			{
+		//			  sendbuf[HeadLen + 3 + loop * 2] = Modbus.network_ID[StartAdd + loop - MODBUS_NETWORK_UART0] >> 8;	
+		//				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.network_ID[StartAdd + loop - MODBUS_NETWORK_UART0];
+		//			}
+					else if(StartAdd + loop >= MODBUS_COM0_TYPE && StartAdd + loop <= MODBUS_COM2_TYPE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.com_config[StartAdd + loop  - MODBUS_COM0_TYPE];
+					
+					
+					}
+					else if(StartAdd + loop == MODBUS_REFRESH_FLASH)
+					{				
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.refresh_flash_timer;
+					}
+					else if(StartAdd + loop == MODBUS_FLASH_TIME_COUNT)
+					{				
+						sendbuf[HeadLen + 3 + loop * 2] = count_flash >> 8;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  count_flash;
+					}
+					else if(StartAdd + loop >= MODBUS_OUTPUT_1V && StartAdd + loop <= MODBUS_OUTPUT_10V)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = Modbus.start_adc[StartAdd + loop - MODBUS_OUTPUT_1V + 1] >> 8;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Modbus.start_adc[StartAdd + loop - MODBUS_OUTPUT_1V + 1];
+					}
+		#if (ARM_MINI || ASIX_MINI)
+					else if(StartAdd + loop >= MODBUS_AO1_FEEDBACK && StartAdd + loop <= MODBUS_AO16_FEEDBACK)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = AO_feedback[StartAdd + loop - MODBUS_AO1_FEEDBACK] >> 8;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  AO_feedback[StartAdd + loop - MODBUS_AO1_FEEDBACK];
+					}
+		#endif
+					else if(StartAdd + loop == MODBUS_VCC_ADC)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = Modbus.vcc_adc >> 8;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.vcc_adc; 	
+					}
+		//			else if(StartAdd + loop == MODBUS_PT1K)
+		//			{
+		//				sendbuf[HeadLen + 3 + loop * 2] = PT1K_para >> 8;	
+		//				sendbuf[HeadLen + 3 + loop * 2 + 1] = PT1K_para; 	
+		//			}
+					else if(StartAdd + loop == MODBUS_INPUT1_RAW)
+					{
+						if(inputs[0].range == PT1000_200_300DegC 
+							|| inputs[0].range == PT1000_200_570DegF )
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = (U32_T)input_raw[0] * PT1K_para / 10000 >> 8;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (U32_T)input_raw[0] * PT1K_para / 10000;
+						}
 						else
 						{
-							if(vars[index].control == 1)
-							{
-								sendbuf[HeadLen + 3 + loop * 2] = 0;
-								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-							}
-							else
+							sendbuf[HeadLen + 3 + loop * 2] = input_raw[0] >> 8;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = input_raw[0];
+						}				 	
+					}
+					else if(StartAdd + loop == MODBUS_OUTPUT_TEST_VALUE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = test_adc >> 8;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = test_adc; 	
+					}
+					else if(StartAdd + loop == MODBUS_OUTPUT_TEST_FLAG)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = test_adc_flag; 	
+					}
+					else if(StartAdd + loop == Modbus_Bacnet_Vendor_ID)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Bacnet_Vendor_ID; 	
+					}
+					else if(StartAdd + loop == Modbus_Fix_Com_Config)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.fix_com_config; 	
+					}
+					else if(StartAdd + loop == MODBUS_PANNEL_NAME)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = 0x56; 	
+					}
+					// only for tstat10
+#if ARM_TSTAT_WIFI
+					else if(StartAdd + loop == MODBUS_TEMPERATURE)
+					{
+						if(Modbus.mini_type == MINI_T10P)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] =  (inputs[HI_COMMON_CHANNEL].value / 100) >> 8; 
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[HI_COMMON_CHANNEL].value / 100); 	
+						}
+						else
+						{
+							sendbuf[HeadLen + 3 + loop * 2] =  (inputs[COMMON_CHANNEL].value / 100) >> 8; 
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[COMMON_CHANNEL].value / 100); 	
+						}
+					}
+					else if(StartAdd + loop == MODBUS_TVOC)
+					{
+						if(Modbus.mini_type == MINI_T10P)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = (inputs[HI_COMMON_CHANNEL + 1].value / 1000) >> 8;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[HI_COMMON_CHANNEL + 1].value / 1000);	
+						}
+						else
+						{
+							sendbuf[HeadLen + 3 + loop * 2] =  (inputs[COMMON_CHANNEL + 1].value / 1000) >> 8; 
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[COMMON_CHANNEL + 1].value / 1000); 	
+						}					
+					}
+					else if(StartAdd + loop == MODBUS_HUMIDY)
+					{
+						if(Modbus.mini_type == MINI_T10P)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = (inputs[HI_COMMON_CHANNEL + 2].value / 100) >> 8;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[HI_COMMON_CHANNEL + 2].value / 100);	
+						}
+						else
+						{
+							sendbuf[HeadLen + 3 + loop * 2] =  (inputs[COMMON_CHANNEL + 2].value / 100) >> 8; 
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[COMMON_CHANNEL + 2].value / 100); 	
+						}
+					}
+					else if(StartAdd + loop == MODBUS_OCCUPID)
+					{
+						if(Modbus.mini_type == MINI_T10P)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = 0;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = voltage_occ;	
+						}
+						else
+						{
+							sendbuf[HeadLen + 3 + loop * 2] =  0;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = voltage_occ;	
+						}					
+					}
+					else if(StartAdd + loop == MODBUS_CO2) // HI_COMMON_CHANNEL + 4
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = 0; 	
+					}					
+					else if(StartAdd + loop == MODBUS_LIGHT)
+					{
+						if(Modbus.mini_type == MINI_T10P)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = (inputs[HI_COMMON_CHANNEL + 5].value / 1000) >> 8;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[HI_COMMON_CHANNEL + 5].value / 1000);	
+						}
+						else
+						{
+							sendbuf[HeadLen + 3 + loop * 2] =  (inputs[COMMON_CHANNEL + 5].value / 1000) >> 8; 
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[COMMON_CHANNEL + 5].value / 1000); 	
+						} 	
+					}
+					else if(StartAdd + loop == MODBUS_VOICE)
+					{
+						if(Modbus.mini_type == MINI_T10P)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = (inputs[HI_COMMON_CHANNEL + 6].value / 1000) >> 8;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[HI_COMMON_CHANNEL + 6].value / 1000);
+						}
+						else
+						{
+						sendbuf[HeadLen + 3 + loop * 2] = (inputs[COMMON_CHANNEL + 6].value / 1000) >> 8; 	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[COMMON_CHANNEL + 6].value / 1000); 	
+						}
+					}
+					else if(StartAdd + loop == MODBUS_PULSE1)
+					{
+						if(Modbus.mini_type == MINI_T10P)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = (inputs[COMMON_CHANNEL].value / 1000) >> 8;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[COMMON_CHANNEL].value / 1000);
+						}
+						else
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = 0;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = 0; 	
+						}
+					}
+					else if(StartAdd + loop == MODBUS_PULSE2)
+					{
+						if(Modbus.mini_type == MINI_T10P)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = (inputs[COMMON_CHANNEL + 1].value / 1000) >> 8;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[COMMON_CHANNEL + 1].value / 1000);
+						}
+						else
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = 0;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = 0; 	
+						}	
+					}
+					else if(StartAdd + loop == MODBUS_PULSE3)
+					{
+						if(Modbus.mini_type == MINI_T10P)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = (inputs[COMMON_CHANNEL + 2].value / 1000) >> 8;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[COMMON_CHANNEL + 2].value / 1000);
+						}
+						else
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = 0;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = 0; 	
+						}	
+					}
+					else if(StartAdd + loop == MODBUS_PULSE4)
+					{
+						if(Modbus.mini_type == MINI_T10P)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = (inputs[COMMON_CHANNEL + 3].value / 1000) >> 8;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = (inputs[COMMON_CHANNEL + 3].value / 1000);
+						}
+						else
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = 0;	
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = 0; 	
+						} 	
+					}
+#endif					
+					
+					else if(StartAdd + loop >= MODBUS_NAME1 && StartAdd + loop <= MODBUS_NAME_END)
+					{
+						u16 temp = StartAdd + loop - MODBUS_NAME1;  
+						sendbuf[HeadLen + 3 + loop * 2] = panelname[temp * 2];	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  panelname[temp * 2 + 1];
+					}
+					else if(StartAdd + loop == MODBUS_UART0_PARITY)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.uart_parity[0]; 	
+					}
+					else if(StartAdd + loop == MODBUS_UART1_PARITY)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.uart_parity[1]; 	
+					}
+					else if(StartAdd + loop == MODBUS_UART2_PARITY)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.uart_parity[2]; 	
+					}		
+					else if(StartAdd + loop == MODBUS_UART0_STOPBIT)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.uart_stopbit[0]; 	
+					}
+					else if(StartAdd + loop == MODBUS_UART1_STOPBIT)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.uart_stopbit[1]; 	
+					}
+					else if(StartAdd + loop == MODBUS_UART2_STOPBIT)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.uart_stopbit[2]; 	
+					}			
+					else if(StartAdd + loop == MODBUS_ZIGBEE_MOUDLE_ID)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = Modbus.zigbee_module_id >> 8;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.zigbee_module_id; 	
+					}
+		//			else if(StartAdd + loop == MODBUS_NETWORK_UART0)
+		//			{
+		//				sendbuf[HeadLen + 3 + loop * 2] = 0;	
+		//				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.network_ID[0]; 	
+		//			}
+		//			else if(StartAdd + loop == MODBUS_NETWORK_UART1)
+		//			{
+		//				sendbuf[HeadLen + 3 + loop * 2] = 0;	
+		//				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.network_ID[1]; 	
+		//			}
+		//			else if(StartAdd + loop == MODBUS_NETWORK_UART2)
+		//			{
+		//				sendbuf[HeadLen + 3 + loop * 2] = 0;	
+		//				sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.network_ID[2]; 	
+		//			}
+		#if (ARM_MINI || ASIX_MINI)
+					else if(StartAdd + loop == MODBUS_OUTPUT_MODE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = flag_output; 	
+					}
+		#endif 
+		//  sub infomation block		
+
+		/***********************av bv ai bi ai**********************************\*/
+		#if BAC_COMMON 
+		//			else if(StartAdd + loop >= MODBUS_RI_FIRST && StartAdd + loop <= MODBUS_RI_LAST)
+		//		   {
+		//		   	U8_T index;
+		//				index = (StartAdd + loop - MODBUS_RI_FIRST) / 2;
+		//				if((StartAdd + loop - MODBUS_RI_FIRST) % 2 == 0)
+		//				{
+		//					if(inputs[index].digital_analog == 0)  // digital
+		//					{
+		//						sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//						sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+		//					}
+		//					else
+		//					{
+		//						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(inputs[index].value) >> 24);
+		//						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(inputs[index].value) >> 16);
+		//					}
+		//				}
+		//				else
+		//				{
+		//					if(inputs[index].digital_analog == 0)  // digital
+		//					{
+		//						if(inputs[index].range >= ON_OFF  && inputs[index].range <= HIGH_LOW)
+		//						{  // inverse logic
+		//							if(inputs[index].control == 1)
+		//							{
+		//								sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+		//							}
+		//							else
+		//							{
+		//								sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+		//							}
+		//						}	
+		//						else
+		//						{
+		//							if(inputs[index].control == 1)
+		//							{
+		//								sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+		//							}
+		//							else
+		//							{
+		//								sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+		//							}
+		//						}	
+		//					}
+		//					else  // analog
+		//					{
+		//						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(inputs[index].value) >> 8);
+		//						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(inputs[index].value));
+		//					}	
+		//				}
+		//					
+		//		   }
+		//			 else if(StartAdd + loop >= MODBUS_RV_FIRST && StartAdd + loop <= MODBUS_RV_LAST) 
+		//			{
+		//				U8_T index;
+		//				index = (StartAdd + loop - MODBUS_RV_FIRST) / 2;
+		//				if((StartAdd + loop - MODBUS_RV_FIRST) % 2 == 0)   // high word
+		//				{
+		//					if(vars[index].digital_analog == 0)  // digital
+		//					{
+		//						sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//						sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+		//					}
+		//					else
+		//					{
+		//						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(vars[index].value) >> 24);
+		//						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(vars[index].value) >> 16);
+		//					}
+		//				}
+		//				else   // low word
+		//				{
+		//					if(vars[index].digital_analog == 0)  // digital
+		//					{
+		//						if(vars[index].range >= ON_OFF  && vars[index].range <= HIGH_LOW)
+		//						{  // inverse logic
+		//							if(vars[index].control == 1)
+		//							{
+		//								sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+		//							}
+		//							else
+		//							{
+		//								sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+		//							}
+		//						}	
+		//						else
+		//						{
+		//							if(vars[index].control == 1)
+		//							{
+		//								sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+		//							}
+		//							else
+		//							{
+		//								sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+		//							}
+		//						}	
+		//					}
+		//					else  // analog
+		//					{
+		//						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(vars[index].value) >> 8);
+		//						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(vars[index].value));
+		//					}	
+		//				}
+		//				
+		//			} 
+		#endif
+		/*******************************************************************\*/
+						// for SSID
+		#if (ARM_MINI || ARM_TSTAT_WIFI)
+						else if(StartAdd + loop >= MODBUS_WIFI_START && StartAdd + loop <= MODBUS_WIFI_END)
+						{
+							U16_T far temp;
+							temp = read_wifi_data_by_block(StartAdd + loop);
+							
+							sendbuf[HeadLen + 3 + loop * 2] = (temp >> 8) & 0xFF;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = temp & 0xFF;
+						}
+	
+		#endif			
+		/*  END SUB TSTAT */
+		/******************************end for tstst resigter ************************************************/
+					 //  input block
+					 else if(StartAdd + loop >= MODBUS_OUTPUT_FIRST && StartAdd + loop <= MODBUS_OUTPUT_LAST)
+					 {
+						U8_T index;			 
+
+						index = (StartAdd + loop - MODBUS_OUTPUT_FIRST) / 2;
+						if((StartAdd + loop - MODBUS_OUTPUT_FIRST) % 2 == 0)  // high word
+						{
+							if(outputs[index].digital_analog == 0) // digtial
 							{
 								sendbuf[HeadLen + 3 + loop * 2] = 0;
 								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
 							}
-						}	
-					}
-					else  // analog
+							else
+							{
+								sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(outputs[index].value) >> 24);
+								sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(outputs[index].value) >> 16);
+							}
+						}
+						else // low word
+						{
+							if(outputs[index].digital_analog == 0) // digtial
+							{
+								if((outputs[index].range >= ON_OFF  && outputs[index].range <= HIGH_LOW)
+									||(outputs[index].range >= custom_digital1 // customer digital unit
+									&& outputs[index].range <= custom_digital8
+									&& digi_units[outputs[index].range - custom_digital1].direct == 1))
+								{  // inverse logic
+									if(outputs[index].control == 1)
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+									}
+									else
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+									}
+								}	
+								else
+								{
+									if(outputs[index].control == 1)
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+									}
+									else
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+									}
+								}	
+							}
+							else  // analog
+							{
+								sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(outputs[index].value) >> 8);
+								sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(outputs[index].value));
+							}
+						}
+						
+					 }
+					 else if(StartAdd + loop >= MODBUS_OUTPUT_SWICH_FIRST && StartAdd + loop <= MODBUS_OUTPUT_SWICH_LAST)
+					 {
+							U8_T index;
+						index = (StartAdd + loop - MODBUS_OUTPUT_SWICH_FIRST); 
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = outputs[index].switch_status;		
+					 }
+					 else if(StartAdd + loop >= MODBUS_OUTPUT_RANGE_FIRST && StartAdd + loop <= MODBUS_OUTPUT_RANGE_LAST)
+					 {
+							U8_T index;
+						index = (StartAdd + loop - MODBUS_OUTPUT_RANGE_FIRST);
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = outputs[index].range;
+			
+					 }
+					 else if(StartAdd + loop >= MODBUS_OUTPUT_AM_FIRST && StartAdd + loop <= MODBUS_OUTPUT_AM_LAST)
+					 {
+							U8_T index;
+						index = (StartAdd + loop - MODBUS_OUTPUT_AM_FIRST);
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = outputs[index].auto_manual;
+			
+					 }
+					 else if(StartAdd + loop >= MODBUS_OUTPUT_AD_FIRST && StartAdd + loop <= MODBUS_OUTPUT_AD_LAST)
+					 {
+							U8_T index;
+						index = (StartAdd + loop - MODBUS_OUTPUT_AD_FIRST);
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = outputs[index].digital_analog;
+			
+					 }
+		// end output
+		// start input
+					 else if((StartAdd + loop >= MODBUS_INPUT_FIRST && StartAdd + loop <= MODBUS_INPUT_LAST) 
+						 || (StartAdd + loop >= MODBUS_RI_FIRST && StartAdd + loop <= MODBUS_RI_LAST))
+					 {
+						U8_T index;
+						U16_T base; 
+							if((StartAdd + loop >= MODBUS_INPUT_FIRST && StartAdd + loop <= MODBUS_INPUT_LAST))
+								base = MODBUS_INPUT_FIRST;
+							else
+								base = MODBUS_RI_FIRST;
+							 
+						index = (StartAdd + loop - base) / 2;
+						if((StartAdd + loop - base) % 2 == 0)
+						{
+							if(inputs[index].digital_analog == 0)  // digital
+							{
+								sendbuf[HeadLen + 3 + loop * 2] = 0;
+								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+							}
+							else
+							{
+								sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(inputs[index].value) >> 24);
+								sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(inputs[index].value) >> 16);
+							}
+						}
+						else
+						{
+							if(inputs[index].digital_analog == 0)  // digital
+							{
+								if((inputs[index].range >= ON_OFF  && inputs[index].range <= HIGH_LOW)
+									||(inputs[index].range >= custom_digital1 // customer digital unit
+									&& inputs[index].range <= custom_digital8
+									&& digi_units[inputs[index].range - custom_digital1].direct == 1))
+								{  // inverse logic
+									if(inputs[index].control == 1)
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+									}
+									else
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+									}
+								}	
+								else
+								{
+									if(inputs[index].control == 1)
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+									}
+									else
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+									}
+								}	
+							}
+							else  // analog
+							{
+								sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(inputs[index].value) >> 8);
+								sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(inputs[index].value));
+							}	
+						}
+							
+					 }
+					 else if(StartAdd + loop >= MODBUS_INPUT_FILTER_FIRST && StartAdd + loop <= MODBUS_INPUT_FILTER_LAST)
+					 {
+							U8_T index;
+							index = (StartAdd + loop - MODBUS_INPUT_FILTER_FIRST);
+							sendbuf[HeadLen + 3 + loop * 2] = 0;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = inputs[index].filter;	
+					 }
+					 else if(StartAdd + loop >= MODBUS_INPUT_CAL_FIRST && StartAdd + loop <= MODBUS_INPUT_CAL_LAST)
+					 {
+							U8_T index;
+							index = (StartAdd + loop - MODBUS_INPUT_CAL_FIRST);
+							sendbuf[HeadLen + 3 + loop * 2] = inputs[index].calibration_hi;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = inputs[index].calibration_lo;	
+					 }
+					 else if(StartAdd + loop >= MODBUS_INPUT_RANGE_FIRST && StartAdd + loop <= MODBUS_INPUT_RANGE_LAST)
+					 {
+							U8_T index;
+							index = (StartAdd + loop - MODBUS_INPUT_RANGE_FIRST);
+							sendbuf[HeadLen + 3 + loop * 2] = inputs[index].digital_analog;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = inputs[index].range;
+					 }
+					 else if(StartAdd + loop >= MODBUS_INPUT_AM_FIRST && StartAdd + loop <= MODBUS_INPUT_AM_LAST)
+					 {
+							U8_T index;
+							index = (StartAdd + loop - MODBUS_INPUT_AM_FIRST);
+							sendbuf[HeadLen + 3 + loop * 2] = 0;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = inputs[index].auto_manual; 	
+					 }
+					 else if(StartAdd + loop >= MODBUS_INPUT_CAL_SIGN_FIRST && StartAdd + loop <= MODBUS_INPUT_CAL_SIGN_LAST)
+					 {
+							U8_T index;
+							index = (StartAdd + loop - MODBUS_INPUT_CAL_SIGN_FIRST);
+							sendbuf[HeadLen + 3 + loop * 2] = 0;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = inputs[index].calibration_sign;
+			
+					 }
+					 else if(StartAdd + loop >= MODBUS_INPUT_HI_SPD_COUNTER_FIRST && StartAdd + loop <= MODBUS_INPUT_HI_SPD_COUNTER_LAST)
+					 {
+							U8_T index;
+							index = (StartAdd + loop - MODBUS_INPUT_HI_SPD_COUNTER_FIRST) / 2;
+							if((StartAdd + loop - MODBUS_INPUT_HI_SPD_COUNTER_FIRST) % 2 == 0)
+							{
+								sendbuf[HeadLen + 3 + loop * 2] = (U8_T)((get_high_spd_counter(index) / 1000) >> 24);
+								sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)((get_high_spd_counter(index) / 1000) >> 16);
+							}
+							else
+							{
+								sendbuf[HeadLen + 3 + loop * 2] = (U8_T)((get_high_spd_counter(index) / 1000) >> 8);
+								sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(get_high_spd_counter(index) / 1000);
+							}				
+					 }
+					 else if(StartAdd + loop >= MODBUS_INPUT_HI_SPD_EN_FIRST && StartAdd + loop <= MODBUS_INPUT_HI_SPD_EN_LAST)
+					 {
+							sendbuf[HeadLen + 3 + loop * 2] = 0;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = high_spd_en[StartAdd + loop - MODBUS_INPUT_HI_SPD_EN_FIRST];
+					 }
+					 else if(StartAdd + loop >= MODBUS_INPUT_TYPE_FIRST && StartAdd + loop <= MODBUS_INPUT_TYPE_LAST)
+					 {
+							sendbuf[HeadLen + 3 + loop * 2] = 0;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = input_type[StartAdd + loop - MODBUS_INPUT_TYPE_FIRST];
+					 }
+		// end input
+		// start variable
+					 else if((StartAdd + loop >= MODBUS_VAR_FIRST && StartAdd + loop <= MODBUS_VAR_LAST) ||
+						(StartAdd + loop >= MODBUS_RV_FIRST && StartAdd + loop <= MODBUS_RV_LAST)) 
 					{
-						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(vars[index].value) >> 8);
-						sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(vars[index].value));
+						U8_T index;
+						U16_T base;
+						
+					 if(StartAdd + loop >= MODBUS_VAR_FIRST && StartAdd + loop <= MODBUS_VAR_LAST)
+						 base = MODBUS_VAR_FIRST;
+					 else 
+						 base = MODBUS_RV_FIRST;
+					 
+						index = (StartAdd + loop - base) / 2;
+						if((StartAdd + loop - base) % 2 == 0)   // high word
+						{
+							if(vars[index].digital_analog == 0)  // digital
+							{
+								sendbuf[HeadLen + 3 + loop * 2] = 0;
+								sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+							}
+							else
+							{
+								sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(vars[index].value) >> 24);
+								sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(vars[index].value) >> 16);
+							}
+						}
+						else   // low word
+						{
+							if(vars[index].digital_analog == 0)  // digital
+							{
+								if((vars[index].range >= ON_OFF  && vars[index].range <= HIGH_LOW)
+									||(vars[index].range >= custom_digital1 // customer digital unit
+									&& vars[index].range <= custom_digital8
+									&& digi_units[vars[index].range - custom_digital1].direct == 1))
+								{  // inverse logic
+									if(vars[index].control == 1)
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+									}
+									else
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+									}
+								}	
+								else
+								{
+									if(vars[index].control == 1)
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+									}
+									else
+									{
+										sendbuf[HeadLen + 3 + loop * 2] = 0;
+										sendbuf[HeadLen + 3 + loop * 2 + 1] = 0;
+									}
+								}	
+							}
+							else  // analog
+							{
+								sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(vars[index].value) >> 8);
+								sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(vars[index].value));
+							}	
+						}
+						
+					} 
+					else if(StartAdd + loop >= MODBUS_VAR_AM_FIRST && StartAdd + loop <= MODBUS_VAR_AM_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = vars[StartAdd + loop - MODBUS_VAR_AM_FIRST].auto_manual;
 					}	
+					else if(StartAdd + loop >= MODBUS_VAR_RANGE_FIRST && StartAdd + loop <= MODBUS_VAR_RANGE_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = vars[StartAdd + loop - MODBUS_VAR_RANGE_FIRST].range;
+					}	
+					else if(StartAdd + loop >= MODBUS_VAR_AD_FIRST && StartAdd + loop <= MODBUS_VAR_AD_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = vars[StartAdd + loop - MODBUS_VAR_AD_FIRST].digital_analog;
+					}
+		// end variable
+		// start weekly
+					else if(StartAdd + loop >= MODBUS_WR_AM_FIRST && StartAdd + loop <= MODBUS_WR_AM_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_AM_FIRST].auto_manual;
+					}	
+					else if(StartAdd + loop >= MODBUS_WR_OUT_FIRST && StartAdd + loop <= MODBUS_WR_OUT_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_OUT_FIRST].value;
+					}	
+					else if(StartAdd + loop >= MODBUS_WR_HOLIDAY1_FIRST && StartAdd + loop <= MODBUS_WR_HOLIDAY1_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_HOLIDAY1_FIRST].override_1.number;
+					}	
+					else if(StartAdd + loop >= MODBUS_WR_STATE1_FIRST && StartAdd + loop <= MODBUS_WR_STATE1_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_STATE1_FIRST].override_1_value;
+					}	
+					else if(StartAdd + loop >= MODBUS_WR_HOLIDAY2_FIRST && StartAdd + loop <= MODBUS_WR_HOLIDAY2_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_HOLIDAY2_FIRST].override_2.number;
+					}	
+					else if(StartAdd + loop >= MODBUS_WR_STATE2_FIRST && StartAdd + loop <= MODBUS_WR_STATE2_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_STATE2_FIRST].override_2_value;
+					}	
+		// weekly_time
+//					else if(StartAdd + loop >= MODBUS_WR_TIME_FIRST && StartAdd + loop <= MODBUS_WR_TIME_LAST)
+//					{
+//						U8_T i,j,k; 
+//						i = (StartAdd + loop - MODBUS_WR_TIME_FIRST) / (MAX_SCHEDULES_PER_WEEK * 8); // week index
+//						j = (StartAdd + loop - MODBUS_WR_TIME_FIRST) %(MAX_SCHEDULES_PER_WEEK * 8) / 8; // day index
+//						k = (StartAdd + loop - MODBUS_WR_TIME_FIRST) % (MAX_SCHEDULES_PER_WEEK * 8) % 8;  // seg index
+//						sendbuf[HeadLen + 3 + loop * 2] = wr_times[i][j].time[k].hours;
+//						sendbuf[HeadLen + 3 + loop * 2 + 1] = wr_times[i][j].time[k].minutes;
+//					}	
+		// end weekly
+					
+		// start annual 
+					else if(StartAdd + loop >= MODBUS_AR_AM_FIRST && StartAdd + loop <= MODBUS_AR_AM_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = annual_routines[StartAdd + loop - MODBUS_AR_AM_FIRST].auto_manual;
+					}	
+					else if(StartAdd + loop >= MODBUS_AR_OUT_FIRST && StartAdd + loop <= MODBUS_AR_OUT_LAST)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = annual_routines[StartAdd + loop - MODBUS_AR_OUT_FIRST].value;
+					}	
+					else if(StartAdd + loop >= MODBUS_AR_TIME_FIRST && StartAdd + loop <= MODBUS_AR_TIME_LAST)
+					{
+						U8_T i,j; 
+						i = (StartAdd + loop - MODBUS_AR_TIME_FIRST) / AR_DATES_SIZE;
+						j = (StartAdd + loop - MODBUS_AR_TIME_FIRST) % AR_DATES_SIZE;
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = ar_dates[i][j];
+					}	
+		//			else if(StartAdd + loop >= MODBUS_ID_FIRST && StartAdd + loop <= MODBUS_ID_LAST)
+		//			{
+		//				sendbuf[HeadLen + 3 + loop * 2] = 0;
+		//				sendbuf[HeadLen + 3 + loop * 2 + 1] = ID_Config[(StartAdd + loop - MODBUS_ID_FIRST) / ID_SIZE].all[(StartAdd + loop - MODBUS_ID_FIRST) % ID_SIZE];
+		//			}
+					
+		// end annual
+					
+					else if(StartAdd + loop >= MODBUS_TIMER_ADDRESS && StartAdd + loop < MODBUS_TIMER_ADDRESS + 8)
+					{	 
+//						if(StartAdd + loop - MODBUS_TIMER_ADDRESS == 7)
+//						{ // day of year
+//							sendbuf[HeadLen + 3 + loop * 2] = Rtc.Clk.day_of_year;
+//						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Rtc.Clk.day_of_year >> 8;
+//						}
+//						else
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = Rtc.all[StartAdd + loop - MODBUS_TIMER_ADDRESS] >> 8;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] =  Rtc.all[StartAdd + loop - MODBUS_TIMER_ADDRESS];
+						}
+					}					
+					else if(StartAdd + loop >= MODBUS_SD_BLOCK_A1 && StartAdd + loop <= MODBUS_SD_BLOCK_A12)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_A1) * 2] >> 8);
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_A1) * 2];
+					}			
+					else if(StartAdd + loop >= MODBUS_SD_BLOCK_D1 && StartAdd + loop <= MODBUS_SD_BLOCK_D12)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_D1) * 2 + 1] >> 8);
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_D1) * 2 + 1];
+					}
+					else if(StartAdd + loop >= MODBUS_SD_BLOCK_H1 && StartAdd + loop <= MODBUS_SD_BLOCK_H12)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_H1) * 2 + 1] >> 16);
+						sendbuf[HeadLen + 3 + loop * 2 + 1] =  (U8_T)(SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_H1) * 2] >> 16);
+					}
+					else if( StartAdd + loop >= MODBUS_TEST && StartAdd + loop <= MODBUS_TEST_50 )
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = (Test[StartAdd + loop - MODBUS_TEST] >> 8) & 0xFF;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Test[StartAdd + loop - MODBUS_TEST] & 0xFF;
+					}
+		/******************* read IN OUT by block start ******************************************/
+					else if( StartAdd + loop >= MODBUS_USER_BLOCK_FIRST && StartAdd + loop <= MODBUS_USER_BLOCK_LAST)
+					{
+						U16_T far temp;
+						temp = read_user_data_by_block(StartAdd + loop);
+						
+						sendbuf[HeadLen + 3 + loop * 2] = temp & 0xFF;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = (temp >> 8) & 0xFF;
+					}
+		/*********************read IN OUT by block endf ***************************************/			
+					
+					
+					
+					else if(StartAdd + loop >= MODBUS_TASK_TEST && StartAdd + loop <= MODBUS_TASK_TEST + 59)	
+					{
+						
+						U16_T reg = (StartAdd + loop - MODBUS_TASK_TEST) / 4;
+						U16_T index = (StartAdd + loop - MODBUS_TASK_TEST) % 4;	 
+						if(index == 0)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = task_test.count[reg] >> 8;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = task_test.count[reg] & 0xff; 
+						}
+						else if(index == 1)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = task_test.old_count[reg] >> 8;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = task_test.old_count[reg] & 0xff; 
+						}
+						else if(index == 2)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = 0;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = task_test.enable[reg]; 
+						}
+						else if(index == 3)
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = 0;											 
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = task_test.inactive_count[reg]; 
+						}
+					}	 
+					 
+					else
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
+					}
 				}
-				
-			} 
-			else if(StartAdd + loop >= MODBUS_VAR_AM_FIRST && StartAdd + loop <= MODBUS_VAR_AM_LAST)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = vars[StartAdd + loop - MODBUS_VAR_AM_FIRST].auto_manual;
-			}	
-// end variable
-// start weekly
-			else if(StartAdd + loop >= MODBUS_WR_AM_FIRST && StartAdd + loop <= MODBUS_WR_AM_LAST)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_AM_FIRST].auto_manual;
-			}	
-			else if(StartAdd + loop >= MODBUS_WR_OUT_FIRST && StartAdd + loop <= MODBUS_WR_OUT_LAST)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_OUT_FIRST].value;
-			}	
-			else if(StartAdd + loop >= MODBUS_WR_HOLIDAY1_FIRST && StartAdd + loop <= MODBUS_WR_HOLIDAY1_LAST)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_HOLIDAY1_FIRST].override_1.number;
-			}	
-			else if(StartAdd + loop >= MODBUS_WR_STATE1_FIRST && StartAdd + loop <= MODBUS_WR_STATE1_LAST)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_STATE1_FIRST].override_1_value;
-			}	
-			else if(StartAdd + loop >= MODBUS_WR_HOLIDAY2_FIRST && StartAdd + loop <= MODBUS_WR_HOLIDAY2_LAST)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_HOLIDAY2_FIRST].override_2.number;
-			}	
-			else if(StartAdd + loop >= MODBUS_WR_STATE2_FIRST && StartAdd + loop <= MODBUS_WR_STATE2_LAST)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = weekly_routines[StartAdd + loop - MODBUS_WR_STATE2_FIRST].override_2_value;
-			}	
-// weekly_time
-			else if(StartAdd + loop >= MODBUS_WR_TIME_FIRST && StartAdd + loop <= MODBUS_WR_TIME_LAST)
-			{
-				U8_T i,j,k; 
-				i = (StartAdd + loop - MODBUS_WR_TIME_FIRST) / (MAX_SCHEDULES_PER_WEEK * 8); // week index
-				j = (StartAdd + loop - MODBUS_WR_TIME_FIRST) %(MAX_SCHEDULES_PER_WEEK * 8) / 8; // day index
-				k = (StartAdd + loop - MODBUS_WR_TIME_FIRST) % (MAX_SCHEDULES_PER_WEEK * 8) % 8;  // seg index
-				sendbuf[HeadLen + 3 + loop * 2] = wr_times[i][j].time[k].hours;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = wr_times[i][j].time[k].minutes;
-			}	
-// end weekly
-			
-// start annual 
-			else if(StartAdd + loop >= MODBUS_AR_AM_FIRST && StartAdd + loop <= MODBUS_AR_AM_LAST)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = annual_routines[StartAdd + loop - MODBUS_AR_AM_FIRST].auto_manual;
-			}	
-			else if(StartAdd + loop >= MODBUS_AR_OUT_FIRST && StartAdd + loop <= MODBUS_AR_OUT_LAST)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = annual_routines[StartAdd + loop - MODBUS_AR_OUT_FIRST].value;
-			}	
-			else if(StartAdd + loop >= MODBUS_AR_TIME_FIRST && StartAdd + loop <= MODBUS_AR_TIME_LAST)
-			{
-				U8_T i,j; 
-				i = (StartAdd + loop - MODBUS_AR_TIME_FIRST) / AR_DATES_SIZE;
-				j = (StartAdd + loop - MODBUS_AR_TIME_FIRST) % AR_DATES_SIZE;
-				sendbuf[HeadLen + 3 + loop * 2] = 0;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = ar_dates[i][j];
-			}	
-//			else if(StartAdd + loop >= MODBUS_ID_FIRST && StartAdd + loop <= MODBUS_ID_LAST)
-//			{
-//				sendbuf[HeadLen + 3 + loop * 2] = 0;
-//				sendbuf[HeadLen + 3 + loop * 2 + 1] = ID_Config[(StartAdd + loop - MODBUS_ID_FIRST) / ID_SIZE].all[(StartAdd + loop - MODBUS_ID_FIRST) % ID_SIZE];
-//			}
-			
-// end annual
-			
-			else if(StartAdd + loop >= MODBUS_TIMER_ADDRESS && StartAdd + loop < MODBUS_TIMER_ADDRESS + 8)
-			{	 
-				sendbuf[HeadLen + 3 + loop * 2] = Rtc.all[StartAdd + loop - MODBUS_TIMER_ADDRESS] >> 8;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  Rtc.all[StartAdd + loop - MODBUS_TIMER_ADDRESS];
-			}
-			else if(StartAdd + loop >= MODBUS_SD_BLOCK_A1 && StartAdd + loop <= MODBUS_SD_BLOCK_A12)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_A1) * 2] >> 8);
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_A1) * 2];
-			}			
-			else if(StartAdd + loop >= MODBUS_SD_BLOCK_D1 && StartAdd + loop <= MODBUS_SD_BLOCK_D12)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_D1) * 2 + 1] >> 8);
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_D1) * 2 + 1];
-			}
-			else if(StartAdd + loop >= MODBUS_SD_BLOCK_H1 && StartAdd + loop <= MODBUS_SD_BLOCK_H12)
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_H1) * 2 + 1] >> 16);
-				sendbuf[HeadLen + 3 + loop * 2 + 1] =  (U8_T)(SD_block_num[(StartAdd + loop - MODBUS_SD_BLOCK_H1) * 2] >> 16);
-			}
-			else if( StartAdd + loop >= MODBUS_TEST && StartAdd + loop <= MODBUS_TEST_50 )
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = (Test[StartAdd + loop - MODBUS_TEST] >> 8) & 0xFF;
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = Test[StartAdd + loop - MODBUS_TEST] & 0xFF;
-			}
-/******************* read IN OUT by block start ******************************************/
-			else if( StartAdd + loop >= MODBUS_USER_BLOCK_FIRST && StartAdd + loop <= MODBUS_USER_BLOCK_LAST)
-			{
-				U16_T far temp;
-				temp = read_user_data_by_block(StartAdd + loop);
-				
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = (temp >> 8) & 0xFF;;
-				sendbuf[HeadLen + 3 + loop * 2] = temp & 0xFF;
-			}
-/*********************read IN OUT by block endf ***************************************/			
-			
-			
-			
-			else if(StartAdd + loop >= MODBUS_TASK_TEST && StartAdd + loop <= MODBUS_TASK_TEST + 59)	
-			{
-				
-				U16_T reg = (StartAdd + loop - MODBUS_TASK_TEST) / 4;
-				U16_T index = (StartAdd + loop - MODBUS_TASK_TEST) % 4;	 
-				if(index == 0)
-				{
-					sendbuf[HeadLen + 3 + loop * 2] = task_test.count[reg] >> 8;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = task_test.count[reg] & 0xff; 
-				}
-				else if(index == 1)
-				{
-					sendbuf[HeadLen + 3 + loop * 2] = task_test.old_count[reg] >> 8;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = task_test.old_count[reg] & 0xff; 
-				}
-				else if(index == 2)
-				{
-					sendbuf[HeadLen + 3 + loop * 2] = 0;
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = task_test.enable[reg]; 
-				}
-				else if(index == 3)
-				{
-					sendbuf[HeadLen + 3 + loop * 2] = 0;											 
-					sendbuf[HeadLen + 3 + loop * 2 + 1] = task_test.inactive_count[reg]; 
-				}
-			}	 
-			 
-			else
-			{
-				sendbuf[HeadLen + 3 + loop * 2] = 0;	
-				sendbuf[HeadLen + 3 + loop * 2 + 1] = 1;
-			}
+			} // end READ_VARIABLES
 		}
-	}
 
 		if(type == SERIAL || type == USB || type == BAC_TO_MODBUS)
 		{
 			U16_T crc_val;
 
-			crc_val = crc16(sendbuf,RegNum * 2 + 3);
-			sendbuf[RegNum * 2 + 3]	= crc_val >> 8;
-			sendbuf[RegNum * 2 + 4]	= (U8_T)crc_val;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+			if(cmd == READ_COIL)
+			{
+//				Test[20]++;
+				crc_val = crc16(sendbuf,sendbuf[HeadLen + 2] + 3);
+				sendbuf[sendbuf[HeadLen + 2] + 3]	= crc_val >> 8;
+				sendbuf[sendbuf[HeadLen + 2] + 4]	= (U8_T)crc_val;
+			}
+			else
+			{
+				crc_val = crc16(sendbuf,RegNum * 2 + 3);
+				sendbuf[RegNum * 2 + 3]	= crc_val >> 8;
+				sendbuf[RegNum * 2 + 4]	= (U8_T)crc_val;
+			}
+#if 1//(ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			if(type == BAC_TO_MODBUS)
 			{
 				memcpy(&bacnet_to_modbus,&sendbuf[3],RegNum * 2);
@@ -3335,7 +3775,12 @@ void responseCmd(U8_T type,U8_T* pData)
 			if(type == SERIAL)
 			{
 		   	uart_init_send_com(Modbus.main_port);
-				uart_send_string(sendbuf, RegNum * 2 + 5,Modbus.main_port);
+				if(cmd == READ_COIL)
+				{					
+					uart_send_string(sendbuf, sendbuf[HeadLen + 2] + 5,Modbus.main_port);
+				}
+				else
+					uart_send_string(sendbuf, RegNum * 2 + 5,Modbus.main_port);
 
 			}
 #if (ASIX_MINI || ASIX_CM5)
@@ -3350,7 +3795,7 @@ void responseCmd(U8_T type,U8_T* pData)
 #endif
 #endif
 		}		
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI || ARM_MINI
 		else if(type == WIFI) // wifi
 		{
 			TransID =  ((U16_T)pData[0] << 8) | pData[1];
@@ -3360,14 +3805,23 @@ void responseCmd(U8_T type,U8_T* pData)
 			sendbuf[3] = 0;
 			sendbuf[4] = (3 + RegNum * 2) >> 8;	//	Len
 			sendbuf[5] = (U8_T)(3 + RegNum * 2) ;  
-			
-			memcpy(modbus_wifi_buf,sendbuf,RegNum * 2 + 3 + HeadLen);
-			modbus_wifi_len = RegNum * 2 + 3 + HeadLen;
+
+			if(cmd == READ_COIL)
+			{
+				memcpy(modbus_wifi_buf,sendbuf,RegNum + 3 + HeadLen);
+				modbus_wifi_len = RegNum + 3 + HeadLen;
+			}
+			else
+			{
+				memcpy(modbus_wifi_buf,sendbuf,RegNum * 2 + 3 + HeadLen);
+				modbus_wifi_len = RegNum * 2 + 3 + HeadLen;
+			}
+
 //			uart_init_send_com(Modbus.main_port);
 //			uart_send_string(sendbuf, RegNum * 2 + 3 + HeadLen,Modbus.main_port);
 		}
 #endif
-#if !(ARM_WIFI)
+#if !(ARM_TSTAT_WIFI )
 		else // TCP
 		{
 			TransID =  ((U16_T)pData[0] << 8) | pData[1];
@@ -3375,19 +3829,46 @@ void responseCmd(U8_T type,U8_T* pData)
 			sendbuf[1] = (U8_T)TransID;	
 			sendbuf[2] = 0;			//	ProtoID
 			sendbuf[3] = 0;
-			sendbuf[4] = (3 + RegNum * 2) >> 8;	//	Len
-			sendbuf[5] = (U8_T)(3 + RegNum * 2) ;  			
+			if(cmd == READ_COIL)
+			{
+				sendbuf[4] = (3 + sendbuf[HeadLen + 2]) >> 8;	//	Len
+				sendbuf[5] = (U8_T)(3 + sendbuf[HeadLen + 2]) ; 
+			}
+			else
+			{
+				sendbuf[4] = (3 + RegNum * 2) >> 8;	//	Len
+				sendbuf[5] = (U8_T)(3 + RegNum * 2) ; 
+			}				
 
 			if(read_ok == 1)
 			{
 				if(type == TCP)
 				{
-	#if (ASIX_MINI || ASIX_CM5)
-					if(cSemaphoreTake( xSemaphore_tcp_send, ( portTickType ) 10 ) == pdTRUE)
-					{				
-						TCPIP_TcpSend(pHttpConn->TcpSocket, sendbuf, RegNum * 2 + HeadLen + 3, TCPIP_SEND_NOT_FINAL); 
-						cSemaphoreGive( xSemaphore_tcp_send );
+					if(cmd == READ_COIL)
+					{
+#if (ASIX_MINI || ASIX_CM5)
+						if(cSemaphoreTake( xSemaphore_tcp_send, ( portTickType ) 10 ) == pdTRUE)
+						{				
+							TCPIP_TcpSend(pHttpConn->TcpSocket, sendbuf, sendbuf[HeadLen + 2] + HeadLen + 3, TCPIP_SEND_NOT_FINAL); 
+							cSemaphoreGive( xSemaphore_tcp_send );
+						}
+#endif					
+					
+#if (ARM_MINI || ARM_CM5)
+					 memcpy(tcp_server_sendbuf,sendbuf,RegNum + 3 + HeadLen);
+					 tcp_server_sendlen = sendbuf[HeadLen + 2] + 3 + HeadLen;
+					
+#endif
 					}
+					else
+					{
+						
+	#if (ASIX_MINI || ASIX_CM5)
+						if(cSemaphoreTake( xSemaphore_tcp_send, ( portTickType ) 10 ) == pdTRUE)
+						{				
+							TCPIP_TcpSend(pHttpConn->TcpSocket, sendbuf, RegNum * 2 + HeadLen + 3, TCPIP_SEND_NOT_FINAL); 
+							cSemaphoreGive( xSemaphore_tcp_send );
+						}
 	#endif
 					
 					
@@ -3397,34 +3878,39 @@ void responseCmd(U8_T type,U8_T* pData)
 					
 	#endif
 
+					}
 				}
 				
 			}
 		}
 #endif
 	}
-	else if(cmd == WRITE_VARIABLES)
-	{		
+	else if((cmd == WRITE_VARIABLES) || (cmd == WRITE_COIL))
+	{	
+#if ARM_TSTAT_WIFI
+		if(type == SERIAL)
+		{
+			uart_init_send_com(Modbus.main_port);
+			uart_send_string(pData, 8,Modbus.main_port);
+		}
+//		else  // WIFI
+//		if(type == WIFI)
+//		{
+//			memcpy(modbus_wifi_buf,pData,12);
+//			modbus_wifi_len = 12;
+//		}
+		
+#endif
+	
 		if(type == SERIAL || type == USB || type == BAC_TO_MODBUS)
 		{ 	
 			if(type == SERIAL)
 			{
 				uart_init_send_com(Modbus.main_port);
 				uart_send_string(pData, 8,Modbus.main_port);
-			}	
-#if (ASIX_MINI || ASIX_CM5)
-#if USB_DEVICE
-			else
-			{
-				memcpy(UpBuf,pData,8); 
-				UpIndex = 0;
-				ENDP2_NEED_UP_FLAG = 1;	
-				UpCtr = 8;	
 			}
-#endif
-#endif
 		}
-#if !(ARM_WIFI)
+//#if !(ARM_TSTAT_WIFI )	
 		else // TCP   dont have CRC 
 		{
 		//	SetTransactionId(6 + UIP_HEAD);
@@ -3449,24 +3935,107 @@ void responseCmd(U8_T type,U8_T* pData)
 				}
 #endif
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 				memcpy(tcp_server_sendbuf,sendbuf,6 + UIP_HEAD);
-				tcp_server_sendlen = 6 + UIP_HEAD;
-			
+				tcp_server_sendlen = 6 + UIP_HEAD;			
 #endif
 			}
+#if (ARM_MINI || ARM_TSTAT_WIFI)
 			else if(type == WIFI) // wifi
 			{
-				uart_init_send_com(Modbus.main_port);
-				uart_send_string(sendbuf, 6 + UIP_HEAD,Modbus.main_port);
+//				uart_init_send_com(Modbus.main_port);
+//				uart_send_string(sendbuf, 6 + UIP_HEAD,Modbus.main_port);
+				for (loop = 0;loop < 6;loop++)
+				{
+					sendbuf[HeadLen + loop] = pData[HeadLen + loop];	
+				}
+
+				memcpy(modbus_wifi_buf,sendbuf,6 + UIP_HEAD);
+				modbus_wifi_len = 6 + UIP_HEAD;
+
+			}
+#endif
+		}
+//#endif
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )		
+		if(cmd == WRITE_COIL)
+		{
+			char j;
+			if(StartAdd >= MODBUS_COIL_OUTPUT_START && StartAdd <= MODBUS_COIL_OUTPUT_END )  // BO1-64
+			{					
+				j = StartAdd - MODBUS_COIL_OUTPUT_START;
+				if(outputs[j].digital_analog == 0)  // digital
+				{
+					if(j < get_max_internal_output())
+					{
+						if(( outputs[j].range >= ON_OFF && outputs[j].range <= HIGH_LOW )
+							||(outputs[j].range >= custom_digital1 // customer digital unit
+							&& outputs[j].range <= custom_digital8
+							&& digi_units[outputs[j].range - custom_digital1].direct == 1))
+						{ // inverse							
+							output_priority[j][10] = pData[HeadLen + 4] ? 0 : 1;	
+							outputs[j].control = Binary_Output_Present_Value(j) ? 0 : 1;	
+						}
+						else
+						{
+							output_priority[j][10] = pData[HeadLen + 4] ? 1 : 0;	
+							outputs[j].control = Binary_Output_Present_Value(j) ? 1 : 0;
+						}
+					}
+					else
+					{
+						if(( outputs[j].range >= ON_OFF && outputs[j].range <= HIGH_LOW )
+							||(outputs[j].range >= custom_digital1 // customer digital unit
+							&& outputs[j].range <= custom_digital8
+							&& digi_units[outputs[j].range - custom_digital1].direct == 1))
+						{ // inverse							
+							outputs[j].control = pData[HeadLen + 4] ? 0 : 1;		
+						}
+						else
+						{
+							outputs[j].control = pData[HeadLen + 4] ? 1 : 0;
+						}
+					}
+
+					if(outputs[j].control) 
+						set_output_raw(j,1000);
+					else 
+						set_output_raw(j,0);		
+		
+					outputs[j].value = Binary_Output_Present_Value(j) * 1000;
+
+					write_page_en[OUT] = 1;	
+				}			
+				
+			}
+			else if(StartAdd >= MODBUS_COIL_INPUT_START && (StartAdd <= MODBUS_COIL_INPUT_END))  // BI1-64
+			{
+				j = StartAdd - MODBUS_COIL_INPUT_START;
+				if(inputs[j].digital_analog == 0)  // digital
+				{
+					if(( inputs[j].range >= ON_OFF && inputs[j].range <= HIGH_LOW )
+					||(inputs[j].range >= custom_digital1 // customer digital unit
+					&& inputs[j].range <= custom_digital8
+					&& digi_units[inputs[j].range - custom_digital1].direct == 1))
+					{ // inverse
+							inputs[j].control = pData[HeadLen + 4] ? 0 : 1;
+					}
+					else
+					{
+							inputs[j].control = pData[HeadLen + 4] ? 1 : 0;
+					}
+				}
+
+				write_page_en[IN] = 1;	
 			}
 		}
+		else
 #endif
-
+		{
 		/* dealwith write command */
 		if(StartAdd >= MODBUS_OUTPUT_FIRST && StartAdd <= MODBUS_AR_OUT_LAST)
 		{
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			if(StartAdd >= MODBUS_OUTPUT_FIRST && StartAdd <= MODBUS_OUTPUT_AD_LAST)
 			{
 				write_page_en[OUT] = 1;	
@@ -3524,6 +4093,9 @@ void responseCmd(U8_T type,U8_T* pData)
 			Panel_Info.reg.modbus_addr = Modbus.address;
 			Station_NUM = Modbus.address;
 			Setting_Info.reg.MSTP_ID = Station_NUM;	
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)	
+			dlmstp_init(NULL);
+#endif
 		}
 		else if(StartAdd == MODBUS_HARDWARE_REV)
 		{
@@ -3548,11 +4120,11 @@ void responseCmd(U8_T type,U8_T* pData)
 			E2prom_Write_Byte(EEP_UART2_BAUDRATE, pData[HeadLen + 5] );
 			UART_Init(2);		
 		}
-#if !(ARM_WIFI)
+#if !(ARM_TSTAT_WIFI )
 		else if(StartAdd == MODBUS_SNTP_TIMEZONE )
 		{
 			if(timezone != pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8))
-			{			
+			{		
 				Sync_timestamp(pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8),timezone,0,0);
 				timezone = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
 				E2prom_Write_Byte(EEP_TIME_ZONE_HI, pData[HeadLen + 4] );
@@ -3589,7 +4161,11 @@ void responseCmd(U8_T type,U8_T* pData)
 		 	update_flash = pData[HeadLen + 5];
 			if(update_flash == 0x7F)
 			{
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+				SoftReset();
+#else
 				flag_reboot = 1;
+#endif
 			}		
 			else if((update_flash == 0x8E) || (update_flash == 0x8F))
 			{
@@ -3598,10 +4174,10 @@ void responseCmd(U8_T type,U8_T* pData)
 					SNWriteflag = 0x00;
 					E2prom_Write_Byte(EEP_SERIALNUMBER_WRITE_FLAG, SNWriteflag);
 					
-					Modbus.serialNum[0] = 0;
-					Modbus.serialNum[1] = 0;
-					Modbus.serialNum[2] = 0;
-					Modbus.serialNum[3] = 0;
+//					Modbus.serialNum[0] = 0;
+//					Modbus.serialNum[1] = 0;
+//					Modbus.serialNum[2] = 0;
+//					Modbus.serialNum[3] = 0;
 				}
 			}
 			
@@ -3648,13 +4224,48 @@ void responseCmd(U8_T type,U8_T* pData)
 				//E2prom_Write_Byte(EEP_STATION_NUM,Station_NUM);
 				E2prom_Write_Byte(EEP_ADDRESS,Modbus.address);
 				Setting_Info.reg.MSTP_ID	= Station_NUM;
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+				dlmstp_init(NULL);
+#endif
 			}
 		} 
-#if ARM_MINI	
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		else if(StartAdd == MODBUS_MSTP_MAX_MASTER)
 		{
+			if(pData[HeadLen + 5] > 1)
+			{
 				MAX_MASTER = pData[HeadLen + 5];
 				E2prom_Write_Byte(EEP_MAX_MASTER,MAX_MASTER);
+			}
+		} 
+		else if(StartAdd == MODBUS_EX_MOUDLE_EN)
+		{
+			ex_moudle.enable = pData[HeadLen + 5];
+			E2prom_Write_Byte(EEP_EX_MOUDLE_EN,ex_moudle.enable);
+		} 
+		else if(StartAdd == MODBUS_EX_MOUDLE_FLAG12)
+		{
+			U32_T		temp;
+			temp = ex_moudle.flag;
+
+			temp = temp & 0xffff0000L;
+			temp |= pData[HeadLen + 5] + pData[HeadLen + 4] * 256;
+			ex_moudle.flag = temp;
+			
+			E2prom_Write_Byte(EEP_EX_MOUDLE_FLAG1,pData[HeadLen + 5]);
+			E2prom_Write_Byte(EEP_EX_MOUDLE_FLAG2,pData[HeadLen + 4]);
+		} 
+		else if(StartAdd == MODBUS_EX_MOUDLE_FLAG34)
+		{
+			U32_T		temp;
+			temp = ex_moudle.flag;
+
+			temp = temp & 0x0000ffffL;
+			temp |= (U32_T)(pData[HeadLen + 5] + pData[HeadLen + 4] * 256) << 16;
+			ex_moudle.flag = temp;
+			
+			E2prom_Write_Byte(EEP_EX_MOUDLE_FLAG3,pData[HeadLen + 5]);
+			E2prom_Write_Byte(EEP_EX_MOUDLE_FLAG4,pData[HeadLen + 4]);
 		} 
 #endif
 		else if(StartAdd == MODBUS_INSTANCE_LO)
@@ -3668,6 +4279,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				Instance = temp;
 				E2prom_Write_Byte(EEP_INSTANCE1,pData[HeadLen + 5]);
 				E2prom_Write_Byte(EEP_INSTANCE2,pData[HeadLen + 4]);
+				Device_Set_Object_Instance_Number(Instance);
 			}
 		} 
 	  else if(StartAdd == MODBUS_INSTANCE_HI)
@@ -3677,6 +4289,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				Instance = ((U32_T)pData[HeadLen + 5] << 16) + ((U32_T)pData[HeadLen + 4] << 24) + (U16_T)Instance;	
 				E2prom_Write_Byte(EEP_INSTANCE3,pData[HeadLen + 5]);
 				E2prom_Write_Byte(EEP_INSTANCE4,pData[HeadLen + 4]);
+				Device_Set_Object_Instance_Number(Instance);
 			}
 		} 
 		else if(StartAdd == MODBUS_EN_USER)
@@ -3709,7 +4322,7 @@ void responseCmd(U8_T type,U8_T* pData)
 		}
 #endif
 
-#if !(ARM_WIFI)
+#if !(ARM_TSTAT_WIFI )
 		else if(StartAdd == MODBUS_EN_DYNDNS)
 		{
 			Modbus.en_dyndns = pData[HeadLen + 5];	
@@ -3752,10 +4365,14 @@ void responseCmd(U8_T type,U8_T* pData)
 		else if(StartAdd == MODBUS_SCAN_SUB_PORT)
 		{
 			scan_port = pData[HeadLen + 5];
+//			Test[20]++;
+//			Test[30] = scan_port;
 		}
 		else if(StartAdd == MODBUS_SCAN_SUB_BAUT)
 		{
 			scan_baut = pData[HeadLen + 5];
+//			Test[21]++;
+//			Test[31] = scan_baut;
 		}
 		else if(StartAdd >= MODBUS_COM0_TYPE && StartAdd <= MODBUS_COM2_TYPE)
 		{
@@ -3763,7 +4380,7 @@ void responseCmd(U8_T type,U8_T* pData)
 
 			if(Modbus.com_config[i] != pData[HeadLen + 5])
 			{
-				if(((i == 0) && (pData[HeadLen + 5] == NOUSE || pData[HeadLen + 5] == MODBUS_SLAVE || pData[HeadLen + 5] == MODBUS_MASTER || pData[HeadLen + 5] == BACNET_SLAVE)) ||
+				if(((i == 0) && (pData[HeadLen + 5] == NOUSE || pData[HeadLen + 5] == MODBUS_SLAVE || pData[HeadLen + 5] == MODBUS_MASTER || pData[HeadLen + 5] == BACNET_SLAVE || pData[HeadLen + 5] == BACNET_MASTER)) ||
 				((i == 1) && (pData[HeadLen + 5] == NOUSE || pData[HeadLen + 5] == MODBUS_SLAVE || pData[HeadLen + 5] == MODBUS_MASTER ||  pData[HeadLen + 5] == RS232_METER)) ||
 				((i == 2) && (pData[HeadLen + 5] == NOUSE || pData[HeadLen + 5] == MODBUS_SLAVE || pData[HeadLen + 5] == MODBUS_MASTER || pData[HeadLen + 5] == BACNET_SLAVE || pData[HeadLen + 5] == BACNET_MASTER))
 					)
@@ -3779,7 +4396,7 @@ void responseCmd(U8_T type,U8_T* pData)
 					if(i == 1)  // zigbee port
 						count_send_id_to_zigbee = 0;
 				}
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 #if (ARM_MINI || ASIX_MINI)
 	if((Modbus.mini_type == MINI_BIG_ARM) || (Modbus.mini_type == MINI_SMALL_ARM))
 	{
@@ -3793,7 +4410,8 @@ void responseCmd(U8_T type,U8_T* pData)
 				E2prom_Write_Byte(EEP_COM0_CONFIG + i, Modbus.com_config[i]);
 			}
 		}
-			
+			if(i == 0)	
+				Setting_Info.reg.com_config[0] = Modbus.com_config[0];
 		}
 
 		else if(StartAdd == MODBUS_REFRESH_FLASH)
@@ -3801,11 +4419,11 @@ void responseCmd(U8_T type,U8_T* pData)
 			Modbus.refresh_flash_timer = pData[HeadLen + 5];
 			E2prom_Write_Byte(EEP_REFRESH_FLASH, Modbus.refresh_flash_timer );
 		}
-#if (ARM_MINI || ASIX_MINI)
+#if (ARM_MINI || ASIX_MINI || ARM_TSTAT_WIFI)
 		else if(StartAdd >= MODBUS_OUTPUT_1V && StartAdd <= MODBUS_OUTPUT_10V)
 		{
 			Modbus.start_adc[StartAdd - MODBUS_OUTPUT_1V + 1] = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)			
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )			
 			E2prom_Write_Byte(EEP_OUT_1V + (StartAdd - MODBUS_OUTPUT_1V) * 2, pData[HeadLen + 4]);
 			E2prom_Write_Byte(EEP_OUT_1V + (StartAdd - MODBUS_OUTPUT_1V) * 2 + 1, pData[HeadLen + 5]);
 #endif
@@ -3825,10 +4443,17 @@ void responseCmd(U8_T type,U8_T* pData)
 			E2prom_Write_Byte(EEP_VCC_ADC_LO,Modbus.vcc_adc);
 			E2prom_Write_Byte(EEP_VCC_ADC_HI,Modbus.vcc_adc >> 8);
 		}
+//		else if(StartAdd == MODBUS_PT1K)
+//		{
+//			PT1K_para = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);;
+//			E2prom_Write_Byte(EEP_PT1K_PARA_LO,PT1K_para);
+//			E2prom_Write_Byte(EEP_PT1K_PARA_HI,PT1K_para >> 8);
+//		}	
 		else if(StartAdd == MODBUS_OUTPUT_TEST_VALUE)
 		{
-			test_adc = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
-		}
+			if(test_adc_flag == 1)
+				test_adc = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+		}			
 		else if(StartAdd == MODBUS_OUTPUT_TEST_FLAG)
 		{
 			test_adc_flag = pData[HeadLen + 5];
@@ -3848,11 +4473,11 @@ void responseCmd(U8_T type,U8_T* pData)
 			}
 		}
 
-		else if(StartAdd == MODBUS_OUTPUT_MODE)
-		{
-			flag_output = pData[HeadLen + 5];
-			E2prom_Write_Byte(EEP_OUTPUT_MODE,pData[HeadLen + 5]);
-		}
+//		else if(StartAdd == MODBUS_OUTPUT_MODE)
+//		{
+//			flag_output = pData[HeadLen + 5];
+//			E2prom_Write_Byte(EEP_OUTPUT_MODE,pData[HeadLen + 5]);
+//		}
 
 #endif
 //		else if(StartAdd == MODBUS_NETWORK)
@@ -3872,14 +4497,18 @@ void responseCmd(U8_T type,U8_T* pData)
 			bbmd_en = pData[HeadLen + 5];
 			E2prom_Write_Byte(EEP_BBMD_EN,pData[HeadLen + 5]);
 		}
-#if !(ARM_WIFI)
-		else if(StartAdd == MODBUS_BACKLIGHT)
+//		else if(StartAdd == MODBUS_BACKLIGHT)
+//		{
+//			Modbus.backlight = pData[HeadLen + 5];
+//			E2prom_Write_Byte(EEP_BACKLIGHT,pData[HeadLen + 5]);
+//			BACKLIT = (Modbus.backlight != 0)? 1 : 0;
+//		}
+		else if(StartAdd == MODBUS_LCD_TIME_OFF_DELAY)
 		{
-			Modbus.backlight = pData[HeadLen + 5];
-			E2prom_Write_Byte(EEP_BACKLIGHT,pData[HeadLen + 5]);
-			BACKLIT = (Modbus.backlight != 0)? 1 : 0;
+			Modbus.LCD_time_off_delay = pData[HeadLen + 5];
+			E2prom_Write_Byte(EEP_LCD_TIME_OFF_DELAY,pData[HeadLen + 5]);
+			count_lcd_time_off_delay = 0;
 		}
-#endif
 		else if(StartAdd == MODBUS_EN_TIME_SYNC_PC)
 		{
 			Modbus.en_time_sync_with_pc = pData[HeadLen + 5];
@@ -3901,7 +4530,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			 E2prom_Write_Byte(EEP_IP + 3 - (StartAdd - MODBUS_IP_1), Modbus.ip_addr[StartAdd - MODBUS_IP_1]);
 #endif
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			E2prom_Write_Byte(EEP_IP + (StartAdd - MODBUS_IP_1), Modbus.ip_addr[StartAdd - MODBUS_IP_1]);
 #endif
 			
@@ -3914,7 +4543,7 @@ void responseCmd(U8_T type,U8_T* pData)
 #if (ASIX_MINI || ASIX_CM5)
 			 E2prom_Write_Byte(EEP_SUBNET + 3 - ( StartAdd - MODBUS_SUBNET_1), Modbus.subnet[StartAdd - MODBUS_SUBNET_1]);
 #endif
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			 E2prom_Write_Byte(EEP_SUBNET + ( StartAdd - MODBUS_SUBNET_1), Modbus.subnet[StartAdd - MODBUS_SUBNET_1]);
 #endif
 		}
@@ -3924,7 +4553,7 @@ void responseCmd(U8_T type,U8_T* pData)
 #if (ASIX_MINI || ASIX_CM5)
 			 E2prom_Write_Byte(EEP_GETWAY + 3 - (StartAdd - MODBUS_GETWAY_1), Modbus.getway[StartAdd - MODBUS_GETWAY_1]);
 #endif
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			 E2prom_Write_Byte(EEP_GETWAY + (StartAdd - MODBUS_GETWAY_1), Modbus.getway[StartAdd - MODBUS_GETWAY_1]);
 #endif
 		}
@@ -3941,9 +4570,23 @@ void responseCmd(U8_T type,U8_T* pData)
 			Modbus.Bip_port =  pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
 			E2prom_Write_Byte(EEP_BACNET_PORT_LO,pData[HeadLen + 5]);
 			E2prom_Write_Byte(EEP_BACNET_PORT_HI,pData[HeadLen + 4]);
-//			IntFlashWriteByte(0x4001,0);
-//			AX11000_SoftReboot();
 		}	
+#if OUTPUT_DEATMASTER
+		else if(StartAdd == MODBUS_DEAD_MASTER)
+		{
+			Modbus.dead_master =  pData[HeadLen + 5];
+			E2prom_Write_Byte(EEP_DEAD_MASTER,pData[HeadLen + 5]);
+			clear_dead_master();
+		}	
+#endif	
+#if ARM_TSTAT_WIFI
+		else if(StartAdd == MODBUS_DISALBE_TSTAT10_DIS)
+		{
+			Modbus.disable_tstat10_display = pData[HeadLen + 5];
+			E2prom_Write_Byte(EEP_DISABLE_T10_DIS,pData[HeadLen + 5]);
+		}
+		
+#endif
 		else if(StartAdd == MODBUS_UART0_PARITY)
 		{
 			Modbus.uart_parity[0] = pData[HeadLen + 5];
@@ -3961,6 +4604,20 @@ void responseCmd(U8_T type,U8_T* pData)
 			E2prom_Write_Byte(EEP_UART2_PARITY,pData[HeadLen + 5]);
 			UART_Init(2);
 		}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+		else if(StartAdd == MODBUS_UART0_STOPBIT)
+		{
+			Modbus.uart_stopbit[0] = pData[HeadLen + 5];
+			E2prom_Write_Byte(EEP_UART0_STOPBIT,pData[HeadLen + 5]);
+			UART_Init(0);
+		}
+		else if(StartAdd == MODBUS_UART2_STOPBIT)
+		{
+			Modbus.uart_stopbit[2] = pData[HeadLen + 5];
+			E2prom_Write_Byte(EEP_UART2_STOPBIT,pData[HeadLen + 5]);
+			UART_Init(2);
+		}
+#endif
 		else if(StartAdd == MODBUS_ZIGBEE_MOUDLE_ID)
 		{
 			Write_ZIGBEE_ID(pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8));
@@ -4007,7 +4664,9 @@ void responseCmd(U8_T type,U8_T* pData)
 			if(pData[HeadLen + 5] == 111)
 			{	
 				flag_reboot = 1;
-				
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+				QuickSoftReset();
+#endif				
 //				IntFlashWriteByte(0x4001,0);
 //				AX11000_SoftReboot();
 			}
@@ -4025,10 +4684,56 @@ void responseCmd(U8_T type,U8_T* pData)
 				//tapdev_init() ;
 				tcpip_intial();
 			}	
+
 #endif
 			
 		}
-
+/*****************for wifi start **********************/
+#if (ARM_MINI || ARM_TSTAT_WIFI)
+		else if( StartAdd >= MODBUS_WIFI_START && StartAdd <= MODBUS_WIFI_END )
+		{
+			write_wifi_data_by_block(StartAdd,HeadLen,pData,type);
+		}
+//		else if(StartAdd == MODBUS_WIFI_SSID_MANUAL_EN)
+//		{
+//			SSID_Info.MANUEL_EN = pData[HeadLen + 5];
+//			ChangeFlash = 2;
+//			write_page_en[24] = 1;
+//			if(SSID_Info.MANUEL_EN != 0)
+//			{
+//				Restore_WIFI();
+//				if(type == WIFI)
+//				{
+//					flag_connect_AP = 1;
+//				}
+//				else
+//				{
+//					connect_AP();	
+//					SoftReset();					
+//				}
+//				
+//			}
+//		}
+//		else if(StartAdd == MODBUS_WIFI_RESTORE)
+//		{
+//			if(pData[HeadLen + 5] == 1)
+//				Restore_WIFI();
+//		}
+//		else if(StartAdd == MODBUS_WIFI_MODE)
+//		{
+//			SSID_Info.IP_Auto_Manual = pData[HeadLen + 5];
+//		}
+//		else if(StartAdd == MODBUS_WIFI_BACNET_PORT)
+//		{
+//			SSID_Info.bacnet_port = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+//		}
+//		else if(StartAdd == MODBUS_WIFI_MODBUS_PORT)
+//		{
+//			SSID_Info.modbus_port = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+//		}
+#endif		
+/*****************for wifi end **********************/
+		
 /****************av ai ao bi bo **********************************\*/
 
 //		else if(StartAdd == MODBUS_RESERVED1)
@@ -4138,15 +4843,21 @@ void responseCmd(U8_T type,U8_T* pData)
 					{
 						if(( outputs[i].range >= ON_OFF && outputs[i].range <= HIGH_LOW )
 							||(outputs[i].range >= custom_digital1 // customer digital unit
-							&& outputs[i].range <= custom_digital6
+							&& outputs[i].range <= custom_digital8
 							&& digi_units[outputs[i].range - custom_digital1].direct == 1))
 						{ // inverse
-							output_priority[i][10] = (pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)) ? 0 : 1;	
+							if(output_priority[i][9] == 0xff)
+								output_priority[i][7] = (pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)) ? 0 : 1;	
+							else
+								output_priority[i][10] = (pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)) ? 0 : 1;	
 							outputs[i].control = Binary_Output_Present_Value(i) ? 0 : 1;	
 						}
 						else
 						{
-							output_priority[i][10] = (pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)) ? 1 : 0;	
+							if(output_priority[i][9] == 0xff)
+								output_priority[i][7] = (pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)) ? 1 : 0;	
+							else
+								output_priority[i][10] = (pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)) ? 1 : 0;	
 							outputs[i].control = Binary_Output_Present_Value(i) ? 1 : 0;	
 						}
 					}
@@ -4156,7 +4867,7 @@ void responseCmd(U8_T type,U8_T* pData)
 						
 						if(( outputs[i].range >= ON_OFF && outputs[i].range <= HIGH_LOW )
 							||(outputs[i].range >= custom_digital1 // customer digital unit
-							&& outputs[i].range <= custom_digital6
+							&& outputs[i].range <= custom_digital8
 							&& digi_units[outputs[i].range - custom_digital1].direct == 1))
 						{// inverse
 							outputs[i].control = (pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)) ? 0 : 1;	
@@ -4189,11 +4900,17 @@ void responseCmd(U8_T type,U8_T* pData)
 				}
 #endif			
 					outputs[i].value = Binary_Output_Present_Value(i) * 1000;
+
 				}			
 				else if(outputs[i].digital_analog)
 				{
 					if(i < get_max_internal_output())
-							output_priority[i][10] = (float)(pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)) / 1000;			
+					{
+						if(output_priority[i][9] == 0xff)
+							output_priority[i][7] = (float)(pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)) / 1000;	
+						else
+							output_priority[i][10] = (float)(pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)) / 1000;
+					}						
 						// if external io
 #if  T3_MAP
 						if(i >= get_max_internal_output())
@@ -4217,12 +4934,19 @@ void responseCmd(U8_T type,U8_T* pData)
 						}
 							
 #endif
-						outputs[i].value = Analog_Output_Present_Value(i) * 1000;
+//						outputs[i].value = Analog_Output_Present_Value(i) * 1000;
+//						Set_AO_raw(i,swap_double(outputs[i].value) * 1000);
+						outputs[i].value = Analog_Output_Present_Value(i) * 1000;				 
+					// set output_raw
+						Set_AO_raw(i,(float)outputs[i].value);
+						
 				} 
 			}
 			
-			check_output_priority_array(i);
-			
+//			check_output_priority_array(i);
+#if OUTPUT_DEATMASTER
+			clear_dead_master();
+#endif
 #if  T3_MAP
 			if(i >= get_max_internal_output())
 			{
@@ -4238,7 +4962,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			}
 #endif
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[OUT] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4247,7 +4971,7 @@ void responseCmd(U8_T type,U8_T* pData)
 		{
 		 	i = (StartAdd - MODBUS_OUTPUT_RANGE_FIRST);
 			outputs[i].range = pData[HeadLen + 5];
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[OUT] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4259,7 +4983,7 @@ void responseCmd(U8_T type,U8_T* pData)
 		 	i = (StartAdd - MODBUS_OUTPUT_AM_FIRST);
 			if(outputs[i].switch_status == SW_AUTO)
 				outputs[i].auto_manual = pData[HeadLen + 5];
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[OUT] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4271,7 +4995,7 @@ void responseCmd(U8_T type,U8_T* pData)
 		 	i = (StartAdd - MODBUS_OUTPUT_AD_FIRST);
 			outputs[i].digital_analog = pData[HeadLen + 5];
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[OUT] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4296,7 +5020,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				{
 					if(( inputs[i].range >= ON_OFF && inputs[i].range <= HIGH_LOW )
 					||(inputs[i].range >= custom_digital1 // customer digital unit
-					&& inputs[i].range <= custom_digital6
+					&& inputs[i].range <= custom_digital8
 					&& digi_units[inputs[i].range - custom_digital1].direct == 1))
 					{ // inverse
 						if(pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8) == 1)
@@ -4315,11 +5039,28 @@ void responseCmd(U8_T type,U8_T* pData)
 				else if(inputs[i].digital_analog == 1)
 				{
 					 inputs[i].value = swap_double(1000l * (pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)));
-				} 
+				}
+
+				if(inputs[i].auto_manual == 1)  // manual
+				{
+					if((inputs[i].range == HI_spd_count) || (inputs[i].range == N0_2_32counts)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+						|| (inputs[i].range == RPM)
+#endif
+					)
+					{						
+						if(swap_double(inputs[i].value) == 0) 
+						{
+							high_spd_counter[i] = 0; // clear high spd count	
+							clear_high_spd[i] = 1;
+
+						}											
+					}
+				}		
 			}
 
 			inputs[i].value = swap_double(tempval); 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[IN] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4330,7 +5071,7 @@ void responseCmd(U8_T type,U8_T* pData)
 		{	
 		 	i = (StartAdd - MODBUS_INPUT_FILTER_FIRST);
 			inputs[i].filter = pData[HeadLen + 5];
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[IN] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4342,7 +5083,7 @@ void responseCmd(U8_T type,U8_T* pData)
 		 	i = (StartAdd - MODBUS_INPUT_CAL_FIRST);
 			inputs[i].calibration_hi = pData[HeadLen + 4];
 			inputs[i].calibration_lo = pData[HeadLen + 5];
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[IN] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4353,7 +5094,7 @@ void responseCmd(U8_T type,U8_T* pData)
 		{
 		 	i = (StartAdd - MODBUS_INPUT_CAL_SIGN_FIRST);
 			inputs[i].calibration_sign = pData[HeadLen + 5];
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[IN] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4365,7 +5106,7 @@ void responseCmd(U8_T type,U8_T* pData)
 		 	i = (StartAdd - MODBUS_INPUT_RANGE_FIRST);
 			inputs[i].digital_analog = pData[HeadLen + 4];
 			inputs[i].range = pData[HeadLen + 5];
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[IN] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4376,7 +5117,7 @@ void responseCmd(U8_T type,U8_T* pData)
 		{
 		 	i = (StartAdd - MODBUS_INPUT_AM_FIRST);
 			inputs[i].auto_manual = pData[HeadLen + 5];
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[IN] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4387,7 +5128,7 @@ void responseCmd(U8_T type,U8_T* pData)
 		{
 		 	i = (StartAdd - MODBUS_INPUT_HI_SPD_EN_FIRST);
 			high_spd_en[i] = pData[HeadLen + 5];  
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[IN] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4417,7 +5158,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				{
 					if(( vars[i].range >= ON_OFF && vars[i].range <= HIGH_LOW )
 						||(vars[i].range >= custom_digital1 // customer digital unit
-						&& vars[i].range <= custom_digital6
+						&& vars[i].range <= custom_digital8
 						&& digi_units[vars[i].range - custom_digital1].direct == 1))
 					{// inverse
 						if(pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8) == 1)
@@ -4441,7 +5182,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			}
 
 			vars[i].value = swap_double(tempval); 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[VAR] = 1;	
 #endif
 			ChangeFlash = 1;
@@ -4451,7 +5192,25 @@ void responseCmd(U8_T type,U8_T* pData)
 			{
 				i = (StartAdd - MODBUS_VAR_AM_FIRST);
 				vars[i].auto_manual = pData[HeadLen + 5];  
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[VAR] = 1;	
+#endif
+				ChangeFlash = 1;
+			} 
+			else if(StartAdd  >= MODBUS_VAR_AD_FIRST && StartAdd  <= MODBUS_VAR_AD_LAST)
+			{
+				i = (StartAdd - MODBUS_VAR_AD_FIRST);
+				vars[i].digital_analog = pData[HeadLen + 5];  
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[VAR] = 1;	
+#endif
+				ChangeFlash = 1;
+			} 
+			else if(StartAdd  >= MODBUS_VAR_RANGE_FIRST && StartAdd  <= MODBUS_VAR_RANGE_LAST)
+			{
+				i = (StartAdd - MODBUS_VAR_RANGE_FIRST);
+				vars[i].range = pData[HeadLen + 5];  
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[VAR] = 1;	
 #endif
 				ChangeFlash = 1;
@@ -4460,7 +5219,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			{
 				i = (StartAdd - MODBUS_WR_AM_FIRST);
 				weekly_routines[i].auto_manual = pData[HeadLen + 5]; 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[WRT] = 1;	
 #endif
 				ChangeFlash = 1;				
@@ -4469,7 +5228,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			{
 				i = (StartAdd - MODBUS_WR_OUT_FIRST);
 				weekly_routines[i].value = pData[HeadLen + 5] ? 1 : 0;  
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[WRT] = 1;	
 #endif
 				ChangeFlash = 1;
@@ -4478,7 +5237,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			{
 				i = (StartAdd - MODBUS_WR_HOLIDAY1_FIRST);
 				weekly_routines[i].override_1.number = pData[HeadLen + 5];  
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[WRT] = 1;	
 #endif
 				ChangeFlash = 1;
@@ -4487,7 +5246,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			{
 				i = (StartAdd - MODBUS_WR_STATE1_FIRST);
 				weekly_routines[i].override_1_value = pData[HeadLen + 5]; 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[WRT] = 1;	
 #endif
 				ChangeFlash = 1;
@@ -4496,7 +5255,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			{
 				i = (StartAdd - MODBUS_WR_HOLIDAY2_FIRST);
 				weekly_routines[i].override_2.number = pData[HeadLen + 5];  
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[WRT] = 1;	
 #endif
 				ChangeFlash = 1;
@@ -4505,7 +5264,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			{
 				i = (StartAdd - MODBUS_WR_STATE2_FIRST);
 				weekly_routines[i].override_2_value = pData[HeadLen + 5]; 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[WRT] = 1;	
 #endif
 				ChangeFlash = 1;
@@ -4520,7 +5279,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				k = (StartAdd - MODBUS_WR_TIME_FIRST) % (MAX_SCHEDULES_PER_WEEK * 8) % 8;  // seg index
 				wr_times[i][j].time[k].hours = pData[HeadLen + 4];
 				wr_times[i][j].time[k].minutes = pData[HeadLen + 5];
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[WR_TIME] = 1;	
 #endif
 				ChangeFlash = 1;
@@ -4532,7 +5291,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			{
 				i = (StartAdd - MODBUS_AR_AM_FIRST);
 				annual_routines[i].auto_manual = pData[HeadLen + 5]; 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[AR]	= 1;	
 #endif
 				ChangeFlash = 1;				
@@ -4541,7 +5300,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			{
 				i = (StartAdd - MODBUS_AR_OUT_FIRST);
 				annual_routines[i].value = pData[HeadLen + 5] ? 1 : 0; 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[AR]	= 1;	
 #endif
 				ChangeFlash = 1;
@@ -4552,7 +5311,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				i = (StartAdd - MODBUS_AR_TIME_FIRST) / AR_DATES_SIZE;
 				j = (StartAdd - MODBUS_AR_TIME_FIRST) % AR_DATES_SIZE;
 				ar_dates[i][j] = pData[HeadLen + 5];
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			write_page_en[AR_DATA]	= 1;	
 #endif
 				ChangeFlash = 1;
@@ -4561,13 +5320,13 @@ void responseCmd(U8_T type,U8_T* pData)
 //			{
 //				i = (StartAdd - MODBUS_ID_FIRST);
 //				ID_Config[i / ID_SIZE].all[i % ID_SIZE] = pData[HeadLen + 5]; 
-//#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+//#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 //			write_page_en[ID_ROUTION]	= 1;	
 //#endif
 //				ChangeFlash = 1;
 //			}
   // SUB INFO BLOCK
-
+		}
 	}
 	else if(cmd == MULTIPLE_WRITE)
 	{
@@ -4596,8 +5355,8 @@ void responseCmd(U8_T type,U8_T* pData)
 #endif
 #endif
 		}
-#if ARM_WIFI
-		else // wifi
+#if (ARM_MINI || ARM_TSTAT_WIFI)
+		else if(type == WIFI)// wifi
 		{
 			sendbuf[0] = pData[0];			//	TransID
 			sendbuf[1] = pData[1];	
@@ -4609,11 +5368,14 @@ void responseCmd(U8_T type,U8_T* pData)
 			{
 				sendbuf[HeadLen + loop] = pData[HeadLen + loop];	
 			}
-			uart_init_send_com(Modbus.main_port);
-			uart_send_string(sendbuf, 6 + UIP_HEAD,Modbus.main_port);			
+//			uart_init_send_com(Modbus.main_port);
+//			uart_send_string(sendbuf, 6 + UIP_HEAD,Modbus.main_port);	
+
+			memcpy(modbus_wifi_buf,sendbuf,6 + UIP_HEAD);
+			modbus_wifi_len = 6 + UIP_HEAD;
+
 		}
 #endif
-#if !(ARM_WIFI)
 		else
 		{
 		//	SetTransactionId(6 + UIP_HEAD);
@@ -4637,15 +5399,15 @@ void responseCmd(U8_T type,U8_T* pData)
 			}
 #endif
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			memcpy(tcp_server_sendbuf,sendbuf,6 + UIP_HEAD);
       tcp_server_sendlen = 6 + UIP_HEAD;
 #endif
 		}
-#endif
+
 		// the following are schedule registers 
 		////ChangeFlash = 1;
-#if !(ARM_WIFI)
+//#if !(ARM_TSTAT_WIFI )
 		if(StartAdd == MODBUS_MAC_1)
 		{ 	
 			if(Mac_Address_write_enable)
@@ -4668,7 +5430,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				E2prom_Write_Byte(EEP_MAC + 5, Modbus.mac_addr[0]);
 #endif
 				
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 				E2prom_Write_Byte(EEP_MAC, Modbus.mac_addr[0]);
 				E2prom_Write_Byte(EEP_MAC + 1, Modbus.mac_addr[1]);
 				E2prom_Write_Byte(EEP_MAC + 2, Modbus.mac_addr[2]);
@@ -4682,7 +5444,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			}
 		}
 		else
-#endif
+//#endif
 		 if(StartAdd  >= MODBUS_NAME1 && StartAdd <= MODBUS_NAME_END)
 	  {
 			if(pData[HeadLen +6] <= 20)
@@ -4692,7 +5454,7 @@ void responseCmd(U8_T type,U8_T* pData)
 	 				//AT24CXX_WriteOneByte((EEP_PANEL_NAME1 + i),pData[HeadLen + 7+i]);
  					panelname[i] = pData[HeadLen + 7 + i];
 				}
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 				ChangeFlash = 1;
 				write_page_en[24] = 1;
 #endif			
@@ -4769,7 +5531,50 @@ void responseCmd(U8_T type,U8_T* pData)
 			 
 			 }
 		 }
-		
+#if (ARM_MINI || ARM_TSTAT_WIFI)
+		else if( StartAdd >= MODBUS_WIFI_START && StartAdd <= MODBUS_WIFI_END )
+		{
+			write_wifi_data_by_block(StartAdd,HeadLen,pData,type);
+		}
+//			else if(StartAdd >= MODBUS_WIFI_SSID_START && StartAdd <= MODBUS_WIFI_SSID_END)
+//			{
+//				if(pData[HeadLen + 5] == 32)
+//				{
+//					memset(&SSID_Info.name,'\0',64);
+//					memcpy(&SSID_Info.name,&pData[HeadLen + 7],64);
+//				}
+//			}
+//			else if(StartAdd >= MODBUS_WIFI_PASS_START && StartAdd <= MODBUS_WIFI_PASS_END)
+//			{
+//				if(pData[HeadLen + 5] == 16)
+//				{
+//					memset(&SSID_Info.password,'\0',32);
+//					memcpy(&SSID_Info.password,&pData[HeadLen + 7],32);
+//				}
+//			}
+//			else if(StartAdd == MODBUS_WIFI_IP1) 
+//			{
+//				if(pData[HeadLen + 5] == 12)
+//				{
+//					SSID_Info.ip_addr[0] = pData[HeadLen + 8];
+//					SSID_Info.ip_addr[1] = pData[HeadLen + 10];
+//					SSID_Info.ip_addr[2] = pData[HeadLen + 12];
+//					SSID_Info.ip_addr[3] = pData[HeadLen + 14];
+//#if ARM_MINI					
+//					SSID_Info.net_mask[0] = pData[HeadLen + 16];
+//					SSID_Info.net_mask[1] = pData[HeadLen + 18];
+//					SSID_Info.net_mask[2] = pData[HeadLen + 20];
+//					SSID_Info.net_mask[3] = pData[HeadLen + 22];
+//					
+//					SSID_Info.getway[0] = pData[HeadLen + 24];
+//					SSID_Info.getway[1] = pData[HeadLen + 26];
+//					SSID_Info.getway[2] = pData[HeadLen + 28];
+//					SSID_Info.getway[3] = pData[HeadLen + 30];
+//#endif					
+//					
+//				}
+//			}
+#endif			
 /**************************************** read by block ********************************************/
 		 else if(StartAdd  >= MODBUS_USER_BLOCK_FIRST && StartAdd  <= MODBUS_USER_BLOCK_LAST)
 		 {
@@ -4780,12 +5585,15 @@ void responseCmd(U8_T type,U8_T* pData)
 		else if(StartAdd == MODBUS_T3000_PRIVATE)
 		{
 			if(pData[HeadLen + 5] == 0x07)
-			{				
+			{			
+				U8_T port;
 				T3000_Private.sn = pData[HeadLen + 10] + (U16_T)(pData[HeadLen + 12] << 8) \
 												+ ((U32_T)pData[HeadLen + 14] << 16) + ((U32_T)pData[HeadLen + 16] << 24);
 				T3000_Private.oldid = pData[HeadLen + 18];
 				T3000_Private.newid = pData[HeadLen + 20];
-				if(assignment_id_with_sn(T3000_Private.oldid, T3000_Private.newid, T3000_Private.sn,conflict_port)== ASSIGN_ID)	
+				port = get_port_by_id(T3000_Private.oldid);
+				if(port > 1) port = port - 1;
+				if(assignment_id_with_sn(T3000_Private.oldid, T3000_Private.newid, T3000_Private.sn,port)== ASSIGN_ID)	
 				{		
 					T3000_Private.flag = 2;	// successfully					
 				}					
@@ -4793,7 +5601,9 @@ void responseCmd(U8_T type,U8_T* pData)
 				{
 					T3000_Private.flag = 3; // fail
 				}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 				clear_conflict_id(); // delete conflict id
+#endif
 			}
 			
 		}
@@ -4806,12 +5616,13 @@ void responseCmd(U8_T type,U8_T* pData)
 				tempval = pData[HeadLen + 10] + (U16_T)(pData[HeadLen + 9] << 8) \
 					+ ((U32_T)pData[HeadLen + 8] << 16) + ((U32_T)pData[HeadLen + 7] << 24);
 
+				outputs[i].value = swap_double(tempval); 
 					
 				if(outputs[i].digital_analog == 0)  // digital
 				{
 					if(( outputs[i].range >= ON_OFF && outputs[i].range <= HIGH_LOW )
 						||(outputs[i].range >= custom_digital1 // customer digital unit
-						&& outputs[i].range <= custom_digital6
+						&& outputs[i].range <= custom_digital8
 						&& digi_units[outputs[i].range - custom_digital1].direct == 1))
 					{// inverse
 						if(tempval == 1)
@@ -4826,12 +5637,22 @@ void responseCmd(U8_T type,U8_T* pData)
 						else 
 							outputs[i].control = 0;
 					}
-				}	
-				
-				outputs[i].value = swap_double(tempval); 
-			}
-				
-				
+					
+					if(outputs[i].control) 
+						set_output_raw(i,1000);
+					else 
+						set_output_raw(i,0);		
+				}
+				else
+				{
+					// set output_raw
+						Set_AO_raw(i,(float)outputs[i].value);
+				}					
+			}	
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[OUT] = 1;	
+#endif
+			ChangeFlash = 1;			
 		} 
 		else if(StartAdd >= MODBUS_INPUT_FIRST && StartAdd <= MODBUS_INPUT_LAST)
 		{
@@ -4847,7 +5668,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				{
 					if(( inputs[i].range >= ON_OFF && vars[i].range <= HIGH_LOW )
 						||(inputs[i].range >= custom_digital1 // customer digital unit
-						&& inputs[i].range <= custom_digital6
+						&& inputs[i].range <= custom_digital8
 						&& digi_units[inputs[i].range - custom_digital1].direct == 1))
 					{// inverse
 						if(tempval == 1)
@@ -4865,9 +5686,11 @@ void responseCmd(U8_T type,U8_T* pData)
 				}	
 				
 				inputs[i].value = swap_double(tempval); 
-			}
-				
-				
+			}		
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[IN] = 1;	
+#endif
+			ChangeFlash = 1;				
 		} 
 		else if(StartAdd >= MODBUS_VAR_FIRST && StartAdd <= MODBUS_VAR_LAST)
 		{
@@ -4883,7 +5706,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				{
 					if(( vars[i].range >= ON_OFF && vars[i].range <= HIGH_LOW )
 						||(vars[i].range >= custom_digital1 // customer digital unit
-						&& vars[i].range <= custom_digital6
+						&& vars[i].range <= custom_digital8
 						&& digi_units[vars[i].range - custom_digital1].direct == 1))
 					{// inverse
 						if(tempval == 1)
@@ -4903,10 +5726,13 @@ void responseCmd(U8_T type,U8_T* pData)
 				
 				vars[i].value = swap_double(tempval); 
 			}
-				
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[VAR] = 1;	
+#endif
+			ChangeFlash = 1;					
 				
 		} 
-#if !(ARM_WIFI)
+#if 1//!(ARM_TSTAT_WIFI )
 		else if(StartAdd == MODBUS_OUTPUT_1V)
 		{
 			if(pData[HeadLen + 6] == 20)
@@ -4916,7 +5742,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				{
 					Modbus.start_adc[i] = (U16_T)(pData[HeadLen + i * 2 + 5] << 8) + pData[HeadLen + i * 2 + 6];
 				
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)			
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )			
 			E2prom_Write_Byte(EEP_OUT_1V + i * 2 - 2, pData[HeadLen + i * 2 + 5]);
 			E2prom_Write_Byte(EEP_OUT_1V + i * 2 - 1, pData[HeadLen + i * 2 + 6]);
 #endif
@@ -5066,10 +5892,9 @@ void responseCmd(U8_T type,U8_T* pData)
 	
 void dealwith_write_setting(Str_Setting_Info * ptr)
 {
-
 // compare sn to check whether it is current panel	
 	if(ptr->reg.sn == swap_double(Modbus.serialNum[0] + (U16_T)(Modbus.serialNum[1] << 8)	+ ((U32_T)Modbus.serialNum[2] << 16) + ((U32_T)Modbus.serialNum[3] << 24)))
-	{		
+	{	
 		if(memcmp(panelname,ptr->reg.panel_name,20))
 		{
 			ptr->reg.panel_name[19] = 0;
@@ -5077,7 +5902,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			Set_Object_Name(panelname);
 			
 		}		
-#if !(ARM_WIFI)		
+	
 		if(Modbus.en_time_sync_with_pc != ptr->reg.en_time_sync_with_pc)
 		{
 			
@@ -5089,6 +5914,26 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			Modbus.en_time_sync_with_pc = ptr->reg.en_time_sync_with_pc;	
 			E2prom_Write_Byte(EEP_EN_TIME_SYNC_PC,Modbus.en_time_sync_with_pc);
 		}
+
+		
+		if(timezone != swap_word(ptr->reg.time_zone))
+		{ 
+			Sync_timestamp(swap_word(ptr->reg.time_zone),timezone,0,0);
+			timezone = swap_word(ptr->reg.time_zone);
+			E2prom_Write_Byte(EEP_TIME_ZONE_HI,(U8_T)(timezone >> 8));
+			E2prom_Write_Byte(EEP_TIME_ZONE_LO,(U8_T)timezone);
+			
+		}		
+		if(Daylight_Saving_Time!= ptr->reg.Daylight_Saving_Time)
+		{ 
+			Sync_timestamp(0,0,ptr->reg.Daylight_Saving_Time,Daylight_Saving_Time);
+			Daylight_Saving_Time = ptr->reg.Daylight_Saving_Time;
+//			update_timers();
+			
+			E2prom_Write_Byte(EEP_DAYLIGHT_SAVING_TIME,(U8_T)Daylight_Saving_Time);
+
+		}	
+#if !(ARM_TSTAT_WIFI )	
 		
 		if((Modbus.en_sntp != ptr->reg.en_sntp) || ((Modbus.en_sntp == 5) && memcmp(sntp_server,Setting_Info.reg.sntp_server,30)))
 		{ 			
@@ -5107,7 +5952,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 							DNSC_Start(sntp_server);
 #endif
 						
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 							resolv_query(sntp_server);
 #endif
 						}
@@ -5121,26 +5966,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 					
 				}
 			}
-		}	
-		
-		if(timezone != swap_word(ptr->reg.time_zone))
-		{ 
-			Sync_timestamp(swap_word(ptr->reg.time_zone),timezone,0,0);
-			timezone = swap_word(ptr->reg.time_zone);
-			E2prom_Write_Byte(EEP_TIME_ZONE_HI,(U8_T)(timezone >> 8));
-			E2prom_Write_Byte(EEP_TIME_ZONE_LO,(U8_T)timezone);
-			
-		}		
-		if(Daylight_Saving_Time!= ptr->reg.Daylight_Saving_Time)
-		{ 	
-			Sync_timestamp(0,0,ptr->reg.Daylight_Saving_Time,Daylight_Saving_Time);
-			
-			Daylight_Saving_Time = ptr->reg.Daylight_Saving_Time;
-//			update_timers();
-			
-			E2prom_Write_Byte(EEP_DAYLIGHT_SAVING_TIME,(U8_T)Daylight_Saving_Time);
-
-		}		
+		}			
 		if(Modbus.en_dyndns != ptr->reg.en_dyndns)
 		{ 						
 			Modbus.en_dyndns = ptr->reg.en_dyndns;
@@ -5180,9 +6006,9 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			Modbus.com_config[0] = ptr->reg.com_config[0];
 			if((Modbus.com_config[0] == MODBUS_SLAVE) || (Modbus.com_config[0] == 0))
 				uart_serial_restart(0);
-//							if(Modbus.com_config[0] == MAIN_MSTP)
-//								Recievebuf_Initialize(0);
-			//if(Modbus.com_config[0] == MODBUS_MASTER)
+			if(Modbus.com_config[0] == BACNET_SLAVE || Modbus.com_config[0] == BACNET_MASTER)
+				Recievebuf_Initialize(0);
+
 				Count_com_config();
 			E2prom_Write_Byte(EEP_COM0_CONFIG, Modbus.com_config[0]);
 		}
@@ -5199,15 +6025,15 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			}
 			Count_com_config();
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 #if (ARM_MINI || ASIX_MINI)
-		if((Modbus.mini_type == MINI_BIG_ARM) || (Modbus.mini_type == MINI_SMALL_ARM))
-		{
-		if(Modbus.com_config[1] == MODBUS_MASTER)
-			UART1_SW = 1;
-		else
-			UART1_SW = 0;
-	}
+			if((Modbus.mini_type == MINI_BIG_ARM) || (Modbus.mini_type == MINI_SMALL_ARM))
+			{
+				if(Modbus.com_config[1] == MODBUS_MASTER)
+					UART1_SW = 1;
+				else
+					UART1_SW = 0;
+			}
 #endif
 #endif
 			E2prom_Write_Byte(EEP_COM1_CONFIG, Modbus.com_config[1]);
@@ -5215,8 +6041,10 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 		if(Modbus.com_config[2] != ptr->reg.com_config[2])
 		{
 			Modbus.com_config[2] = ptr->reg.com_config[2];
-			if((Modbus.com_config[2] == MODBUS_SLAVE) || (Modbus.com_config[2] == 0))
-				uart_serial_restart(2);	
+            if ((Modbus.com_config[2] == MODBUS_SLAVE) || (Modbus.com_config[2] == 0))
+            {
+                uart_serial_restart(2);
+            }
 			if(Modbus.com_config[2] == BACNET_SLAVE || Modbus.com_config[2] == BACNET_MASTER)
 				Recievebuf_Initialize(2);
 			//if(Modbus.com_config[2] == MODBUS_MASTER)
@@ -5225,6 +6053,33 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			E2prom_Write_Byte(EEP_COM2_CONFIG, Modbus.com_config[2]);
 		}
 
+		if(Modbus.uart_parity[0] != ptr->reg.uart_parity[0])
+		{
+			Modbus.uart_parity[0] = ptr->reg.uart_parity[0];
+			E2prom_Write_Byte(EEP_UART0_PARITY, Modbus.uart_parity[0]);
+			UART_Init(0);
+		}
+		if(Modbus.uart_parity[2] != ptr->reg.uart_parity[2])
+		{
+			Modbus.uart_parity[2] = ptr->reg.uart_parity[2];
+			E2prom_Write_Byte(EEP_UART2_PARITY, Modbus.uart_parity[2]);
+			UART_Init(2);
+		}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )		
+		if(Modbus.uart_stopbit[0] != ptr->reg.uart_stopbit[0])
+		{
+			Modbus.uart_stopbit[0] = ptr->reg.uart_stopbit[0];
+			E2prom_Write_Byte(EEP_UART0_STOPBIT, Modbus.uart_stopbit[0]);
+			UART_Init(0);
+		}
+		if(Modbus.uart_stopbit[2] != ptr->reg.uart_stopbit[2])
+		{
+			Modbus.uart_stopbit[2] = ptr->reg.uart_stopbit[2];
+			E2prom_Write_Byte(EEP_UART2_STOPBIT, Modbus.uart_stopbit[2]);
+			UART_Init(2);
+		}
+#endif		
+		
 		if(Modbus.en_username != ptr->reg.en_username)
 		{
 			Modbus.en_username = ptr->reg.en_username;
@@ -5267,6 +6122,9 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 				E2prom_Write_Byte(EEP_ADDRESS,Modbus.address);
 				Station_NUM = Modbus.address;
 				Setting_Info.reg.MSTP_ID = Station_NUM;	
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+				dlmstp_init(NULL);
+#endif
 			}
 		}
 		if((Station_NUM != ptr->reg.MSTP_ID) && (ptr->reg.MSTP_ID != 0) && (ptr->reg.MSTP_ID != 255))
@@ -5275,8 +6133,11 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			//E2prom_Write_Byte(EEP_STATION_NUM,Station_NUM);
 			Setting_Info.reg.MSTP_ID = Station_NUM;		
 			Modbus.address = Station_NUM;
-			E2prom_Write_Byte(EEP_ADDRESS,  Modbus.address);			
-		
+			E2prom_Write_Byte(EEP_ADDRESS,  Modbus.address);	
+// reboot mstp communication		
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)			
+			dlmstp_init(NULL);
+#endif
 		}
 		
 		if(panel_number != ptr->reg.panel_number)
@@ -5294,10 +6155,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 		{		
 			Instance = swap_double(ptr->reg.instance);
 			Device_Set_Object_Instance_Number(Instance);
-			E2prom_Write_Byte(EEP_INSTANCE1, Instance);
-			E2prom_Write_Byte(EEP_INSTANCE2, (U8_T)(Instance >> 8));
-			E2prom_Write_Byte(EEP_INSTANCE3, (U8_T)(Instance >> 16));
-			E2prom_Write_Byte(EEP_INSTANCE4, (U8_T)(Instance >> 24));
+			Store_Instance_To_Eeprom(Instance);
 		}		
 		
 //		if(Modbus.refresh_flash_timer != ptr->reg.refresh_flash_timer)
@@ -5314,18 +6172,19 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 		if(uart0_baudrate != ptr->reg.com_baudrate[0]) // com_baudrate[2]??T3000
 		{
 			uart0_baudrate = ptr->reg.com_baudrate[0];
-			if((Modbus.com_config[0] == MODBUS_SLAVE) || (Modbus.com_config[0] == NOUSE) || (Modbus.com_config[0] == MODBUS_MASTER))
+			if((Modbus.com_config[0] == MODBUS_SLAVE) || (Modbus.com_config[0] == NOUSE) || (Modbus.com_config[0] == MODBUS_MASTER)
+				|| (Modbus.com_config[0] == BACNET_SLAVE) || (Modbus.com_config[0] == BACNET_MASTER))
 				E2prom_Write_Byte(EEP_UART0_BAUDRATE, uart0_baudrate);
 			UART_Init(0);
 		}
-
+#ifndef ARM_TSTAT_WIFI  //TSTAT10  2020 01 08 fandu add  uart1_baudrate ????0 ?T3000 ?? ptr->reg.com_baudrate[1] ?? ???????,???
 		if(uart1_baudrate != ptr->reg.com_baudrate[1])
 		{
 			uart1_baudrate = ptr->reg.com_baudrate[1];
 			E2prom_Write_Byte(EEP_UART1_BAUDRATE, uart1_baudrate);
 			UART_Init(1);
 		}
-
+#endif
 		if(uart2_baudrate != ptr->reg.com_baudrate[2])  // com_baudrate[0]??T3000
 		{
 			uart2_baudrate = ptr->reg.com_baudrate[2]; 
@@ -5358,7 +6217,11 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 		}
 		if(ptr->reg.reset_default == 111)	 // reboot
 		{
-			flag_reboot = 1;
+#if ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI
+		    QuickSoftReset();
+#else
+				 flag_reboot = 1;//SoftReset();	
+#endif
 			ptr->reg.reset_default = 0;
 		}
 		if(ptr->reg.reset_default == 150)	 // clear db
@@ -5366,7 +6229,18 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			ptr->reg.reset_default = 0;
 			clear_scan_db(); 
 		}
-#if !(ARM_WIFI)
+//		if(Modbus.backlight != ptr->reg.backlight)
+//		{
+//			Modbus.backlight = ptr->reg.backlight;
+//			E2prom_Write_Byte(EEP_BACKLIGHT,Modbus.backlight);
+//			BACKLIT = (Modbus.backlight != 0)? 1 : 0;
+//		}
+		if(Modbus.LCD_time_off_delay != ptr->reg.LCD_time_off_delay)
+		{
+			Modbus.LCD_time_off_delay = ptr->reg.LCD_time_off_delay;
+			E2prom_Write_Byte(EEP_LCD_TIME_OFF_DELAY,Modbus.LCD_time_off_delay);
+		}
+#if !(ARM_TSTAT_WIFI )
 		if(ptr->reg.reset_default == 99)	 // update sntp right now
 		{
 			ptr->reg.reset_default = 0;
@@ -5375,15 +6249,8 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			Update_Sntp_Retry = 0;
 			count_sntp = 0;
 			SNTPC_Start(timezone, (((U32_T)SntpServer[0]) << 24) | ((U32_T)SntpServer[1] << 16) | ((U32_T)SntpServer[2] << 8) | (SntpServer[3]));
-		}
-#if (ARM_MINI || ASIX_MINI || ARM_CM5)
-		if(Modbus.backlight != ptr->reg.backlight)
-		{
-			Modbus.backlight = ptr->reg.backlight;
-			E2prom_Write_Byte(EEP_BACKLIGHT,Modbus.backlight);
-			BACKLIT = (Modbus.backlight != 0)? 1 : 0;
-		}
-#endif			
+		}		
+		
 		if((memcmp(Modbus.ip_addr,ptr->reg.ip_addr,4) && !((ptr->reg.ip_addr[0] == 0) && (ptr->reg.ip_addr[1] == 0) \
 				&& (ptr->reg.ip_addr[2] == 0) && (ptr->reg.ip_addr[3] == 0)))
 			|| (memcmp(Modbus.subnet,ptr->reg.subnet,4) && !((ptr->reg.subnet[0] == 0) && (ptr->reg.subnet[1] == 0) \
@@ -5394,7 +6261,6 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 		|| (Modbus.tcp_type != ptr->reg.tcp_type)
 		)
 		{
-			
 			if(memcmp(Modbus.ip_addr,ptr->reg.ip_addr,4) && !((ptr->reg.ip_addr[0] == 0) && (ptr->reg.ip_addr[1] == 0) \
 				&& (ptr->reg.ip_addr[2] == 0) && (ptr->reg.ip_addr[3] == 0)))
 			{	 
@@ -5405,7 +6271,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 				E2prom_Write_Byte(EEP_IP + 1, Modbus.ip_addr[2]);
 				E2prom_Write_Byte(EEP_IP + 0, Modbus.ip_addr[3]);
 #endif
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)			
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )			
 				E2prom_Write_Byte(EEP_IP + 0, Modbus.ip_addr[0]);
 				E2prom_Write_Byte(EEP_IP + 1, Modbus.ip_addr[1]);
 				E2prom_Write_Byte(EEP_IP + 2, Modbus.ip_addr[2]);
@@ -5414,7 +6280,8 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 				//flag_reboot = 1;
 				
 
-				if(Modbus.com_config[2] == BACNET_SLAVE || Modbus.com_config[2] == BACNET_MASTER)
+				if(Modbus.com_config[2] == BACNET_SLAVE || Modbus.com_config[2] == BACNET_MASTER
+					|| Modbus.com_config[0] == BACNET_SLAVE || Modbus.com_config[0] == BACNET_MASTER)
 				{
 					Send_I_Am_Flag = 1;
 				}
@@ -5430,7 +6297,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 				E2prom_Write_Byte(EEP_SUBNET + 0, Modbus.subnet[3]);	
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)		
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )		
 				E2prom_Write_Byte(EEP_SUBNET + 0, Modbus.subnet[0]);
 				E2prom_Write_Byte(EEP_SUBNET + 1, Modbus.subnet[1]);
 				E2prom_Write_Byte(EEP_SUBNET + 2, Modbus.subnet[2]);
@@ -5451,7 +6318,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 				E2prom_Write_Byte(EEP_GETWAY + 0, Modbus.getway[3]);
 #endif
 				
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 				E2prom_Write_Byte(EEP_GETWAY + 0, Modbus.getway[0]);
 				E2prom_Write_Byte(EEP_GETWAY + 1, Modbus.getway[1]);
 				E2prom_Write_Byte(EEP_GETWAY + 2, Modbus.getway[2]);
@@ -5480,7 +6347,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			flag_reboot = 1;
 #endif
 			
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			IP_Change = 1;
 #endif
 		}
@@ -5491,11 +6358,11 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			Write_ZIGBEE_ID(ptr->reg.zigbee_module_id);
 			//Modbus.zigbee_module_id = ptr->reg.zigbee_module_id;
 		}
-#if ARM_MINI		
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )	
 		if(MAX_MASTER != ptr->reg.MAX_MASTER)
 		{
 			MAX_MASTER = ptr->reg.MAX_MASTER;
-			E2prom_Write_Byte(EEP_MAX_MASTER,MAX_MASTER);	
+			E2prom_Write_Byte(EEP_MAX_MASTER, ptr->reg.MAX_MASTER);
 		}
 #endif
 	 }
@@ -5504,24 +6371,38 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 void write_user_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData) 
 {
 	U8_T far i,j;
-
+	
 	if(StartAdd  >= MODBUS_SETTING_BLOCK_FIRST && StartAdd  <= MODBUS_SETTING_BLOCK_LAST)
 	{		
 		if((StartAdd - MODBUS_SETTING_BLOCK_FIRST) % 100 == 0)
-		{				
+		{			
 			i = (StartAdd - MODBUS_SETTING_BLOCK_FIRST) / 100;
-			memcpy(&Setting_Info.all[i * 100],&pData[HeadLen + 7],100); 	
+			memcpy(&Setting_Info.all[i * 200],&pData[HeadLen + 7],200); 
+			// dealwith writen setting
+
+			if(i == 1)
+			{		
+				dealwith_write_setting(&Setting_Info);				
+			}
 		}
-		// dealwith writen setting
-		if(i == 1)
-			dealwith_write_setting(&Setting_Info);
+		
 	}
 	else if(StartAdd  >= MODBUS_OUTPUT_BLOCK_FIRST && StartAdd  <= MODBUS_OUTPUT_BLOCK_LAST)
 	{
 		if((StartAdd - MODBUS_OUTPUT_BLOCK_FIRST) % ((sizeof(Str_out_point) + 1) / 2) == 0)
 		{
+			S32_T old_value;
 			i = (StartAdd - MODBUS_OUTPUT_BLOCK_FIRST) / ((sizeof(Str_out_point) + 1) / 2);
 			memcpy(&outputs[i],&pData[HeadLen + 7],sizeof(Str_out_point));
+			
+			check_output_priority_array(i,0);
+#if OUTPUT_DEATMASTER
+			clear_dead_master();
+#endif
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[OUT] = 1;	
+#endif
+			ChangeFlash = 1;
 		}
 	}
 	else if(StartAdd  >= MODBUS_INPUT_BLOCK_FIRST && StartAdd  <= MODBUS_INPUT_BLOCK_LAST)
@@ -5529,7 +6410,12 @@ void write_user_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData)
 		if((StartAdd - MODBUS_INPUT_BLOCK_FIRST) % ((sizeof(Str_in_point) + 1	) / 2) == 0)
 		{
 			i = (StartAdd - MODBUS_INPUT_BLOCK_FIRST) / ((sizeof(Str_in_point) + 1) / 2);
-			memcpy(&inputs[i],&pData[HeadLen + 7],sizeof(Str_in_point)); 	
+			memcpy(&inputs[i],&pData[HeadLen + 7],sizeof(Str_in_point)); 		
+
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[IN] = 1;	
+#endif
+			ChangeFlash = 1;
 		}
 	}
 	else if(StartAdd  >= MODBUS_VAR_BLOCK_FIRST && StartAdd  <= MODBUS_VAR_BLOCK_LAST)
@@ -5538,6 +6424,22 @@ void write_user_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData)
 		{
 			i = (StartAdd - MODBUS_VAR_BLOCK_FIRST) / ((sizeof(Str_variable_point) + 1) / 2);
 			memcpy(&vars[i],&pData[HeadLen + 7],sizeof(Str_variable_point)); 	
+			
+#if ARM_TSTAT_WIFI
+			switch(i)
+			{
+				case 0:	uart0_baudrate = vars[i].value; break;
+				case 1: Station_NUM = vars[i].value;break;
+				case 2: Modbus.com_config[0] = vars[i].value;break;
+				case 3:	Instance  = vars[i].value;break;
+				default:
+					break;
+			}
+#endif			
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[VAR] = 1;	
+#endif
+			ChangeFlash = 1;
 		}
 	}
 	else if(StartAdd  >= MODBUS_PRG_BLOCK_FIRST && StartAdd  <= MODBUS_PRG_BLOCK_LAST)
@@ -5547,14 +6449,22 @@ void write_user_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData)
 			i = (StartAdd - MODBUS_PRG_BLOCK_FIRST) / ((sizeof(Str_program_point) + 1) / 2);
 			memcpy(&programs[i],&pData[HeadLen + 7],sizeof(Str_program_point)); 	
 		}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[PRG] = 1;	
+#endif
+			ChangeFlash = 1;
 	}
 	else if(StartAdd  >= MODBUS_WR_BLOCK_FIRST && StartAdd  <= MODBUS_WR_BLOCK_LAST)
 	{
 		if((StartAdd - MODBUS_WR_BLOCK_FIRST) % ((sizeof(Str_weekly_routine_point) + 1	) / 2) == 0)
 		{
-			i = (StartAdd - MODBUS_VAR_BLOCK_FIRST) / ((sizeof(Str_weekly_routine_point) + 1) / 2);
+			i = (StartAdd - MODBUS_WR_BLOCK_FIRST) / ((sizeof(Str_weekly_routine_point) + 1) / 2);
 			memcpy(&weekly_routines[i],&pData[HeadLen + 7],sizeof(Str_weekly_routine_point)); 	
 		}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[WRT] = 1;	
+#endif
+			ChangeFlash = 1;
 	}
 	else if(StartAdd  >= MODBUS_AR_BLOCK_FIRST && StartAdd  <= MODBUS_AR_BLOCK_LAST)
 	{
@@ -5563,6 +6473,10 @@ void write_user_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData)
 			i = (StartAdd - MODBUS_AR_BLOCK_FIRST) / ((sizeof(Str_annual_routine_point) + 1) / 2);
 			memcpy(&annual_routines[i],&pData[HeadLen + 7],sizeof(Str_annual_routine_point)); 	
 		}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[AR] = 1;	
+#endif
+			ChangeFlash = 1;
 	}
 	else if(StartAdd  >= MODBUS_WR_TIME_FIRST && StartAdd  <= MODBUS_WR_TIME_LAST)
 	{
@@ -5571,16 +6485,47 @@ void write_user_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData)
 			i = (StartAdd - MODBUS_WR_TIME_FIRST) / (sizeof(Wr_one_day) * MAX_SCHEDULES_PER_WEEK / 2);
 			memcpy(&wr_times[i],&pData[HeadLen + 7],(sizeof(Wr_one_day) * MAX_SCHEDULES_PER_WEEK)); 	
 		}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[WR_TIME] = 1;	
+#endif
+			ChangeFlash = 1;
 	}
 	else if(StartAdd  >= MODBUS_AR_TIME_FIRST && StartAdd  <= MODBUS_AR_TIME_LAST)
 	{
-		if((StartAdd - MODBUS_AR_TIME_FIRST) % AR_DATES_SIZE == 0)
+		if((StartAdd - MODBUS_AR_TIME_FIRST) % (AR_DATES_SIZE / 2) == 0)
 		{
-			i = ((StartAdd - MODBUS_AR_TIME_FIRST) / AR_DATES_SIZE);
+			i = ((StartAdd - MODBUS_AR_TIME_FIRST) / (AR_DATES_SIZE / 2));
 			memcpy(&ar_dates[i],&pData[HeadLen + 7],AR_DATES_SIZE); 	
 		}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[AR_DATA] = 1;	
+#endif
+			ChangeFlash = 1;
 	}	
-
+	else if(StartAdd  >= MODBUS_CONTROLLER_BLOCK_FIRST && StartAdd  <= MODBUS_CONTROLLER_BLOCK_LAST)
+	{
+		if((StartAdd - MODBUS_CONTROLLER_BLOCK_FIRST) % (sizeof(Str_controller_point) / 2) == 0)
+		{
+			i = ((StartAdd - MODBUS_CONTROLLER_BLOCK_FIRST) / (sizeof(Str_controller_point) / 2));
+			memcpy(&controllers[i],&pData[HeadLen + 7],sizeof(Str_controller_point)); 	
+		}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+			write_page_en[CON] = 1;	
+#endif
+			ChangeFlash = 1;
+	}
+	else if (StartAdd >= MODBUS_WR_FLAG_FIRST && StartAdd <= MDOBUS_WR_FLAG_LAST)
+	{
+		if ((StartAdd - MODBUS_WR_FLAG_FIRST) % ((MAX_SCHEDULES_PER_WEEK * 8 + 1) / 2) == 0)
+		{
+			i = (StartAdd - MODBUS_WR_FLAG_FIRST) / ((MAX_SCHEDULES_PER_WEEK * 8 + 1) / 2);
+			memcpy(&wr_time_on_off[i], &pData[HeadLen + 7], MAX_SCHEDULES_PER_WEEK * 8);
+		}
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+		write_page_en[24] = 1;
+#endif
+		ChangeFlash = 1;
+	}
 }
 
 
@@ -5610,12 +6555,11 @@ U16_T read_user_data_by_block(U16_T addr)
 	else if( addr >= MODBUS_VAR_BLOCK_FIRST && addr <= MODBUS_VAR_BLOCK_LAST )
 	{
 		index = (addr - MODBUS_VAR_BLOCK_FIRST) / ((sizeof(Str_variable_point) + 1) / 2);
-		block = (U16_T *)&inputs[index];
+		block = (U16_T *)&vars[index];
 		item = (addr - MODBUS_VAR_BLOCK_FIRST) % ((sizeof(Str_variable_point) + 1) / 2);
 	}
 	else if( addr >= MODBUS_PRG_BLOCK_FIRST && addr <= MODBUS_PRG_BLOCK_LAST )
 	{
-
 		index = (addr - MODBUS_PRG_BLOCK_FIRST) / ((sizeof(Str_program_point) + 1) / 2);
 		block = (U16_T *)&programs[index];
 		item = (addr - MODBUS_PRG_BLOCK_FIRST) % ((sizeof(Str_program_point) + 1) / 2);
@@ -5646,132 +6590,221 @@ U16_T read_user_data_by_block(U16_T addr)
 		
 	}
 	else if( addr >= MODBUS_AR_TIME_FIRST && addr <= MODBUS_AR_TIME_LAST )
-	{
-	
+	{	
 		index = (addr - MODBUS_AR_TIME_FIRST) / (AR_DATES_SIZE / 2);
 		block = (U16_T *)&ar_dates[index];
 		item = (addr - MODBUS_AR_TIME_FIRST) % (AR_DATES_SIZE / 2);
 	}
-	
+	else if( addr >= MODBUS_CONTROLLER_BLOCK_FIRST && addr <= MODBUS_CONTROLLER_BLOCK_LAST )
+	{	
+		index = (addr - MODBUS_CONTROLLER_BLOCK_FIRST) / (sizeof(Str_controller_point) / 2);
+		block = (U16_T *)&controllers[index];
+		item = (addr - MODBUS_CONTROLLER_BLOCK_FIRST) % (sizeof(Str_controller_point) / 2);
+	}
+	else if (addr >= MODBUS_WR_FLAG_FIRST && addr <= MDOBUS_WR_FLAG_LAST)
+	{		
+		index = (addr - MODBUS_WR_FLAG_FIRST) / ((MAX_SCHEDULES_PER_WEEK * 8 + 1) / 2);
+		block = (U16_T *)&wr_time_on_off[index];
+		item = (addr - MODBUS_WR_FLAG_FIRST) % ((MAX_SCHEDULES_PER_WEEK * 8 + 1) / 2);
+	}
 	return block[item];
 	
 }
 
-#if 0		
-
-void Response_Speical_Logic(U8_T *prog_code)
+#if ARM_MINI || ARM_TSTAT_WIFI
+void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type) 
 {
-	U8_T len; 
-	U8_T i;
-	U16_T crc_val;
-
-	len = prog_code[2];
-
-	crc_val = crc16(prog_code,len + 3);
-
-	if(crc_val == prog_code[len + 3] * 256 + prog_code[len + 4])
+	U8_T far i,j;
+	
+	if(StartAdd == MODBUS_WIFI_SSID_MANUAL_EN)
 	{
-		U8_T len;
-		U8_T j;
-		i = 3;
-		if(prog_code[i] == 0xc0)
-		{	// Digital ouput status
-			U8_T j;
-			U16_T temp_DO = prog_code[i + 1] * 256 + prog_code[i + 2];
-
-			relay_value.word  = temp_DO;
-
-			I2C_ByteWrite(0x60, SET_RELAY_LOW,relay_value.byte[1], I2C_STOP_COND);			
-			I2C_ByteWrite(0x60, SET_RELAY_HI,relay_value.byte[0], I2C_STOP_COND);			
-
-			for(j = 0;j < 12;j++)
-			{
-				if(temp_DO & (0x01 << j))	
-					output_raw[j] = 512;
-				else
-					output_raw[j] = 0;	
-			}
-		 	i = i + 3;
-		}
-		if(prog_code[i] == 0xc4)
-		{	// analog ouput status
-			
-			len = prog_code[i + 1];
-			for(j = 0;j < len / 2;j++)
-			{
-				if(Modbus.mini_type == MINI_BIG)
-				{
-					output_raw[j + 12] =  prog_code[i + 2 + j * 2] * 256 + prog_code[i + 2 + j * 2 + 1];
-				}
-				else if(Modbus.mini_type == MINI_SMALL)
-				{
-					output_raw[j + 6] =  prog_code[i + 2 + j * 2] * 256 + prog_code[i + 2 + j * 2 + 1];
-				}
-				else if(Modbus.mini_type == MINI_TINY)
-				{
-					output_raw[j + 4] =  prog_code[i + 2 + j * 2] * 256 + prog_code[i + 2 + j * 2 + 1];
-				}
-			}
-		 	i = i + len + 2; 
-		}
-		if(prog_code[i] == 0xc6)
-		{	// PI  C6 04 01 02 01 01 (01 02 is defined to PI)
-//			U8_T chanel;
-			len = prog_code[i + 1];
-
-			for(j = 0;j < len / 2;j++)
-			{
-				if(Modbus.mini_type == MINI_BIG)
-				{
-			   		inputs[26 + prog_code[i + 2 + j] - 1].range = 100;
-				}
-				else
-				{
-					inputs[10 + prog_code[i + 2 + j] - 1].range = 100;
-				}
-				
-				if((prog_code[i + 2 + j + len / 2] & 0x0f) == 0)	// stop
-					high_spd_en[prog_code[i + 2 + j] - 1] = 1;
-				else if((prog_code[i + 2 + j + len / 2] & 0x0f) == 1)	
-					high_spd_en[prog_code[i + 2 + j] - 1] = 0;
-			}
-
-//			for(j = len / 2;j < len;j++)
-//			// the first half byte -initial counter, last half byte -- start / stop count
-//			{
-//				if(prog_code[i + 2 + j] & 0x0f == 0x01)	
-//				{
-//					high_spd_en[]	
-//				}	
-//			}
-			
-
-
-		 	i = i + 2 + len;
-		}
-		if(prog_code[i] == 0xc8)
-		{	// logic program
-			len = prog_code[i + 1];
-			if(prog_code[i + 2] > 0)
-				logic_in = prog_code[i + 2] - 1;
-			if(prog_code[i + 3] > 0)
-				logic_out = prog_code[i + 3] - 1;
-			
-			if((prog_code[i + 2] > 0) && (prog_code[i + 3] > 0))
-				flag_logic_control = 1;
-			logic_count = prog_code[i + 4] * 256 + prog_code[i + 5];
-
-			high_spd_en[logic_in] = 0;
-		 	i = i + 2 + len;
-		}
-			
-
+		SSID_Info.MANUEL_EN = pData[HeadLen + 5];
+		//ChangeFlash = 2;
+		write_page_en[24] = 1;
+		Flash_Write_Mass();
+//		ESP8266_JoinAP_DEF(SSID_Info.name,SSID_Info.password);
+//		//if(SSID_Info.MANUEL_EN != 0)
+//		{
+			Restore_WIFI();
+////			if(type == WIFI)
+////			{
+////				flag_connect_AP = 1;
+////			}
+////			else
+////			{
+////				connect_AP();	
+				SoftReset();					
+////			}
+////			
+//		}
 	}
+	else if(StartAdd == MODBUS_WIFI_RESTORE)
+	{
+		if(pData[HeadLen + 5] == 1)
+		{
+			Restore_WIFI();
+			// Clear SSID
+			memset(&SSID_Info,0,sizeof(STR_SSID));
+			write_page_en[24] = 1; 
+			Flash_Write_Mass();
+			QuickSoftReset();	
+		}
+	}
+	else if(StartAdd == MODBUS_WIFI_MODE)
+	{
+		SSID_Info.IP_Auto_Manual = pData[HeadLen + 5];
+	}
+	else if(StartAdd == MODBUS_WIFI_BACNET_PORT)
+	{
+		SSID_Info.bacnet_port = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+	}
+	else if(StartAdd == MODBUS_WIFI_MODBUS_PORT)
+	{
+		SSID_Info.modbus_port = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+	}
+	else if(StartAdd == MODBUS_WIFI_WRITE_MAC)
+	{
+		if(pData[HeadLen + 5] == 0)
+			E2prom_Write_Byte(EEP_WRITE_WIFI_MAC,0);
+	}
+	else if(StartAdd >= MODBUS_WIFI_SSID_START && StartAdd <= MODBUS_WIFI_SSID_END)
+	{
+		if((StartAdd - MODBUS_WIFI_SSID_START) % 32 == 0)
+		{
+			memset(&SSID_Info.name,'\0',64);
+			memcpy(&SSID_Info.name,&pData[HeadLen + 7],64);
+		}
+	}
+	else if(StartAdd >= MODBUS_WIFI_PASS_START && StartAdd <= MODBUS_WIFI_PASS_END)
+	{
+		if((StartAdd - MODBUS_WIFI_PASS_START) % 16 == 0)
+		{
+			memset(&SSID_Info.password,'\0',32);
+			memcpy(&SSID_Info.password,&pData[HeadLen + 7],32);
+		}
+	}
+	else if(StartAdd == MODBUS_WIFI_IP1) 
+	{
+		if((StartAdd - MODBUS_WIFI_IP1) % 12 == 0)
+		{
+			SSID_Info.ip_addr[0] = pData[HeadLen + 8];
+			SSID_Info.ip_addr[1] = pData[HeadLen + 10];
+			SSID_Info.ip_addr[2] = pData[HeadLen + 12];
+			SSID_Info.ip_addr[3] = pData[HeadLen + 14];
+					
+			SSID_Info.net_mask[0] = pData[HeadLen + 16];
+			SSID_Info.net_mask[1] = pData[HeadLen + 18];
+			SSID_Info.net_mask[2] = pData[HeadLen + 20];
+			SSID_Info.net_mask[3] = pData[HeadLen + 22];
+			
+			SSID_Info.getway[0] = pData[HeadLen + 24];
+			SSID_Info.getway[1] = pData[HeadLen + 26];
+			SSID_Info.getway[2] = pData[HeadLen + 28];
+			SSID_Info.getway[3] = pData[HeadLen + 30];
+					
+			
+		}
+	}
+	else if(StartAdd == MDOBUS_WIFI_MACADDR) 
+	{
+		if((StartAdd - MDOBUS_WIFI_MACADDR) % 6 == 0)
+		{
+			uint8_t mac_addr[6];
+			mac_addr[0] = pData[HeadLen + 8];
+			mac_addr[1] = pData[HeadLen + 10];
+			mac_addr[2] = pData[HeadLen + 12];
+			mac_addr[3] = pData[HeadLen + 14];					
+			mac_addr[4] = pData[HeadLen + 16];
+			mac_addr[5] = pData[HeadLen + 18];	
+
+			ESP8266_Set_MAC(mac_addr);			
+			flag_set_wifi = 1;
+			//E2prom_Write_Byte(EEP_WRITE_WIFI_MAC,0x55);
+		}
+	}
+	
+}
 
 
 
+U16_T read_wifi_data_by_block(U16_T addr) 
+{
+	uint8 item;	
+	uint16 *block;			
+	uint8 *block1;
+	if(addr == MODBUS_WIFI_SSID_MANUAL_EN)
+	{
+		return SSID_Info.MANUEL_EN;		
+	}
+	else if(addr == MODBUS_WIFI_MODE)
+	{
+		return SSID_Info.IP_Auto_Manual;
+	}
+	else if(addr == MODBUS_WIFI_STATUS)
+	{
+		return SSID_Info.IP_Wifi_Status;
+	}
+	else if(addr == MODBUS_WIFI_MODBUS_PORT)
+	{
+		return SSID_Info.modbus_port;
+	}
+	else if(addr == MODBUS_WIFI_BACNET_PORT)
+	{
+		return SSID_Info.bacnet_port;
+	}
+	else if(addr == MODBUS_WIFI_REV)
+	{
+		return SSID_Info.rev;
+	}
+	else if(addr == MODBUS_WIFI_WRITE_MAC)
+	{
+		uint8_t temp;
+		E2prom_Read_Byte(EEP_WRITE_WIFI_MAC,&temp);
+		return temp;
+	}
+	else if(addr >= MODBUS_WIFI_SSID_START && addr <= MODBUS_WIFI_SSID_END)
+	{
+		block = (U16_T *)&SSID_Info.name;
+		item = (addr - MODBUS_WIFI_SSID_START) % 32;  // size is 64
+		return block[item];
+	}
+	else if(addr >= MODBUS_WIFI_PASS_START && addr <= MODBUS_WIFI_PASS_END)
+	{
+		block = (U16_T *)&SSID_Info.password;
+		item = (addr - MODBUS_WIFI_PASS_START) % 16;  // size is 32
+		return block[item];
+	}				
+	else if((addr >= MODBUS_WIFI_IP1) && (addr <= MODBUS_WIFI_IP1 + 3))
+	{
+		block1 = (U8_T *)&SSID_Info.ip_addr;
+		item = (addr - MODBUS_WIFI_IP1) % 4; 
+		return block1[item];		
+	}
+	else if((addr >= MODBUS_WIFI_NETMASK) && (addr <= MODBUS_WIFI_NETMASK + 3))
+	{
+		block1 = (U8_T *)&SSID_Info.net_mask;
+		item = (addr - MODBUS_WIFI_NETMASK) % 4; 
+		return block1[item];
+	}
+	else if((addr >= MODBUS_WIFI_GETWAY) && (addr <= MODBUS_WIFI_GETWAY + 3))
+	{
+		block1 = (U8_T *)&SSID_Info.getway;
+		item = (addr - MODBUS_WIFI_GETWAY) % 4;
+		return block1[item];
+	}
+	else if((addr >= MDOBUS_WIFI_MACADDR) && (addr <= MDOBUS_WIFI_MACADDR + 5))
+	{
+		block1 = (U8_T *)&SSID_Info.mac_addr;
+		item = (addr - MDOBUS_WIFI_MACADDR) % 6;  
+		return block1[item];
+	}
+	else		
+		return 0;
+	
 }
 #endif
+
+
 
 U8_T RS485_Get_Baudrate(void)
 {
@@ -5819,7 +6852,6 @@ void send_rs232_command(void)
 						if(subnet_response_buf[11] == 0x0d && subnet_response_buf[12] == 0x0a)
 						{	Test[33]++;			
 							// wn0000.00kg
-	//						memcpy(&Test[20],subnet_response_buf,10);
 							if(subnet_response_buf[0] == 'w' && subnet_response_buf[1] == 'n')
 							{Test[34]++;	
 								rs232_cmd.res = 1000000l * (subnet_response_buf[2] - '0') + 100000l * (subnet_response_buf[3]- '0') \
@@ -5850,11 +6882,22 @@ U8_T Get_Mini_Type(void)
 }
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 void SoftReset(void)
 {
   __set_FAULTMASK(1);     
 	NVIC_SystemReset();      
 }
 
+void QuickSoftReset(void)
+{
+#if (ARM_MINI || ARM_CM5)
+	E2prom_Write_Byte(EEP_RUNNING_TIME1, (run_time + run_time_last));
+	E2prom_Write_Byte(EEP_RUNNING_TIME2, (U8_T)((run_time + run_time_last) >> 8));
+	E2prom_Write_Byte(EEP_RUNNING_TIME3, (U8_T)((run_time + run_time_last) >> 16));
+	E2prom_Write_Byte(EEP_RUNNING_TIME4, (U8_T)((run_time + run_time_last) >> 24));
+	AT24CXX_WriteOneByte(EEP_APP2BOOT_TYPE, 0x55);
+#endif
+	SoftReset();
+}
 #endif

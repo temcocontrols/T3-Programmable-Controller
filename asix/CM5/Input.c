@@ -50,6 +50,7 @@ signed int RangeConverter(unsigned char function, signed int para,unsigned char 
 // DI6 <-->	PD3
 // DI7 <-->	PB5
 // DI8 <-->	PC1
+
 #define DI8 PCin(3)
 #define DI7 PCin(5)
 #define DI6 PCin(13)
@@ -116,6 +117,9 @@ void AI_IO_Initial(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 	GPIO_ResetBits(GPIOA, GPIO_Pin_4 | GPIO_Pin_5 | GPIO_Pin_6 | GPIO_Pin_7);	
+
+//// 在IO库中，需要检查此项作为判定为12bit or 10bit
+//	chip_info[1] = 42;
 }
 
 

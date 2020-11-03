@@ -165,29 +165,30 @@ DISPTEMP const code fan_speed[6] = {
 
 MENUNAME const menu[MAX_MENU_NUM] = {//Added setpoint and fan mode to menu
 {"Modbus","Address", 254 , 0},
-{"IP","",255,0},
-{"Temperatur","Calibrate", 500,-500},		//00 CAL single point calibration of temperature
-{"Temperatur","Select",500,-500},		//01 Temperature Sensor Select
-{"Temperatur","Filter", 500,-500},		//02 Temperature filter
-{"Analog","Input1",500,-500},		//03 Analog input 1
-{"Analog","Input2",500,-500},		//04 Analog input 2
+{ "Baudrate","Select ",9,0 },		//08 Baudrate 
+{ "Protocol","Select",1,0 },
+//{"IP","",255,0},
+//{"Temperatur","Calibrate", 500,-500},		//00 CAL single point calibration of temperature
+//{"Temperatur","Select",500,-500},		//01 Temperature Sensor Select
+//{"Temperatur","Filter", 500,-500},		//02 Temperature filter
+//{"Analog","Input1",500,-500},		//03 Analog input 1
+//{"Analog","Input2",500,-500},		//04 Analog input 2
 //{0x83,"dI1"},		//05 Digital input 1  //cc not digital input any more
 //{"DigitalOut","Calibrate"},		//07 Digital to analog output calibration
-{"Baudrate","Select ",9,0},		//08 Baudrate 
 
-{"Degree","C/F",1,0},		//17 Degree C or degree F
-{"NightHeat","Deadband",500,-500},		//19 Night heating deadband
+//{"Degree","C/F",1,0},		//17 Degree C or degree F
+//{"NightHeat","Deadband",500,-500},		//19 Night heating deadband
 
-{"NightCool","Deadband",500,-500},		//20 Night cooling deadband
-{"NightHeat","Setpoint",500,-500},		//21 Night heating setpoint
-{"NightCool","Setpoint",500,-500},		//22 Night cooling setpoint	//NOT USE
+//{"NightCool","Deadband",500,-500},		//20 Night cooling deadband
+//{"NightHeat","Setpoint",500,-500},		//21 Night heating setpoint
+//{"NightCool","Setpoint",500,-500},		//22 Night cooling setpoint	//NOT USE
 
-{"PowerUp","Setpoint",500,-500},		//24 Power up cooling setpoint
-{"PowerUp","On/Off",1,0},		//25 Power up on or off
+//{"PowerUp","Setpoint",500,-500},		//24 Power up cooling setpoint
+//{"PowerUp","On/Off",1,0},		//25 Power up on or off
 
 
-{"MenuLock","mode",1,0},		//32 Menu lock mode
-{"MODBUS","BACNET",1,0},
+//{"MenuLock","mode",1,0},		//32 Menu lock mode
+
 
 //{"",""},
 //{"",""},
@@ -399,6 +400,8 @@ uint8 const code OUTPUT_DELAY_TABLE[2][7]=
   {0,0,0,0,0,0,0},			      // 1 = 0.1s
   {0,0,0,0,0,0,0}
 };
+
+
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////

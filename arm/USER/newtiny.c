@@ -59,6 +59,10 @@ TOP board deal with these task
 #define RANGE_SET0			PCout(5)
 #define RANGE_SET1			PFout(6)
 
+#define PT1K_SET			PCout(2)  
+// 	0-> select PT 1k sensor 
+//	1-> select old input type
+
 #define MAX_LEVEL 6
 
 
@@ -67,6 +71,7 @@ TOP board deal with these task
 
 #define IN_OUT_NUM IN_NUM + OUT_NUM
 
+unsigned int Filter(unsigned char channel,unsigned int input);
 
 u8 LED_status[IN_OUT_NUM];
 u16 LED_Level[IN_OUT_NUM / 16][MAX_LEVEL];
@@ -79,50 +84,63 @@ void LED_IO_Init(void)
 	GPIO_InitTypeDef GPIO_InitStructure;
 	char i,j;
 
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOE | RCC_APB2Periph_GPIOF | RCC_APB2Periph_GPIOG, ENABLE);
-	
-	GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_4 | GPIO_Pin_11; 
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOA, &GPIO_InitStructure);
-	GPIO_SetBits(GPIOA, GPIO_Pin_4 | GPIO_Pin_11);
-	
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9; 
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOB, &GPIO_InitStructure);
-	GPIO_SetBits(GPIOB, GPIO_Pin_9);
-	
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_6 | GPIO_Pin_10; 
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOD, &GPIO_InitStructure);
-	GPIO_SetBits(GPIOD, GPIO_Pin_3 | GPIO_Pin_6 | GPIO_Pin_10);
-	
-	GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3 | GPIO_Pin_4 | /*GPIO_Pin_11 |*/ GPIO_Pin_13; 
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOE, &GPIO_InitStructure);
-	GPIO_SetBits(GPIOE, GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3 | GPIO_Pin_4 /*| GPIO_Pin_11*/ | GPIO_Pin_13);
-	
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11; 
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOF, &GPIO_InitStructure);
-	GPIO_SetBits(GPIOF, GPIO_Pin_11);	
-	
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14; 
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOG, &GPIO_InitStructure);
-	GPIO_SetBits(GPIOG, GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14);
-	
-	for(j = 0;j < IN_OUT_NUM;j++) LED_status[j] = 0;
-	for(i = 0;i < IN_OUT_NUM / 16;i++)
-		for(j = 0;j < MAX_LEVEL;j++)
-			LED_Level[i][j] = 0;
-	
-	flag_ready_to_scan = 0;
+	if(Modbus.mini_type == MINI_NANO)
+	{
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOG, ENABLE);
+		
+		GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_6 | GPIO_Pin_7 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10; 
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOG, &GPIO_InitStructure);
+		GPIO_SetBits(GPIOG, GPIO_Pin_6 | GPIO_Pin_7 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10);
+	}
+	else  // NEW TINY
+	{
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOE | RCC_APB2Periph_GPIOF | RCC_APB2Periph_GPIOG, ENABLE);
+		
+		GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_4 | GPIO_Pin_11; 
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOA, &GPIO_InitStructure);
+		GPIO_SetBits(GPIOA, GPIO_Pin_4 | GPIO_Pin_11);
+		
+		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9; 
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOB, &GPIO_InitStructure);
+		GPIO_SetBits(GPIOB, GPIO_Pin_9);
+		
+		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_6 | GPIO_Pin_10; 
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOD, &GPIO_InitStructure);
+		GPIO_SetBits(GPIOD, GPIO_Pin_3 | GPIO_Pin_6 | GPIO_Pin_10);
+		
+		GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3 | GPIO_Pin_4 | /*GPIO_Pin_11 |*/ GPIO_Pin_13; 
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOE, &GPIO_InitStructure);
+		GPIO_SetBits(GPIOE, GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3 | GPIO_Pin_4 /*| GPIO_Pin_11*/ | GPIO_Pin_13);
+		
+		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11; 
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOF, &GPIO_InitStructure);
+		GPIO_SetBits(GPIOF, GPIO_Pin_11);	
+		
+		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14; 
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOG, &GPIO_InitStructure);
+		GPIO_SetBits(GPIOG, GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14);
+		
+		for(j = 0;j < IN_OUT_NUM;j++) LED_status[j] = 0;
+		for(i = 0;i < IN_OUT_NUM / 16;i++)
+			for(j = 0;j < MAX_LEVEL;j++)
+				LED_Level[i][j] = 0;
+		
+		flag_ready_to_scan = 0;
+	}
 }
 
 
@@ -178,7 +196,7 @@ void Check_switch_status(void)
 {
 	U8_T sw_1[14],sw_2[14];
 	U8_T loop;
-
+	U8_T temp;
 	SWITCH_AUTO = 0;
 	SWITCH_HAND = 1;
 	delay_ms(1);
@@ -216,49 +234,52 @@ void Check_switch_status(void)
 	sw_2[13] = SWITCH_4;
 	
 	for(loop = 0;loop < 14;loop++)
-	{			
+	{	
+		temp = outputs[loop].switch_status;
 		if(sw_1[loop] == sw_2[loop])
 			outputs[loop].switch_status = SW_OFF;		
 		else if(sw_1[loop] == 1) /* from 1 to 0 */
 			outputs[loop].switch_status = SW_AUTO;
 		else  /* from 0 to 1 */
 			outputs[loop].switch_status = SW_HAND;	
-		
-		check_output_priority_HOA(loop);
 
+		// if switch is changed
+		if(temp != outputs[loop].switch_status)
+			check_output_priority_HOA(loop);
 	}
 }
 
 //#define LIJUN
 void range_set_func(u8 range)
 {
-	 if(range == INPUT_V0_5)
-	 //if(inputs[channel].range == V0_5 || inputs[channel].range == P0_100_0_5V)
-	 {
-			RANGE_SET0 = 1 ;
-			RANGE_SET1 = 0 ;
-	 }
-	 else if(range == INPUT_0_10V)
-	 //else if (inputs[channel].range == V0_10_IN)
-	 {
-			RANGE_SET0 = 0 ;
-			RANGE_SET1 = 1 ;
-	 }
-	 else if(range == INPUT_I0_20ma)
-	 //else if (inputs[channel].range == I0_20ma)
-	 {
-			RANGE_SET0 = 0 ;
-			RANGE_SET1 = 0 ;
-	 }
-	 else
-	 {
-			RANGE_SET0 = 1 ;
-			RANGE_SET1 = 1 ;
-	 }
-#ifdef LIJUN 
-	 RANGE_SET0 = 0 ;
-	 RANGE_SET1 = 1 ;
-#endif
+	if(range == INPUT_PT1K)
+	{
+		PT1K_SET = 0;
+	}
+	else if(range == INPUT_V0_5)
+	//if(inputs[channel].range == V0_5 || inputs[channel].range == P0_100_0_5V)
+	{PT1K_SET = 1;
+		RANGE_SET0 = 1 ;
+		RANGE_SET1 = 0 ;
+	}
+	else if(range == INPUT_0_10V)
+	//else if (inputs[channel].range == V0_10_IN)
+	{PT1K_SET = 1;
+		RANGE_SET0 = 0 ;
+		RANGE_SET1 = 1 ;
+	}
+	else if(range == INPUT_I0_20ma)
+	//else if (inputs[channel].range == I0_20ma)
+	{PT1K_SET = 1;
+		RANGE_SET0 = 0 ;
+		RANGE_SET1 = 0 ;
+	}
+	else
+	{PT1K_SET = 1;
+		RANGE_SET0 = 1 ;
+		RANGE_SET1 = 1 ;
+	}
+
 }
 
 
@@ -307,6 +328,33 @@ void inputs_adc_init(void)
 	CHSEL_IN1 ~ CHSETL_IN3 -> PF10,PF9,PF8
 */
 
+void Check_PT_sensor(void)
+{
+	GPIO_InitTypeDef GPIO_InitStructure;
+	RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOF, ENABLE);
+	
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;  
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD; 
+	GPIO_Init(GPIOF, &GPIO_InitStructure);	
+	
+	delay_ms(5) ;
+// check PB3, if it is high, PT sensor	moudle
+	if(PFin(9)) 
+	{
+		chip_info[2] = 1;
+		Setting_Info.reg.specila_flag |= 0x01;
+	}
+	else
+	{
+		chip_info[2] = 0;
+		Setting_Info.reg.specila_flag &= 0xfe;
+	}
+	
+	chip_info[1] = 42;	// check fw revison in input lib, must set it larger than 42
+	Setting_Info.reg.pro_info.firmware_rev = chip_info[1];
+}
+
+
 
 void Input_IO_Init(void)
 {
@@ -322,7 +370,7 @@ void Input_IO_Init(void)
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOC, &GPIO_InitStructure);
-	GPIO_SetBits(GPIOC, GPIO_Pin_2);
+	GPIO_SetBits(GPIOC, GPIO_Pin_2);  // PT1K_SET
 	GPIO_ResetBits(GPIOC, GPIO_Pin_5);
 	
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10; 	
@@ -344,22 +392,50 @@ u32 ADC_getChannal(ADC_TypeDef* ADCx, u8 channal,uint8 rank)
 	return tem;        
 }
 
+
 void inpust_scan(void)
 {
 	static u8 channel_count = 0;
 	u8 i;
-	u32 temp;
-	temp  = 0;
-	for(i = 0;i < 10;i++)
+	u32 sum;
+	u8 first_read;
+	u16 adc_temp,min,max;
+	sum  = 0;
+	first_read = 1;
+	for(i = 0;i < 12;i++)
 	{
-		temp += ADC_getChannal(ADC1,ADC_Channel_11,1);
+		adc_temp = ADC_getChannal(ADC1,ADC_Channel_11,1);
+		sum += adc_temp;
+		if(first_read == 1)
+		{
+			 max = adc_temp;
+			 min = adc_temp;
+			 first_read = 0;               
+		}               
+		else
+		{
+			 max = (max > adc_temp) ? max : adc_temp;
+			 min = (min < adc_temp) ? min : adc_temp;
+		}  
+		delay_us(10);
 	}
 	
-	input_raw[channel_count] = temp * 1023 / 40 / Modbus.vcc_adc;		
-#ifdef LIJUN
-	if((channel_count == 2) || (channel_count == 3))
-		input_raw[channel_count] *= 2;
-#endif
+	adc_temp = 1023L * (sum - max - min) / 10 / Modbus.vcc_adc;	
+	
+
+//		if(channel_count < 2)
+//		{
+//			Test[10 + channel_count] = adc_temp;
+//			if(adc_temp < 1000) Test[14 + channel_count]++;
+//		}	
+		
+	adc_temp = Filter(channel_count,adc_temp / 4);
+	if(adc_temp < 65535)
+	{
+		input_raw[channel_count] = adc_temp * 4;	
+
+	}
+
 	channel_count++;
 	channel_count %= 8;
 
@@ -431,6 +507,7 @@ void scan_led(void)
 	static U16_T scanled = 0;
 	static U8_T  level1 = 0;
 	static U8_T  level2 = 0;
+
 	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
 	{	
 		if(flag_ready_to_scan != 1) return;
@@ -534,6 +611,37 @@ void scan_led(void)
 			}
 		}	
 	}
+	
+	if(Modbus.mini_type == MINI_NANO)
+	{
+		if(scanled % 500 == 0) 
+		{
+			LED_ROUTER_HEART = ~LED_ROUTER_HEART;
+		}
+		scanled++;
+		if(scanled % 20 == 0)
+		{
+			LED_ROUTER_SUB_RS485_TX = flagLED_uart0_tx ? 0 : 1;	// RS485_TX SUB
+			LED_ROUTER_SUB_RS485_RX = flagLED_uart0_rx ? 0 : 1;	// RS485_RX SUB
+			LED_ROUTER_MAIN_RS485_RX = flagLED_uart2_rx ? 0 : 1;	// RS485_RX MAIN
+			LED_ROUTER_MAIN_RS485_TX = flagLED_uart2_tx ? 0 : 1;	// RS485_TX MAIN		
+			
+		}
+		
+		if(scanled % 21 == 0)
+		{
+			if(flagLED_uart2_rx == 1) 
+					flagLED_uart2_rx = 0;
+				if(flagLED_uart2_tx == 1) 
+					flagLED_uart2_tx = 0;
+				
+				if(flagLED_uart0_rx == 1) 
+					flagLED_uart0_rx = 0;
+				if(flagLED_uart0_tx == 1) 
+					flagLED_uart0_tx = 0;
+		}
+		
+	}
 }
 
 
@@ -545,18 +653,23 @@ void refresh_led_switch_Task(void) reentrant
 {	
 	portTickType xDelayPeriod = ( portTickType ) 1000 / portTICK_RATE_MS;
 	U8_T loop,i;
+	Check_PT_sensor();
 	LED_IO_Init();
 	SWITCH_IO_Init();
 	Input_IO_Init();
 	inputs_adc_init();
 	Check_switch_status();
 	flag_read_switch = 1;
+	// set first channel
+	range_set_func(input_type[0]);
+	
 	for(;;)
 	{		
 		vTaskDelay( 200 / portTICK_RATE_MS);	
 		Check_Pulse_Counter();
 		Update_Led();
 		inpust_scan();
+		
 		if(loop < 5)	loop++;
 		else
 			flag_ready_to_scan = 1;

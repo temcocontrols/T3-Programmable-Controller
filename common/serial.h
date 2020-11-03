@@ -18,7 +18,7 @@
 
 //#define MAIN_BUF_LEN		140
 //#define	SUB_BUF_LEN			300//140
-#define MAX_BUF_LEN         300
+#define MAX_BUF_LEN        500// 300
 #define DATABUFLEN_SCAN		12
 #define SENDPOOLLEN         8
 
@@ -27,7 +27,7 @@
 
 #define MainSerialSTACK_SIZE	((unsigned portSHORT)1024)
 
-#define CUSTOMER_PRODUCT 220
+
 
 //#define	SUB_NET_SPARE					0
 //#define	SEND_OUTPUT_WORD 				1
@@ -75,8 +75,8 @@ U8_T checkData(U8_T address);
 void uart_init_send_com(U8_T port);
 void uart_send_byte(U8_T buffer,U8_T port);
 void uart_send_string(U8_T *p, U16_T length,U8_T port);
-void set_subnet_parameters(U8_T io, U8_T length,U8_T port);
-U8_T wait_subnet_response(U16_T nDoubleTick,U8_T port);	
+void set_subnet_parameters(U8_T io, U16_T length,U8_T port);
+U16_T wait_subnet_response(U16_T nDoubleTick,U8_T port);	
 void uart_serial_restart(U8_T port);
 void vStartMainSerialTasks( U8_T uxPriority);
 void Response_Speical_Logic(U8_T* str);
