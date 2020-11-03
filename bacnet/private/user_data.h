@@ -11,8 +11,8 @@ typedef struct
 	uint8 harware_rev;
 	uint16 firmware_asix;	// ASIX
 	uint8 frimware_pic;    // PIC
-	uint8 firmware_c8051;	// C8051
-	uint8 frimware_sm5964;	// SM5964
+	uint8 firmware_rev;	// C8051
+	uint8 hardware_rev;	// SM5964
 	uint8 bootloader_rev;
 
 	uint8 no_used[10];
@@ -115,7 +115,7 @@ typedef	union
 	 uint8_t reset_default;	  // write 88
 	 uint8_t com_baudrate[3]; 
 
-	 uint8_t  en_username;
+		uint8_t  en_username;  // 2-enalbe  1 - disable 0: unused
 	 uint8_t  cus_unit;
 
 	 uint8_t usb_mode; 
@@ -151,7 +151,7 @@ typedef	union
 	S8_T sntp_server[30];
 	U8_T zigbee_exist;  // 0x74 - exist 
 	
-	U8_T backlight;
+	U8_T LCD_time_off_delay;//U8_T backlight;
 	U8_T update_time_sync_pc;   //  0 - finished  1 - ask updating 
 	U8_T en_time_sync_with_pc;  // 0 - time server 1 - pc
 	U8_T sync_with_ntp_result; // 0 - fail , 1 - ok
@@ -159,9 +159,39 @@ typedef	union
 //	U8_T network_ID[3];
 	U8_T MSTP_ID;
 	U16_T zigbee_module_id;
-	U8_T MAX_MASTER;   
+	U8_T MAX_MASTER;  
+	U8_T specila_flag;
+	// bit0 -> support PT1K, 0 - NO PT1K , 1- PT1K
+	// bit1 -> support PT100, 0 - NO PT100 , 1- PT100
+	
+	U8_T uart_parity[3];  // 2- Even  1 - Odd  0 - none
+	U8_T uart_stopbit[3];
+//	USART_StopBits_1        0             
+// 	USART_StopBits_0_5      1          
+// 	USART_StopBits_2        2           
+// 	USART_StopBits_1_5  		3
+	
+
 	}reg;
 }Str_Setting_Info;
+
+
+typedef union
+{
+    uint8_t all[400];
+    struct
+    {
+        unsigned char smtp_type;  //  0   ipaddress   // 1   domain
+        unsigned char smtp_ip[4];
+        char smtp_domain[40];
+        unsigned short smtp_port;
+        char email_address[60];
+        char user_name[60];
+        char password[20];
+        char secure_connection_type;  //0 -NULL   1-SSL   2-TLS
+    }reg;
+}Str_Email_point;
+
 
 typedef	union
 {
@@ -226,17 +256,23 @@ extern U32_T	timeCount1,timeCount2;
 extern uint8_t far invokeid_mstp;
 extern uint8_t far flag_receive_netp;	// network points 
 extern uint8_t far flag_receive_netp_temcovar;
+//extern uint8_t far flag_receive_netp_temcoreg;
 extern uint8_t far temcovar_panel;
+//extern uint8_t far temcoreg[20];
 extern uint8_t far temcovar_panel_invoke;
+//extern uint8_t far temcoreg_panel_invoke;
 extern uint8_t far flag_receive_netp_modbus;	// network points 
 extern uint8_t far flag_receive_rmbp;  // remote bacnet points
 extern bool Send_Whois_Flag;
-extern U8_T Send_bip_Flag;
 extern U8_T Send_Time_Sync;
 extern U8_T far count_send_bip;
 //extern U8_T count_bip_connect;
+extern U8_T Send_bip_Flag;
 extern U8_T far Send_bip_address[6];
 extern U8_T far Send_bip_count;
+extern U8_T Send_bip_Flag2;
+extern U8_T far Send_bip_address2[6];
+extern U8_T far Send_bip_count2;
 //extern U8_T flag_get_network_point;
 extern U8_T remote_modbus_index;	
 extern U8_T remote_bacnet_index;
@@ -267,7 +303,7 @@ extern U8_T far boot;
 //extern U32_T far changed_index;
 //extern U32_T far changed_index2;
 
-//extern Str_Remote_TstDB    far        Remote_tst_db[SUB_NO];
+extern Str_Remote_TstDB    far    Remote_tst_db;
 extern Str_Panel_Info 	   far 		Panel_Info;
 extern Str_Setting_Info    far 		Setting_Info;
 extern Str_MISC  						far 	MISC_Info;
@@ -300,7 +336,7 @@ extern Str_Extio_point far extio_points[MAX_EXTIO];
 //extern U8_T           far              free_mon_blocks;
 
  
-extern S8_T far panelname[20];
+extern U8_T far panelname[20];
 //extern U8_T 	client_ip[4];
 //extern U8_T newsocket;
 
@@ -314,6 +350,8 @@ extern S8_T                         new_alarm_flag;
 extern Units_element		    far				 digi_units[MAX_DIG_UNIT];
 extern U8_T 					far 		ind_passwords;
 extern Password_point			far			passwords[ MAX_PASSW ];
+
+extern Str_Email_point Email_Setting;
 
 extern Str_variable_point		far		 vars[MAX_VARS + 12];
 extern Str_controller_point 	far			 controllers[MAX_CONS];
@@ -388,6 +426,13 @@ extern REMOTE_POINTS		  far  		 remote_points_list_bacnet[MAXREMOTEPOINTS];  /* 
 //extern STR_BAC_TB far RP_bacnet_tb[MAXREMOTEPOINTS];
 extern Byte                far			 number_of_remote_points_bacnet;
 
+
+extern U16_T Last_Contact_Network_points_bacnet[MAXNETWORKPOINTS];
+extern U16_T Last_Contact_Network_points_modbus[MAXNETWORKPOINTS];
+extern U16_T Last_Contact_Remote_points_bacnet[MAXREMOTEPOINTS];
+extern U16_T Last_Contact_Remote_points_modbus[MAXREMOTEPOINTS];
+
+
 extern U8_T remote_panel_num;
 
 #define MAX_REMOTE_PANEL_NUMBER 30
@@ -418,7 +463,7 @@ void update_timers( void );
 
 #define DEFUATL_REMOTE_NETWORK_VALUE 0x55555555
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 extern UN_ID far ID_Config[254];
 extern U8_T far ID_Config_Sche[254];
 #endif
@@ -434,10 +479,27 @@ S32_T swap_double( S32_T dat ) ;  //DoulbemGetPointWord2
 void Initial_Panel_Info(void);
 
 
+typedef union
+{
+    unsigned long ldata;
+    float  fdata;
+}FloatLongType;
+
+#define FLOAT_TYPE_ABCD  1
+#define FLOAT_TYPE_CDAB  2
+#define FLOAT_TYPE_BADC  3
+#define FLOAT_TYPE_DCBA  4
+
+
+void Float_to_Byte(float f, unsigned char mybyte[],  unsigned char ntype);
+//void Byte_to_Float(float *f, unsigned char mybyte[],unsigned char ntype);
+void Byte_to_Float(float *f, S32_T val_ptr,unsigned char ntype);
+
+
 U8_T check_remote_point_list(Point_Net *point,U8_T *index, U8_T protocal);
 
 void put_remote_point_value( S16_T index, S32_T *val_ptr, S16_T prog_op , uint8_t protocal);
-void add_remote_point(U8_T id,U8_T point_type,U8_T high_5bit,U8_T number,S32_T val_ptr,U8_T specail);
+void add_remote_point(U8_T id,U8_T point_type,U8_T high_5bit,U8_T number,S32_T val_ptr,U8_T specail,U8_T float_type);
 void put_network_point_value( S16_T index, S32_T *val_ptr, S16_T prog_op );
 void add_network_point(U8_T panel,U8_T id,U8_T point_type,U8_T number,S32_T val_ptr,U8_T specail);
 
@@ -446,9 +508,12 @@ void change_panel_number_in_code(U8_T old, U8_T new_panel);
 void check_graphic_element(void);
 void check_weekly_routines(void);
 void check_annual_routines(void);
-void check_output_priority_array(U8_T i);
+void check_output_priority_array(U8_T i,U8_T HOA);
 void check_output_priority_HOA(U8_T i);
-void check_output_priority_array_AM(U8_T i);
+void check_output_priority_array_without_AM(U8_T i);
+void output_dead_master(void);
+void clear_dead_master(void);
+
 
 void push_expansion_out_stack(Str_out_point* ptr,uint8 point,uint8_t type);
 void push_expansion_in_stack(Str_in_point* ptr);
@@ -456,7 +521,7 @@ void push_expansion_in_stack(Str_in_point* ptr);
 U32_T get_current_time(void);
 
 
-int GetPrivateBacnetToModbusData(uint32_t deviceid, uint16_t start_reg, int16_t readlength, uint16_t *data_out);
+int GetPrivateBacnetToModbusData(uint32_t deviceid, uint16_t start_reg, int16_t readlength, uint16_t *data_out,uint8_t protocal);
 int WritePrivateBacnetToModbusData(uint32_t deviceid, int16_t start_reg, uint16_t writelength, uint32_t data_in);
 
 #endif

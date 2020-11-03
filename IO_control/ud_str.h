@@ -93,6 +93,11 @@
 #define BAC_BV 			21
 #define BAC_BI 			20
 
+#define BAC_FLOAT_ABCD  32
+#define BAC_FLOAT_CDAB  33
+#define BAC_FLOAT_BADC  34
+#define BAC_FLOAT_DCBA  35
+
 typedef enum
 	{
 		OUT=0, IN, VAR, CON, WRT, AR, PRG,/* TBL,*/  TZ = 8,
@@ -145,6 +150,9 @@ typedef enum {
 		 READEXT_IO_T3000		= 37,
 		 READ_ZONE_T3000		= 38,
 		 READ_MON_SEG				= 39,
+		 READ_SCHEDULE_FLAG	= 41,
+		 READ_MSV_COMMAND = 42,
+		 READ_EMAIL_ALARM          = 43,
 
 		 WRITEOUTPUT_T3000         = 100+OUT+1,  /* write outputs          */
 		 WRITEINPUT_T3000          = 100+IN+1,   /* write inputs           */
@@ -169,13 +177,17 @@ typedef enum {
 		 WRITEGROUPELEMENTS_T3000   = 191,           /* write group elements */
 		 WRITE_AT_CMD = 190,
 		 WRITEREMOTEPOINT		   = 140,			/* write remote point */
+		 WRITE_MSV_COMMAND 		= 142,
+		 WRITE_EMAIL_ALARM           = 143,
+
+		 
 //		 SEND_TIME_SYNC				= 150,    // no used
 		 WRITETABLE_T3000          = 134,        /* write tables         */
 		 WRITEWEATHER_T3000  = 135,
 		 WRITEVARUNIT_T3000  = 136,
 		 WRITEEXT_IO_T3000 = 137,
 		 WRITE_ZONE_T3000		= 138,
-		 
+		 WRITE_SCHEDULE_FLAG	= 141,
 		 
 		 WRITETIME_COMMAND       = 121,
 		 WRITEPRGFLASH_COMMAND     = 122,
@@ -189,7 +201,7 @@ typedef enum {
 		 READ_SETTING			 = 98,
 
 		 GET_PANEL_INFO			 = 99,
-//		 READ_TSTAT_DB		= 97,
+		 READ_TSTAT_DB		= 97,
  		 WRITE_SETTING	= 198,
 		 WRITE_SUB_ID_BY_HAND = 199,
 		 WRITE_MISC				= 196,
@@ -232,7 +244,7 @@ typedef enum { UNUSED=0,
 
 
 //not_used_input = 0,
-// Y3K_40_150DegC = 1, 
+//Y3K_40_150DegC = 1, 
 //Y3K_40_300DegF = 2,
 //R10K_40_120DegC = 3,
 //R10K_40_250DegF = 4,
@@ -245,7 +257,7 @@ typedef enum { UNUSED=0,
 //V0_5 = 11, 
 //I0_100Amps = 12,
 //I0_20ma = 13,
-// I0_20psi = 14, 
+//I0_20psi = 14, 
 //N0_2_32counts = 15, 
 //N0_3000FPM_0_10V = 16, 
 //P0_100_0_5V = 17,
@@ -256,13 +268,18 @@ typedef enum { UNUSED=0,
 //table3 = 22,
 //table4 = 23,
 //table5 = 24, 
+//HI_spd_count = 25
 
-typedef enum { not_used_input, Y3K_40_150DegC, Y3K_40_300DegF, R10K_40_120DegC,
-	R10K_40_250DegF, R3K_40_150DegC, R3K_40_300DegF, KM10K_40_120DegC,
-	KM10K_40_250DegF, A10K_50_110DegC, A10K_60_200DegF, V0_5, I0_100Amps,
-	I0_20ma, I0_20psi, N0_2_32counts, /* N0_3000FPM_0_10V,*/P0_100_0_10V, P0_100_0_5V,
-	P0_100_4_20ma/*, P0_255p_min*/, V0_10_IN, table1, table2, table3, table4,
-	table5, HI_spd_count} Analog_input_range_equate;
+typedef enum { not_used_input, Y3K_40_150DegC,Y3K_40_300DegF,/*PT100_40_1000DegC, PT100_40_1800DegF,*/ R10K_40_120DegC,
+	R10K_40_250DegF, R3K_40_150DegC = 5, R3K_40_300DegF = 6,/*PT1000_40_450DegC, PT1000_40_800DegF,*/ KM10K_40_120DegC,
+	KM10K_40_250DegF, /*A10K_50_110DegC, A10K_60_200DegF,*/PT1000_200_300DegC, PT1000_200_570DegF,
+	V0_5, I0_100Amps,
+	I0_20ma, I0_20psi, N0_2_32counts,  /* N0_3000FPM_0_10V,*/P0_100_0_10V, P0_100_0_5V,
+	P0_100_4_20ma/*, P0_255p_min*/, V0_10_IN, table1, table2, table3, table4,	table5, 
+	HI_spd_count,  // HZ 56   		HUMIDTY 57  		CO2 PPM 58 
+	RPM = 29, PPB = 30/*TVOC*/,UG_M3 = 31,NUM_CM3=32,DB=33,LUX=34,
+	AC_PWM,
+	} Analog_input_range_equate;
 
 
 
@@ -497,7 +514,7 @@ typedef struct
 	uint16_t bytes;		/* (2 uint8_ts; size in uint8_ts of program)*/ 
 	uint8_t on_off;	//	      : 1; /* (1 bit; 0=off; 1=on)*/
 	uint8_t auto_manual;//	  : 1; /* (1 bit; 0=auto; 1=manual)*/
-	uint8_t com_prg;	//	    : 1; /* (6 bits; 0=normal use, 1=com program)*/
+	uint8_t costtime;	//	    : 1; 
 	uint16_t real_byte;   //      : 8;
 
 } Str_program_point;	  /* 37 */
@@ -957,15 +974,16 @@ typedef struct
 {
 // start reg   len	 mum
 	U8_T id;	
-	U8_T func;
+	U16_T func;
 	U16_T reg;
+	
 }STR_SCAN_TB;
 
 typedef struct 
 {
 // start reg   len	 mum
 	U8_T panel;
-	U8_T object;
+	U16_T object;
 	U16_T instance;	
 //	U8_T func;
 }STR_BAC_TB;
@@ -1029,6 +1047,7 @@ typedef struct
 #define NP_TIME_TO_LIVE 10   	// network points 10s
 #define RB_TIME_TO_LIVE 10		// remote bacnet 10s
 #define RM_TIME_TO_LIVE 20		// remote modbus 20s
+
 #define RMP_TIME_TO_LIVE 5	  // remote panels  5min
 #define PERMANENT_LIVE 127
 
@@ -1154,14 +1173,18 @@ typedef	union
 	}reg;
 }Str_Panel_Info;
 
+
+typedef	struct
+	{
+	uint8 protocal;
+	uint8 modbus_id;
+	uint32_t instance;	
+	}Str_Remote_Info;
 typedef struct
 {
-	uint8 sn[4];
-	uint8 product_type;
-	uint8 modbus_id;
-	uint8 ip_addr[4];
-	uint16 port;
-	uint8 reserved[10];
+	uint8 number;
+	
+	Str_Remote_Info sub[64];
 
 }Str_Remote_TstDB;
 
@@ -1343,6 +1366,7 @@ typedef struct
 	U8_T protocal;
 	S8_T time_to_live;
 	U8_T online;
+	U8_T retry_reading_panel;
 	// for mstp device
 	U8_T remote_iam_buf[20];
 	U8_T remote_iam_buf_len;
@@ -1405,7 +1429,18 @@ typedef struct
 }STR_MSTP_REV_HEADER;
 
 
+#define STR_MSV_NAME_LENGTH 		20
+#define STR_MSV_MULTIPLE_COUNT 	8
+#define MAX_MSV 				3
 
+typedef struct
+{
+		char status; // whether current MSV is used
+		char msv_name[STR_MSV_NAME_LENGTH];
+		unsigned short msv_value;
+}multiple_struct;
+
+extern multiple_struct msv_data[MAX_MSV][STR_MSV_MULTIPLE_COUNT];
 
 
 #endif

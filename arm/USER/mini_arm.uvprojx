@@ -175,7 +175,7 @@
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
-          <Flash3></Flash3>
+          <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -365,7 +365,7 @@
               <MiscControls></MiscControls>
               <Define>STM32F10X_HD, USE_STDPERIPH_DRIVER</Define>
               <Undefine></Undefine>
-              <IncludePath>..\CORE;..\USER;..\STM32F10x_FWLib\inc;..\HARDWARE\LED;..\HARDWARE\LCD;..\FreeRTOS\include;..\FreeRTOS\portable\RVDS\ARM_CM3;..\SYSTEM\delay;..\SYSTEM\usart;..\SYSTEM;..\HARDWARE\KEY;..\HARDWARE\IIC;..\HARDWARE\24CXX;..\HARDWARE\SPI;..\HARDWARE\TOUCH;..\HARDWARE\FLASH;..\HARDWARE\STMFLASH;..\HARDWARE\DMA;..\HARDWARE\SDCARD;..\FATFS\src;..\FATFS\exfuns;..\VMALLOC;..\HARDWARE\TIMER;..\HARDWARE\ENC28J60;..\uIP-1.0\uip;..\uIP-1.0\apps\dhcpc;..\uIP-1.0\apps\resolv;..\uIP-1.0\apps\webserver;..\uIP-APP;..\HARDWARE\RTC;..\USB\CONFIG\inc;..\USB\LIB\inc;..\USB\APP;..\MODBUS;..\TCPIP;..\..\bacnet;..\..\bacnet\include;..\..\bacnet\private;..\KEY;..\FILTER;..\..\IO_control;..\..\common;..\..\scan;..\..\SD;..\..\SD\FATFS\exfuns;..\..\SD\FATFS\src;..\FLASH;..\..\key;..\..\display;..\..\SNTP;..\..\RM;..\HARDWARE\EMMC</IncludePath>
+              <IncludePath>..\CORE;..\USER;..\STM32F10x_FWLib\inc;..\HARDWARE\LED;..\HARDWARE\LCD;..\FreeRTOS\include;..\FreeRTOS\portable\RVDS\ARM_CM3;..\SYSTEM\delay;..\SYSTEM\usart;..\SYSTEM;..\HARDWARE\KEY;..\HARDWARE\IIC;..\HARDWARE\24CXX;..\HARDWARE\SPI;..\HARDWARE\TOUCH;..\HARDWARE\FLASH;..\HARDWARE\STMFLASH;..\HARDWARE\DMA;..\HARDWARE\SDCARD;..\FATFS\src;..\FATFS\exfuns;..\VMALLOC;..\HARDWARE\TIMER;..\HARDWARE\ENC28J60;..\uIP-1.0\uip;..\uIP-1.0\apps\dhcpc;..\uIP-1.0\apps\resolv;..\uIP-1.0\apps\webserver;..\uIP-APP;..\HARDWARE\RTC;..\USB\CONFIG\inc;..\USB\LIB\inc;..\USB\APP;..\MODBUS;..\TCPIP;..\..\bacnet;..\..\bacnet\include;..\..\bacnet\private;..\KEY;..\FILTER;..\..\IO_control;..\..\common;..\..\scan;..\..\SD;..\..\SD\FATFS\exfuns;..\..\SD\FATFS\src;..\FLASH;..\..\key;..\..\display;..\..\SNTP;..\..\RM;..\HARDWARE\EMMC;..\HARDWARE\ESP8266;..\uIP-1.0\apps\smtp;..\uIP-APP;..\..\SD\FATFS_SD;..\..\SD\FATFS_SD\option</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -439,11 +439,6 @@
               <FilePath>..\STM32F10x_FWLib\src\stm32f10x_crc.c</FilePath>
             </File>
             <File>
-              <FileName>stm32f10x_dac.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\STM32F10x_FWLib\src\stm32f10x_dac.c</FilePath>
-            </File>
-            <File>
               <FileName>stm32f10x_dma.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\STM32F10x_FWLib\src\stm32f10x_dma.c</FilePath>
@@ -477,11 +472,6 @@
               <FileName>stm32f10x_rtc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\STM32F10x_FWLib\src\stm32f10x_rtc.c</FilePath>
-            </File>
-            <File>
-              <FileName>stm32f10x_sdio.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\STM32F10x_FWLib\src\stm32f10x_sdio.c</FilePath>
             </File>
             <File>
               <FileName>stm32f10x_spi.c</FileName>
@@ -564,11 +554,6 @@
               <FilePath>..\HARDWARE\STMFLASH\stmflash.c</FilePath>
             </File>
             <File>
-              <FileName>dma.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\HARDWARE\DMA\dma.c</FilePath>
-            </File>
-            <File>
               <FileName>timerx.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\HARDWARE\TIMER\timerx.c</FilePath>
@@ -597,6 +582,11 @@
               <FileName>sdcard.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\HARDWARE\SDCARD\sdcard.c</FilePath>
+            </File>
+            <File>
+              <FileName>stm32f10x_sdio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\STM32F10x_FWLib\src\stm32f10x_sdio.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -748,6 +738,16 @@
               <FileType>1</FileType>
               <FilePath>..\uIP-APP\dyndns_app.c</FilePath>
             </File>
+            <File>
+              <FileName>CMIME64.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\uIP-APP\CMIME64.c</FilePath>
+            </File>
+            <File>
+              <FileName>smtpc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\uIP-APP\smtpc.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -767,9 +767,9 @@
               <FilePath>..\..\bacnet\bip.c</FilePath>
             </File>
             <File>
-              <FileName>bacnet_ARM_rev10_mini.lib</FileName>
+              <FileName>bacnet_ARM_rev16_mini.lib</FileName>
               <FileType>4</FileType>
-              <FilePath>..\..\..\BACLIB\bacnet_ARM_rev10_mini.lib</FilePath>
+              <FilePath>..\..\bacnet\bacnet_ARM_rev16_mini.lib</FilePath>
             </File>
           </Files>
         </Group>
@@ -841,11 +841,6 @@
         <Group>
           <GroupName>display</GroupName>
           <Files>
-            <File>
-              <FileName>font.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\display\font.c</FilePath>
-            </File>
             <File>
               <FileName>LCD.c</FileName>
               <FileType>1</FileType>
@@ -945,14 +940,14 @@
               <FilePath>..\..\SD\FATFS\exfuns\exfuns.c</FilePath>
             </File>
             <File>
-              <FileName>ff.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\SD\FATFS\src\ff.c</FilePath>
-            </File>
-            <File>
               <FileName>diskio.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\SD\FATFS\src\diskio.c</FilePath>
+            </File>
+            <File>
+              <FileName>ff.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\SD\FATFS\src\ff.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -963,6 +958,26 @@
               <FileName>user_arm.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\user_arm.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>wifi</GroupName>
+          <Files>
+            <File>
+              <FileName>wifi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\wifi.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_esp8266.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\ESP8266\bsp_esp8266.c</FilePath>
+            </File>
+            <File>
+              <FileName>tcp_debug.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\TCPIP\tcp_debug.c</FilePath>
             </File>
           </Files>
         </Group>

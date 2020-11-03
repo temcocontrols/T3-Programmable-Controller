@@ -724,7 +724,7 @@ void Lcd_Set_X_Addr(U8_T line)// 1 1 1 0/1        page 0 - 129
 	Lcd_Write_Command(addr);
 }
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 
 void LCD_IO_config(void)
 {
@@ -762,7 +762,7 @@ void LCD_IO_config(void)
 void Lcd_Initial(void)
 {
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))
 		LCD_IO_config();
 #endif	

@@ -6,8 +6,9 @@
 #include "scan.h"
 #include "sntpc.h"
 //#include "delay.h"
+#include "wifi.h"
 
-uint8_t write_page_en[25]  = {0} ;
+uint8_t write_page_en[26]  = {0} ;  //fandu 长度 25改26 新增写msv的结构
 
 static uint8_t  tempbuf[20000] = {0};
 
@@ -24,11 +25,13 @@ STR_flag_flash 	far bac_flash;
 #define FLASH_CODE_ADDR	0x8060000  // - 8068000 code len 32k
 
 
-#define FLASH_OTHER_ADDR 0x8078000 // - other 2k
+#define FLASH_OTHER_ADDR 	0x8078000 // - other 2k
+#define FLASH_OTHER_ADDR2 0x8078800 // - other 2k
 
-// misc
-#define BASE_GSM_APN					0x8078000  // 254 byte for gsm
-#define BASE_GSM_IP						0x8078050  // 100 byte 
+
+// other PAGE1 2K
+
+#define BASE_WIFI_SETTING			0x8078000  // length is 160
 #define BASE_PANEL_NAME     	0x80780a0  // 20
 #define BASE_DYNDNS_DONAME		0x80780c0  // 32
 #define BASE_DYNDNS_USER			0x80780e0  // 32
@@ -38,19 +41,15 @@ STR_flag_flash 	far bac_flash;
 #define BASE_WEATHER  				0x8078450  // lenth is 0xc0, 192
 #define BASE_SNTP_SERVER			0x8078510  // lenth is 0x20, 30
 #define BASE_WEEKLY_ONOFF			0x8078530  // lenght is 0x240, 576
-//--- other addr page almost full
+#define BASE_EMAIL_SETTING		0x8078770  // length is 200
+	
 
 
-//// misc
-//#define BASE_GSM_APN					0x807D700  // 254 byte for gsm
-//#define BASE_GSM_IP						0x807D764  // 100 byte 
-//#define BASE_PANEL_NAME     	0x807D6f6  // 20
-//#define BASE_DYNDNS_DONAME		0x807D680  // 32
-//#define BASE_DYNDNS_USER			0x807D6A0  // 32
-//#define BASE_DYNDNS_PASS			0x807D6C0  // 32
-//#define BASE_TST_NAME					0x807C680  // length is 1000H
-//#define BASE_MON_OPERATE_TIME 0x807c630 // length is 80, the lenght is at least 48
-//#define BASE_WEATHER  				0x807c570  // lenth is 0xc0, 192
+// other page2
+#define BASE_MSV_DATA					0x8078800  	// lenght is  3x8x23  0x228, 552
+#define BASE_OUT_RELINQUISH	  0x8078a28   // length is 4*MAX_OUTS  0x100  256
+
+
 
 
 
@@ -278,7 +277,7 @@ void Flash_Write_Mass(void)
 	}	
 
 	Flash_Write_Other();
-
+    Flash_Write_Other_Page2();
 	
 }
 
@@ -306,7 +305,6 @@ void Flash_Read_Mass(void)
 		{
 			if(FLASH_BASE_ADDR + base_addr + 2048 * page > 0x807F800)
 			{
-
 				break;
 			}
 			else
@@ -324,12 +322,12 @@ void Flash_Read_Mass(void)
 		switch(loop)
 		{
 			case OUT: 
-				memcpy(&outputs,&tempbuf,sizeof(Str_out_point) * MAX_OUTS);					
+				memcpy(&outputs,&tempbuf,sizeof(Str_out_point) * MAX_OUTS);						
 				break;
 			case IN: 
 				memcpy(&inputs,&tempbuf,sizeof(Str_in_point) * MAX_INS);					
 				break;
-			case VAR:  
+			case VAR:
 				memcpy(&vars,&tempbuf,sizeof(Str_variable_point) * MAX_VARS);					
 				break;
 			case CON:
@@ -343,6 +341,12 @@ void Flash_Read_Mass(void)
 				break;
 			case PRG:  
 				memcpy(&programs,&tempbuf,sizeof(Str_program_point) * MAX_PRGS);					
+#if HANDLE_REBOOT_FLAG
+                for ( i = 0; i < MAX_PRGS; i++)
+                {
+                    programs[i].on_off = 0;
+                }
+#endif
 				break;
 			case TBL:
 				memcpy(&custom_tab,&tempbuf,sizeof(Str_table_point) * MAX_TBLS);					
@@ -399,10 +403,25 @@ void Flash_Read_Mass(void)
 	
 	} 
 
+	for (i = 0; i < MAX_INS; i++)
+	{
+		if(inputs[i].range == 0)
+			inputs[i].digital_analog = 1;
+	}	
+	for (i = 0; i < MAX_OUTS; i++)
+	{
+		if(outputs[i].range == 0)
+			outputs[i].digital_analog = 1;
+	}
+	for (i = 0; i < MAX_VARS; i++)
+	{
+		if(vars[i].range == 0)
+			vars[i].digital_analog = 1;
+	}
 	Flash_Read_Code();
 
 	Flash_Read_Other();
-
+//    Flash_Read_Other_Page2();
 }
 
 void Flash_Store_Code(void)
@@ -433,69 +452,65 @@ void Flash_Store_Code(void)
 }
 
 
+void Flash_Write_Other_Page2(void)
+{
+    if (write_page_en[25] == 1)
+    {
+        STMFLASH_Unlock();
+				STMFLASH_ErasePage(FLASH_OTHER_ADDR2);
+				iap_write_appbin(BASE_MSV_DATA, (u8 *)(msv_data), MAX_MSV * STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
+				iap_write_appbin(BASE_OUT_RELINQUISH, (u8 *)(output_relinquish), 4 * MAX_OUTS);
+				write_page_en[25] = 0;
 
+			STMFLASH_Lock();
+    }
+}
 
 
 
 void Flash_Write_Other(void)
 {
-//	U16_T loop;
-//	U16_T loop1;
-	
-	STMFLASH_Unlock();
- // gsm
-#if 0//USB_HOST
-	if(Modbus.usb_mode == 1)
-	{
-		STMFLASH_WriteHalfWord(BASE_GSM_APN,apnlen);
-		if(apnlen > MAX_GSM_APN)	apnlen = MAX_GSM_APN;
-		iap_write_appbin(BASE_GSM_APN,&apnstr,apnlen);
-		
-		STMFLASH_WriteHalfWord(BASE_GSM_IP,iplen);
-		if(iplen > MAX_GSM_IP)	iplen = MAX_GSM_IP;
-		iap_write_appbin(BASE_GSM_IP,&ipstr,iplen);
-	}
-#endif
+
  // name  20
 	if(write_page_en[24] == 1)
 	{
+		STMFLASH_Unlock();
 		
-		STMFLASH_ErasePage(FLASH_OTHER_ADDR);
-		
-	//	iap_write_appbin(BASE_SNTP_SERVER,(u8 *)(&sntp_server), 30);
-		
-		iap_write_appbin(BASE_PANEL_NAME,(u8 *)(&panelname),20);
-#if ARM_MINI
-		iap_write_appbin(BASE_DYNDNS_DONAME,dyndns_domain_name,MAX_DOMAIN_SIZE);
+			STMFLASH_ErasePage(FLASH_OTHER_ADDR);
+			
+		//	iap_write_appbin(BASE_SNTP_SERVER,(u8 *)(&sntp_server), 30);
+			
+			iap_write_appbin(BASE_PANEL_NAME,(u8 *)(&panelname),20);
+	#if ARM_MINI
+			iap_write_appbin(BASE_DYNDNS_DONAME,dyndns_domain_name,MAX_DOMAIN_SIZE);
 
-		iap_write_appbin(BASE_DYNDNS_USER,dyndns_username,MAX_USERNAME_SIZE);
-		iap_write_appbin(BASE_DYNDNS_PASS,dyndns_password,MAX_PASSWORD_SIZE);
+			iap_write_appbin(BASE_DYNDNS_USER,dyndns_username,MAX_USERNAME_SIZE);
+			iap_write_appbin(BASE_DYNDNS_PASS,dyndns_password,MAX_PASSWORD_SIZE);
 
-		// store name of tstat
-		iap_write_appbin(BASE_TST_NAME,(u8 *)(&tstat_name),40/*MAX_ID*/ * 16);
-		
-		// store time of operating monitor 
-		iap_write_appbin(BASE_MON_OPERATE_TIME,(u8 *)(&MISC_Info.reg.operate_time),MAX_MONITORS * 4);
+			// store name of tstat
+			iap_write_appbin(BASE_TST_NAME,(u8 *)(&tstat_name),40/*MAX_ID*/ * 16);
+			
+			// store time of operating monitor 
+			iap_write_appbin(BASE_MON_OPERATE_TIME,(u8 *)(&MISC_Info.reg.operate_time),MAX_MONITORS * 4);
 
-		
-		// store weather
-	//	{
-	//		char *ptr = &weather;
-	//	for(loop1 = 0;loop1 < sizeof(STR_WEATHER);loop1++)   
-	//			IntFlashWriteByte(BASE_WEATHER + loop1,ptr[loop1]);
-	//	}
-
-		// store sntp
-		iap_write_appbin(BASE_SNTP_SERVER,(u8 *)(&sntp_server), 30);
-#endif		
-		iap_write_appbin(BASE_WEEKLY_ONOFF,(u8 *)(&wr_time_on_off),576);
-		
+			// store sntp
+			iap_write_appbin(BASE_SNTP_SERVER,(u8 *)(&sntp_server), 30);
+	#endif		
+			iap_write_appbin(BASE_WEEKLY_ONOFF,(u8 *)(&wr_time_on_off),576);
+			
+			iap_write_appbin(BASE_EMAIL_SETTING,(u8 *)(&Email_Setting),100/*sizeof(Str_Email_point)*/);
+#if (ARM_MINI || ARM_TSTAT_WIFI)			
+			iap_write_appbin(BASE_WIFI_SETTING,(u8 *)(&SSID_Info),sizeof(STR_SSID));
+#endif
+			write_page_en[24] = 0;
+	
 		
 		STMFLASH_Lock();
-		write_page_en[24] = 0;
 	}
 
 }
+
+
 
 
 void Flash_Read_Other(void)
@@ -561,14 +576,72 @@ void Flash_Read_Other(void)
 	STMFLASH_MUL_Read(BASE_SNTP_SERVER,(u8 *)(sntp_server), 30);	
 #endif	
 	STMFLASH_MUL_Read(BASE_WEEKLY_ONOFF,(u8 *)(wr_time_on_off), 576);
-	// read weather
-//	{
-//		char *ptr = &weather;
-//		for(loop1 = 0;loop1 < sizeof(STR_WEATHER);loop1++)   
-//			IntFlashReadByte(BASE_WEATHER + loop1,&ptr[loop1]);
+
+	STMFLASH_MUL_Read(BASE_MSV_DATA,(u8 *)(msv_data), MAX_MSV * STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
+#if ARM_TSTAT_WIFI
+	//TSTAT 10 初始化 多态 用于TSTAT10 界面的默认显示;
+//	Test[11] = msv_data[1][0].msv_value;
+//	Test[12] = msv_data[2][0].msv_value;
+//	if(msv_data[0][0].msv_value == 0xffff)
+//	{Test[15]++;
+//		msv_data[0][0].msv_value = 0;
+//    strcpy(msv_data[0][0].msv_name, "T1");
+//    msv_data[0][1].msv_value = 1;
+//    strcpy(msv_data[0][1].msv_name, "T2");
+//    msv_data[0][2].msv_value = 2;
+//    strcpy(msv_data[0][2].msv_name, "T3");
+//		write_page_en[25] = 1;
 //	}
+	if(msv_data[1][0].msv_value == 0xffff)
+	{
+		msv_data[1][0].status = 1;
+		msv_data[1][0].msv_value = 0;
+    strcpy(msv_data[1][0].msv_name, "Auto");
+		msv_data[1][1].status = 1;
+    msv_data[1][1].msv_value = 1;
+    strcpy(msv_data[1][1].msv_name, "On");
+		msv_data[1][2].status = 1;
+    msv_data[1][2].msv_value = 2;
+    strcpy(msv_data[1][2].msv_name, "Off");
+		write_page_en[25] = 1;
+	}
+	if(msv_data[2][0].msv_value == 0xffff)
+	{
+		msv_data[2][0].status = 1;
+    msv_data[2][0].msv_value = 0;
+    strcpy(msv_data[2][0].msv_name, "Auto");
+		msv_data[2][1].status = 1;
+    msv_data[2][1].msv_value = 1;
+    strcpy(msv_data[2][1].msv_name, "Cool");
+		msv_data[2][2].status = 1;
+    msv_data[2][2].msv_value = 2;
+    strcpy(msv_data[2][2].msv_name, "Heat");
+		write_page_en[25] = 1;
+	}
+#endif
+
 	
+	STMFLASH_MUL_Read(BASE_EMAIL_SETTING,(u8 *)(&Email_Setting),100/*sizeof(Str_Email_point)*/);
+#if (ARM_MINI || ARM_TSTAT_WIFI)	
+	STMFLASH_MUL_Read(BASE_WIFI_SETTING,(u8 *)(&SSID_Info),sizeof(STR_SSID));
+
+	if((SSID_Info.MANUEL_EN == 0xff) && (SSID_Info.IP_Auto_Manual == 0xff))
+	{ // default, clear it to empty
+		memset(&SSID_Info,0,sizeof(STR_SSID));
+	}
+#endif
+	
+	STMFLASH_MUL_Read(BASE_OUT_RELINQUISH, (u8 *)(output_relinquish), 4 * MAX_OUTS);
+
+	for(loop = 0;loop < MAX_OUTS;loop++)
+	{
+		if(output_relinquish[loop] == 0xffff)
+		{
+			output_relinquish[loop] = 0;
+		}
+	}
 }
+
 
 
 void Flash_Read_Code(void)

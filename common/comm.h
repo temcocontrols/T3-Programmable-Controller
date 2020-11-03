@@ -35,13 +35,14 @@ typedef  enum
 	S_HI_SP_FLAG = 0x12,  	/* 0x12 + 6 bytes  */	
 	S_COMM_LED	= 0x13,	/* 0x13 + 2 bytes  */
 	S_ALL = 0x14,	   // 58
+	S_ALL_NEW = 0x15,	   // 58
 
 	G_SWTICH_STATUS = 0x20,	/* 0x20 + 24 bytes */
 	G_INPUT_VALUE = 0x21,	/* 0x21 + 64 bytes */
 	G_SPEED_COUNTER = 0x22, /* 0x22 + 24 bytes */
 	G_TOP_CHIP_INFO	= 0x23,
 	G_ALL = 0x24,	//  88
-
+	G_ALL_NEW = 0x25,
 
 	C_MINITYPE = 0x80,
 	C_ASIX_ISP = 0X81,

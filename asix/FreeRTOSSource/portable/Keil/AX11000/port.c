@@ -297,6 +297,11 @@ void vTimer2ISR( void ) interrupt 10
 	else	
 	{
 		run_time++;
+		if((run_time > 60) && (reboot_counter != 0))
+		{
+			reboot_counter = 0;
+			E2prom_Write_Byte(EEP_REBOOT_COUNTER,0);
+		}
 	//  1 second 
 		if(count_1h > 3600 ) 
 		{  // read clock chip

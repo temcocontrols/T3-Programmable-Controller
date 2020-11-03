@@ -34,7 +34,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 #include "uip.h"
 #endif
 
@@ -291,7 +291,7 @@ BOOL dyndns_AssembleCommandPkt(void)
 
 	// to get the host ip of this device
 	uip_gethostaddr(nAddr);
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 	dyndns_IpAddress[0] = (U8_T)(nAddr[0] % 256);
 	dyndns_IpAddress[1] = (U8_T)(nAddr[0] / 256);
 	dyndns_IpAddress[2] = (U8_T)(nAddr[1] % 256);

@@ -59,6 +59,10 @@ typedef struct
 	U8_T zigbee_exist; // 0 - inexsit, 1 - exist
 	
 	U8_T subnet_protocal; // 0 - modbus, 12 - bip to mstp
+	
+	U8_T  command_version; //65 version number
+  U8_T  subnet_port;  //设备属于哪个端口 1- MainPort      2-ZigbeePort      3-SubPort
+  U8_T  subnet_baudrate;   // 子设备所用baud
 }STR_SCAN_CMD;
 
 

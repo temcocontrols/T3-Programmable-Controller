@@ -238,7 +238,7 @@
               <Ocm1>
                 <Type>0</Type>
                 <StartAddress>0x6020</StartAddress>
-                <Size>0x80000</Size>
+                <Size>0x70000</Size>
               </Ocm1>
               <Ocm2>
                 <Type>0</Type>

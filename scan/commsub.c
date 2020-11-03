@@ -23,7 +23,7 @@ U8_T far uart2_sub_addr[SUB_NO];// _at_ 0x41800;
 
 STR_MAP_table far sub_map[SUB_NO];
 
-S16_T get_net_point_value( Point_Net *p, S32_T *val_ptr , U8_T mode );
+S16_T get_net_point_value( Point_Net *p, S32_T *val_ptr , U8_T mode,U8_T flag );
 
 #if BAC_COMMON
 U16_T far sub_info_AI[SUB_NO][32];
@@ -55,45 +55,30 @@ void Comm_Tstat_Initial_Data(void)
 	else if(Modbus.mini_type == MINI_VAV)	{	base_in = 6;		base_out = 3;	}
 	else if(Modbus.mini_type == MINI_CM5) {	base_in = 24;		base_out = 10;}
 	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)) {	base_in = 8;		base_out = 14;}
-	
+	else if(Modbus.mini_type == MINI_TSTAT10) {base_in = TSTAT10_MAX_AIS;		base_out = TSTAT10_MAX_DOS + TSTAT10_MAX_AOS;}
+	else if(Modbus.mini_type == MINI_T10P) {base_in = T10P_MAX_AIS;		base_out = T10P_MAX_DOS + T10P_MAX_AOS;}
+	else if(Modbus.mini_type == MINI_NANO) {base_in = 0;		base_out = 0;}
 	base_var = 0;
 
 	memset(sub_map,0,sizeof(STR_MAP_table) * SUB_NO);
 //	memset(RP_modbus_tb,0,sizeof(STR_SCAN_TB) * MAXREMOTEPOINTS);
 
 
-#if (ARM_MINI || ASIX_MINI)
-	memset(uart1_sub_addr,0,SUB_NO);
-	memset(uart2_sub_addr,0,SUB_NO);
-	uart1_sub_no = 0;
-	uart2_sub_no = 0; 
-
-#endif
-	memset(uart0_sub_addr,0,SUB_NO);
-//	memset(sub_addr,0,SUB_NO);
-
-//	vSemaphoreCreateBinary(sem_subnet_tx_uart0);
-//	vSemaphoreCreateBinary(sem_subnet_tx_uart1);
-//	vSemaphoreCreateBinary(sem_subnet_tx_uart2);
-
-	sub_no = 0;
-	online_no = 0;
-	uart0_sub_no = 0;
 }
 
 
 
 #if  T3_MAP
 // only MAP T3
-void remap_table(U8_T index,U8_T type,U8_T port)
+void remap_table(U8_T index,U8_T type)
 {
 	Point_Net point;
 	S32_T value;
-	U8_T i;
+	U8_T i,j;
 	U16_T reg;
 
 	if(sub_map[index].add_in_map == 0)
-	{
+	{Test[14 + index]++;
 		if(type == PM_T3IOA)
 		{
 			for(i = 0;i < 8;i++)  // 8 ai
@@ -104,7 +89,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;										
-				get_net_point_value(&point,&value, 0); 				
+				get_net_point_value(&point,&value, 0 , 0); 				
 			}
 			
 			for(i = 0;i < 8;i++)  // 8 ao
@@ -115,7 +100,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;										
-				get_net_point_value(&point,&value ,0 );
+				get_net_point_value(&point,&value ,0 , 0);
 			}
 		
 			sub_map[index].do_len = 0;
@@ -132,7 +117,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value ,0 ); 
+				get_net_point_value(&point,&value ,0, 0 ); 
 				
 			}
 			for(i = 0;i < 13;i++)  // 13 do
@@ -144,7 +129,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
 				
-				get_net_point_value(&point,&value ,0 ); 
+				get_net_point_value(&point,&value ,0, 0 ); 
 			}			
 			
 			sub_map[index].do_len = 13;
@@ -161,7 +146,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value , 0 ); 	
+				get_net_point_value(&point,&value , 0 , 0); 	
 			}
 			for(i = 0;i < 4;i++)  // 4 ao
 			{ 
@@ -171,7 +156,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value , 0 ); 	
+				get_net_point_value(&point,&value , 0 , 0); 	
 			}
 			for(i = 0;i < 10;i++)  // 10 ai
 			{  
@@ -181,7 +166,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value , 0 ); 
+				get_net_point_value(&point,&value , 0 , 0); 
 			}
 			
 			sub_map[index].do_len = 8;
@@ -198,7 +183,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value , 0 ); 	
+				get_net_point_value(&point,&value , 0 , 0); 	
 			}	
 			
 			sub_map[index].do_len = 0;
@@ -216,7 +201,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value , 0); 	
+				get_net_point_value(&point,&value , 0, 0); 	
 			}
 			
 			for(i = 0;i < 7;i++)  // 7 ai
@@ -227,7 +212,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value,0); 
+				get_net_point_value(&point,&value,0, 0); 
 			}
 			
 			sub_map[index].do_len = 7;
@@ -243,7 +228,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value,0 ); 	
+				get_net_point_value(&point,&value,0 , 0); 	
 			}
 			
 			for(i = 0;i < 20;i++)  // 20 ai
@@ -254,7 +239,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value,0 ); 
+				get_net_point_value(&point,&value,0 , 0); 
 			}
 			
 			sub_map[index].do_len = 2;
@@ -271,7 +256,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value,0 ); 	
+				get_net_point_value(&point,&value,0 , 0); 	
 			}	
 			
 			sub_map[index].do_len = 0;
@@ -289,7 +274,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value,0 ); 	
+				get_net_point_value(&point,&value,0 , 0); 	
 			}	
 			
 			sub_map[index].do_len = 0;
@@ -308,7 +293,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value,0 ); 	
+				get_net_point_value(&point,&value,0 , 0); 	
 			}
 			for(i = 0;i < 8;i++)  // 8 ao
 			{ 
@@ -318,7 +303,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value,0 ); 	
+				get_net_point_value(&point,&value,0 , 0); 	
 			}
 			for(i = 0;i < 8;i++)  // 8 ai
 			{  
@@ -329,7 +314,7 @@ void remap_table(U8_T index,U8_T type,U8_T port)
 				point.panel = panel_number;//Modbus.network_ID[port];
 				point.sub_id = scan_db[index].id;
 				point.network_number = 0;//Setting_Info.reg.network_number;	
-				get_net_point_value(&point,&value,0 ); 
+				get_net_point_value(&point,&value,0 , 0); 
 			}
 			
 			sub_map[index].do_len = 6;
@@ -995,8 +980,6 @@ void update_extio_to_database(void)
 	Str_Extio_point * ptr;
 	U8_T j;
 	ptr = &extio_points[1];
-	
-//	clear_scan_db();  // clear whole database
 	// clear T3-expasion io
 	for(i = 0;i < sub_no;i++)
 	{		
@@ -1032,104 +1015,36 @@ void update_extio_to_database(void)
 		if(ptr->reg.product_id == PM_T322AI || ptr->reg.product_id == PM_T38AI8AO6DO
 			|| ptr->reg.product_id == PM_T3PT12)
 		{  // external io must be T3 module
+			// 扩展的IO手动添加时port是有优先顺序的get_baut_by_port(0) uart2>uart0>uart1
 #if (ASIX_MINI || ASIX_CM5)
 			check_id_in_database(ptr->reg.modbus_id,ptr->reg.sn,ptr->reg.port,get_baut_by_port(0),ptr->reg.product_id);
 #else			
 			check_id_in_database(ptr->reg.modbus_id,my_honts_arm(ptr->reg.sn),ptr->reg.port,get_baut_by_port(0),ptr->reg.product_id);
 		
 #endif
+		
 		}
 		
 	}
 	
 	recount_sub_addr();
 	ChangeFlash = 1;
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	write_page_en[TSTAT] = 1;	
 #endif
-
+	Comm_Tstat_Initial_Data();
+	
+	for(i = 0;i < sub_no;i++)
+	{
+		remap_table(i,scan_db[i].product_model);
+	}
 }
-
-//U8_T Get_extio_index_by_id(U8_T id,U8_T *index)
-//{
-//	uint8_t i;
-//	for(i = 0;i < MAX_EXTIO - 1;i++)
-//	{
-//		if(id == extio_points[i].reg.modbus_id)
-//		{
-//			*index = i;
-//			return 1;
-//		}
-//	}
-//	return 0;
-//}
 
 
 
 #endif
 
-U8_T Get_AVx_by_index(uint8_t index,uint8_t *av_index)
-{
-	U8_T i;
-	
-	S8_T ret;
-	
-	ret = Get_Bacnet_Index_by_Number(OBJECT_ANALOG_VALUE,index);
-	if( ret != -1)
-	{
-		*av_index = ret;
-		return 1;
-	}
-	else 
-		return 0;
-}
 
-U8_T Get_BVx_by_index(uint8_t index,uint8_t *bv_index)
-{
-	U8_T i;
-	
-	S8_T ret;
-	
-	ret = Get_Bacnet_Index_by_Number(OBJECT_BINARY_VALUE,index);
-	if( ret != -1)
-	{
-		*bv_index = ret;
-		return 1;
-	}
-	else 
-		return 0;
-}
-U8_T Get_AIx_by_index(uint8_t index,uint8_t *ai_index)
-{
-	U8_T i;
-	
-	S8_T ret;
-	
-	ret = Get_Bacnet_Index_by_Number(OBJECT_ANALOG_INPUT,index);
-	if( ret != -1)
-	{
-		*ai_index = ret;
-		return 1;
-	}
-	else 
-		return 0;
-}
-
-U8_T Get_BIx_by_index(uint8_t index,uint8_t *bi_index)
-{
-	U8_T i;
-	
-	S8_T ret;
-	
-	ret = Get_Bacnet_Index_by_Number(OBJECT_BINARY_INPUT,index);
-	if( ret != -1)
-	{
-		*bi_index = ret;
-		return 1;
-	}
-	else 
-		return 0;
-}
 
 U8_T Get_AOx_by_index(uint8_t index,uint8_t *ao_index)
 {
@@ -1145,22 +1060,7 @@ U8_T Get_AOx_by_index(uint8_t index,uint8_t *ao_index)
 	}
 	else 
 		return 0;
-	
-//	if(index < max_dos) 
-//		return 0;
-//	else if(index < max_dos + max_aos)
-//	{
-//		*ao_index = index - max_dos;
-//		return 1;
-//	}
-//	else // external io
-//	{
-//		i = (index - max_dos - max_aos) / 14;
-//		if(max_aos + i * 8 + (index - max_dos - max_aos) % 14 > MAX_AOS - 1)
-//			return 0;
-//		*ao_index = max_aos + i * 8 + (index - max_dos - max_aos) % 14 - 6;
-//		return 1;
-//	}
+
 }
 
 U8_T Get_BOx_by_index(uint8_t index,uint8_t *bo_index)
@@ -1176,21 +1076,7 @@ U8_T Get_BOx_by_index(uint8_t index,uint8_t *bo_index)
 	}
 	else 
 		return 0;
-//	if(index < max_dos) 
-//	{
-//		*bo_index = index;
-//		return 1;
-//	}
-//	else if(index < max_dos + max_aos)
-//	{
-//		return 0;
-//	}
-//	else // index > internal io
-//	{
-//		i = (index - max_dos - max_aos) / 14;
-//		*bo_index = max_dos + 6 * i +  (index - max_dos - max_aos) % 14;
-//		return 1;
-//	}		
+	
 }
 
 U8_T Get_index_by_AVx(uint8_t av_index,uint8_t *var_index)
@@ -1279,23 +1165,7 @@ U8_T Get_index_by_AOx(uint8_t ao_index,uint8_t *out_index)
 	{
 		return 0;
 	}
-	
-//	if(ao_index < max_aos)
-//	{
-//		*out_index = ao_index + max_dos;
-//		return 1;
-//	}
-//	else
-//	{
-//		//if(ao_index > AOS - 1) return 0;
-//		i = (ao_index - max_aos) / 8 + 1;  // T3-8AO6DO is expasion io. it has 6 DO
-//		if(max_aos + ao_index + 6 * i > MAX_AOS - 1)
-//			return 0;
-//		
-//		*out_index = max_aos + ao_index + 6 * i;  // 8 is AO number of T3-8O
-//		return 1;
-//	}
-	
+
 }
 
 U8_T Get_index_by_BOx(uint8_t do_index,uint8_t *out_index)
@@ -1313,27 +1183,11 @@ U8_T Get_index_by_BOx(uint8_t do_index,uint8_t *out_index)
 	{
 		return 0;
 	}
-	
-//	if(do_index < max_dos)// internal bo
-//	{
-//		*out_index = do_index;
-//		return 1;
-//	}
-//	else // exteranl bo
-//	{//??????????
-//		//if(do_index > BOS - 1) return 0;
-//		i = (do_index - max_dos) / 6;  // T3-8AO6DO is expasion io. it has 6 DO
-//		if(max_dos + do_index + 8 * i > MAX_BOS - 1)
-//			return 0;
-//				
-//		*out_index = max_aos + do_index + 8 * i;  // 8 is DO number of T3-8O
-//		
-//		return 1;
-//	}
+
 }
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 S32_T my_honts_arm(S32_T val)
 {
 	U8_T temp[4];
@@ -1375,7 +1229,10 @@ void refresh_extio_by_database(uint8_t ai_start,uint8_t ai_end,uint8_t out_start
 	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))	{	ptr->reg.input_end = 16;		ptr->reg.output_end = 10;		}
 	else if(Modbus.mini_type == MINI_TINY)	{	ptr->reg.input_end = 11;		ptr->reg.output_end = 8;		}
 	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))	{	ptr->reg.input_end = 8;		ptr->reg.output_end = 14;		}
-	
+	else if(Modbus.mini_type == MINI_NANO)	{	// no I/O
+		ptr->reg.input_start = 0;	
+	ptr->reg.output_start = 0;ptr->reg.input_end = 0;		ptr->reg.output_end = 0;		}
+
 	j = 0;
 	ptr = &extio_points[1];
 	
@@ -1463,7 +1320,7 @@ void push_expansion_out_stack(Str_out_point* ptr,uint8 point,uint8_t type)
 #if T3_MAP
 	// protect ptr->control
 		if(ptr->sub_product == PM_T38AI8AO6DO || ptr->sub_product == PM_T36CTA)
-		{		
+		{	Test[10]++;	
 			if(type == 1)
 			{
 				if(!(ptr->sub_number & 0x80))  // digital output
@@ -1488,17 +1345,19 @@ void push_expansion_out_stack(Str_out_point* ptr,uint8 point,uint8_t type)
 		U16_T reg;
 		U8_T sub_index;
 		U16_T value;
-		if( ptr->digital_analog == 0 )	 // DO
-		{		
+		//if( ptr->digital_analog == 0 )	 // DO
+		if(!(ptr->sub_number & 0x80))  // digital output
+		{	Test[11]++;
 			output_raw[point] = ptr->control ? 1000 : 0;
 			//if(output_raw[point] != output_raw_back[point])
 			{		
 				reg = count_output_reg(&sub_index,MAP_DO,point);
 				
 				if(reg > 0)
-				{	
+				{	Test[12] = reg;
 //					if((sub_map[sub_index].type == PM_T38I13O) || (sub_map[sub_index].type == PM_T34AO)
 //						|| (sub_map[sub_index].type == PM_T38AI8AO6DO))   // T3 1 byte for DO
+					if(!(ptr->sub_number & 0x80))  // digital output
 					{
 						if(output_raw[point] >= 512)
 						{	// tbd: set tstat_type, different tstat have different register list
@@ -1521,12 +1380,12 @@ void push_expansion_out_stack(Str_out_point* ptr,uint8 point,uint8_t type)
 		else  // AO
 		{
 			//output_raw[point] = (float)swap_double(ptr->value) / 10000 * 4095  ;
-			
+			Test[13]++;
 			//if(output_raw[point] != output_raw_back[point])
 			{
 				reg = count_output_reg(&sub_index,MAP_AO,point);
 				if(reg > 0)
-				{	
+				{	Test[14] = reg;
 					if(sub_map[sub_index].type == PM_T34AO)
 					{						
 						write_parameters_to_nodes(WRITE_VARIABLES,scan_db[sub_index].id,reg,(uint16*)&output_raw[point],1);
@@ -1558,7 +1417,7 @@ void push_expansion_in_stack(Str_in_point* ptr)
 }
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 
 #define TSTAT_DAY_SP 		345
 #define TSTAT_NIGHT_SP 	350
@@ -1570,7 +1429,7 @@ void refresh_zone(void)
 	U8_T i,j;
 	UN_ID * ptr;
 	Point_Net point;
-	
+
 	// tbd: add semphore for ID_CONFIG
 	j = 0;
 	ptr = &ID_Config[0];
@@ -1596,7 +1455,7 @@ void refresh_zone(void)
 			point.panel = panel_number;
 			point.sub_id = scan_db[i].id;
 			point.network_number = 0;//Setting_Info.reg.network_number;	
-			if(get_net_point_value(&point,&value,1))  // live time is 20s
+			if(get_net_point_value(&point,&value,1, 0) == 1)  // live time is 20s
 			{
 					ptr->Str.daysetpoint = value / 1000;	
 			}
@@ -1610,7 +1469,7 @@ void refresh_zone(void)
 			point.panel = panel_number;
 			point.sub_id = scan_db[i].id;
 			point.network_number = 0;//Setting_Info.reg.network_number;	
-			if(get_net_point_value(&point,&value,1)) // live time is 20s
+			if(get_net_point_value(&point,&value,1, 0) == 1) // live time is 20s
 			{
 					ptr->Str.nightsetpoint = value / 1000;
 			}
@@ -1624,7 +1483,7 @@ void refresh_zone(void)
 			point.panel = panel_number;
 			point.sub_id = scan_db[i].id;
 			point.network_number = 0;//Setting_Info.reg.network_number;	
-			if(get_net_point_value(&point,&value,1)) // live time is 20s
+			if(get_net_point_value(&point,&value,1, 0) == 1) // live time is 20s
 			{
 					ptr->Str.awaysetpoint = value / 1000;		
 			}
@@ -1638,7 +1497,7 @@ void refresh_zone(void)
 			point.panel = panel_number;
 			point.sub_id = scan_db[i].id;
 			point.network_number = 0;//Setting_Info.reg.network_number;	
-			if(get_net_point_value(&point,&value,1)) // live time is 20s
+			if(get_net_point_value(&point,&value,1, 0) == 1) // live time is 20s
 			{
 					ptr->Str.sleepsetpoint = value / 1000;		
 			}

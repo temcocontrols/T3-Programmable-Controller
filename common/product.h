@@ -3,15 +3,19 @@
 
 #include "types.h"
 
-#define SW_REV	4808
+#define SW_REV	5308
 
-#define ARM_MINI 0
+#define ARM_MINI 1
 #define ARM_CM5  0
-#define ARM_WIFI 0
+#define ARM_TSTAT_WIFI 0
 
-#define ASIX_MINI 1
+#define ASIX_MINI 0
 #define ASIX_CM5  0
 
+#define ARM_TSTAT_WIFI_DEBUG  0
+
+#define HANDLE_REBOOT_FLAG 0  // 如果要编译为1 就是编译给客户一个特殊的 开机关闭 prg 的版本 解决客户编写有问题的 一直重启;
+                              //正常情况下这个值请保持为 0   ;
 //#define ARM 1
 //#define ASIX 0
 
@@ -71,18 +75,35 @@
 #define CM5_MAX_SCS 8
 
 
+#define TSTAT10_MAX_AIS 13
+#define TSTAT10_MAX_DOS 5
+#define TSTAT10_MAX_AOS 4
+#define TSTAT10_MAX_AVS 128
+#define TSTAT10_MAX_DIS 8
+#define TSTAT10_MAX_SCS 8
+
+#define T10P_MAX_AIS 17
+#define T10P_MAX_DOS 5
+#define T10P_MAX_AOS 4
+#define T10P_MAX_AVS 128
+#define T10P_MAX_DIS 8
+#define T10P_MAX_SCS 8
+
+
 #define MINI_CM5  0
 #define MINI_BIG	 1
 #define MINI_SMALL  2
 #define MINI_TINY	 3			// ASIX CORE
 #define MINI_NEW_TINY	 4  // ARM CORE
-
-
 #define MINI_BIG_ARM	 	5
 #define MINI_SMALL_ARM  6
 #define MINI_TINY_ARM		7
+#define MINI_NANO    8
+#define MINI_TSTAT10 9
+#define MINI_T10P	 11
+#define MINI_VAV	 10   // no used
 
-#define MINI_VAV	 10
+#define MAX_MINI_TYPE 11
 
 
 #define STM_TINY_REV 7
@@ -95,6 +116,8 @@
 #if (ASIX_MINI || ASIX_CM5)
 
 //#define TEST_RST_PIN 1
+
+
 
 #define DEBUG_UART1 0
 //#define CHAMBER
@@ -115,18 +138,22 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 #define TIME_SYNC 0 // >1k
 #define REM_CONNECTION 0
 
+#define OUTPUT_DEATMASTER  1
+#define INCLUDE_DNS_CLIENT  1  // 3k
+#define INCLUDE_DHCP_CLIENT 1
+
 #endif
 
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 
-
+#define OUTPUT_DEATMASTER  1
 
 #define SD_BUS_TYPE 0
 #define SPI_BUS_TYPE 1
 
-
+#define REBOOT_PER_WEEK 1
 #define SD_BUS SPI_BUS_TYPE
 
 #define far
@@ -153,21 +180,18 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 
 #if (ARM_MINI || ASIX_MINI )
 
-
-#define INCLUDE_DNS_CLIENT  1  // 3k
-#define INCLUDE_DHCP_CLIENT 1
-
-#define USB_HOST   0   // 9k
-#define USB_DEVICE 0   // > 2k
-#define WEBPAGE 0  // 60k
 #define T3_MAP  1
 #define STORE_TO_SD  1  // > 20k
 #define USER_SYNC 0//1
 
-#define NETWORK_MODBUS 0
 
-#define ARM_UART_DEBUG 0
-#define DEBUG_EN  UART0_TXEN_BIG//UART0_TXEN_TINY
+#define COV   0
+#define SMTP  0
+#define NETWORK_MODBUS 	1
+//#define ETHERNET_DEBUG  1  //网络端口的调试信息 往 192.168.0.38    端口1115打印数据;
+#define ARM_UART_DEBUG 1
+#define DEBUG_EN  UART0_TXEN_BIG 
+//#define DEBUG_EN  UART0_TXEN_TINY  //Tiny 引脚不一样用这个
 
 #define PING  0
 
@@ -175,12 +199,9 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 #endif
 
 #if ARM_CM5
-#define INCLUDE_DNS_CLIENT  1  // 3k
-#define INCLUDE_DHCP_CLIENT 1
 
-#define USB_HOST   0   // 9k
-#define USB_DEVICE 0   // > 2k
-#define WEBPAGE 0  // 60k
+
+
 #define T3_MAP  1
 #define STORE_TO_SD  1  // > 20k
 #define USER_SYNC 0//1
@@ -201,17 +222,12 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 
 #define TIME_SYNC 0
 
-#define WEBPAGE 0//1
 #define T3_MAP  0
-#define USB_HOST 0 
-#define USB_DEVICE 0
 #define STORE_TO_SD  0
 #define ALARM_SYNC  0
 
 
 
-#define INCLUDE_DNS_CLIENT  1
-#define INCLUDE_DHCP_CLIENT 1
 
 #define PING  0
 
@@ -219,7 +235,17 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 #endif
 
 
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI
+
+
+#define SD_BUS_TYPE 0
+#define SPI_BUS_TYPE 1
+
+
+#define SD_BUS SPI_BUS_TYPE
+
+
+#define STORE_TO_SD  1 
 
 #define NETWORK_MODBUS 0
 

@@ -93,7 +93,6 @@ U8_T Send_Network_Scan(void)
 	{
 		
 	}
-	Test[12]++;
 	TCPIP_UdpSend(SYNC_Conns.UdpSocket, 0, 0, SYNC_Buf, 5);
 	
 	return 1;
@@ -221,11 +220,6 @@ U8_T AlarmSync(uint8_t add_delete,uint8_t index,char *mes,uint8_t panel)
 	SYNC_Buf[1] = add_delete;	  // 0 - add , 1 - delete
 	SYNC_Buf[2] = index;
 	SYNC_Buf[3] = panel;
-	
-//	SYNC_Buf[4] = (U8_T)(time_since_1970+timestart);
-//	SYNC_Buf[5] = (U8_T)((time_since_1970+timestart) >> 8);
-//	SYNC_Buf[6] = (U8_T)((time_since_1970+timestart) >> 16);
-//	SYNC_Buf[7] = (U8_T)((time_since_1970+timestart) >> 24);
 
 	if(add_delete == 1) // delete
 		len = 0;

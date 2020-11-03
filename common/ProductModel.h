@@ -72,14 +72,16 @@
 #define PM_TESTER_JIG				202
 
 
-#define STM32_CO2_NET				210
-#define STM32_CO2_RS485				211
-#define STM32_HUM_NET				212
-#define STM32_HUM_RS485				213
-#define STM32_PRESSURE_NET			214
-#define STM32_PRESSURE_RS3485			215
+#define CUSTOMER_PRODUCT 220
 
-#define STM32_CO2_NODE				216			
+#define STM32_CO2_NET						210
+#define STM32_CO2_RS485					211
+#define STM32_HUM_NET						212
+#define STM32_HUM_RS485					213
+#define STM32_PRESSURE_NET			214
+#define STM32_PRESSURE_RS3485		215
+
+#define STM32_CO2_NODE					216			
 
 
 

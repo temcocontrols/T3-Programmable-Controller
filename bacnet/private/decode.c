@@ -6,6 +6,7 @@
 #include "user_data.h"
 #include "alarm.h"
 #include "define.h"
+#include <math.h>
 
 #if BAC_PRIVATE
 
@@ -20,7 +21,7 @@ unsigned long poplong(void);
 
 extern UN_Time Rtc;
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 )
 extern uint8_t flag_start_scan_network;
 extern uint8_t start_scan_network_count;
 extern uint16_t scan_network_bacnet_count;
@@ -54,6 +55,106 @@ S16_T isdelimit(S8_T c)
 }
 
 
+#if 1
+
+/*
+1. float和unsigned long具有相同的数据结构长度
+*/
+
+/*
+将浮点数转化为4个字节数据放在byte
+*/
+		
+
+void Float_to_Byte(float f, unsigned char *mybyte,  unsigned char ntype)
+{
+		unsigned char transfer_byte1[4] = { 0 };
+		FloatLongType fl1;
+
+		fl1.fdata = f;
+    transfer_byte1[3] = (unsigned char)fl1.ldata;
+    transfer_byte1[2] = (unsigned char)(fl1.ldata >> 8);
+    transfer_byte1[1] = (unsigned char)(fl1.ldata >> 16);
+    transfer_byte1[0] = (unsigned char)(fl1.ldata >> 24);
+
+
+    if (ntype == FLOAT_TYPE_ABCD)
+    {
+       mybyte[0] = transfer_byte1[0];
+       mybyte[1] = transfer_byte1[1];
+       mybyte[2] = transfer_byte1[2];
+       mybyte[3] = transfer_byte1[3];
+    }
+    else if (ntype == FLOAT_TYPE_CDAB)
+    {
+        mybyte[2] = transfer_byte1[0];
+        mybyte[3] = transfer_byte1[1];
+        mybyte[0] = transfer_byte1[2];
+        mybyte[1] = transfer_byte1[3];
+    }
+    else if (ntype == FLOAT_TYPE_BADC)
+    {
+         mybyte[1] = transfer_byte1[0];
+         mybyte[0] = transfer_byte1[1];
+         mybyte[3] = transfer_byte1[2];
+         mybyte[2] = transfer_byte1[3];
+    }
+    else if (ntype == FLOAT_TYPE_DCBA)
+    {
+         mybyte[3] = transfer_byte1[0];
+         mybyte[2] = transfer_byte1[1];
+         mybyte[1] = transfer_byte1[2];
+         mybyte[0] = transfer_byte1[3];
+    }
+}
+
+
+/*
+将4个字节byte[4]转化为浮点数存放在f中
+*/
+void Byte_to_Float(float *f, S32_T val_ptr,unsigned char ntype)
+{
+	FloatLongType fl;
+	unsigned char transfer_byte[4] = { 0 };
+    if (ntype == FLOAT_TYPE_DCBA)
+    {
+        transfer_byte[0] = (U8_T)(val_ptr);
+        transfer_byte[1] = (U8_T)(val_ptr >> 8);
+        transfer_byte[2] = (U8_T)(val_ptr >> 16);
+        transfer_byte[3] = (U8_T)(val_ptr >> 24);
+    }
+    else if (ntype == FLOAT_TYPE_BADC)
+    {
+        transfer_byte[0] = (U8_T)(val_ptr >> 16);
+        transfer_byte[1] = (U8_T)(val_ptr >> 24);
+        transfer_byte[2] = (U8_T)(val_ptr);
+        transfer_byte[3] = (U8_T)(val_ptr >> 8);
+    }
+    else if (ntype == FLOAT_TYPE_CDAB)
+    {
+        transfer_byte[0] = (U8_T)(val_ptr >> 8);
+        transfer_byte[1] = (U8_T)(val_ptr);
+        transfer_byte[2] = (U8_T)(val_ptr >> 24);
+        transfer_byte[3] = (U8_T)(val_ptr >> 16);
+    }
+    else if (ntype == FLOAT_TYPE_ABCD)
+    {
+        transfer_byte[0] = (U8_T)(val_ptr >> 24);
+        transfer_byte[1] = (U8_T)(val_ptr >> 16);
+        transfer_byte[2] = (U8_T)(val_ptr >> 8);
+        transfer_byte[3] = (U8_T)(val_ptr);
+    }
+
+    fl.ldata = 0;
+    fl.ldata = (U8_T)transfer_byte[0];
+    fl.ldata = (U16_T)(fl.ldata << 8) | (U8_T)transfer_byte[1];
+    fl.ldata = (U32_T)(fl.ldata << 8) | (U8_T)transfer_byte[2];
+    fl.ldata = (U32_T)(fl.ldata << 8) | (U8_T)transfer_byte[3];
+    *f = fl.fdata;
+}
+
+
+#endif
 
 U16_T convert_pointer_to_word( U8_T *iAddr ) //	 mGetPointWord
 { 
@@ -86,7 +187,7 @@ U32_T convert_pointer_to_double( U8_T *iAddr )	  // DoulbemGetPointWord
 //	return( temp4 | (U16_T)temp3 << 8 | (U32_T)temp2 << 16 |  (U32_T)temp1 << 24);
 //}
 
-
+extern u32 uip_timer;
 S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 {
 	Point p_var;
@@ -105,6 +206,8 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 	S32_T value, v1, v2;
 	U8_T *local;
 	static U16_T temp = 0;
+	
+	u32 t1,t2;
 	// S16_T r_ind_remote;
 //	Program_remote_points /**r_remote,*/ *remote_local_list;
 //	S16_T ind_remote_local_list;
@@ -184,7 +287,8 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 	if(temp >= 2000) 
 	{
 // generate a alarm		
-		generate_program_alarm(current_prg);
+		generate_program_alarm(0,current_prg + 1);
+		return 0;
 	}
 	
 	prog = (U8_T *)prog_code;
@@ -209,10 +313,28 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 //	timeout = 0;
 #if 1
 	temp = 0;
+
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+	t1 = uip_timer;
+#else	// tbd: for asix
+	t1 = (U16_T)SWTIMER_Tick();
+#endif
 	while((*prog != 0xfe) && (temp++ < 2000))
-	{	
-		 lvar = 0;
-		 if(!then_else)
+	{
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)		
+		t2 = uip_timer;		
+		if(t2 - t1 > 100)	// avoid dead cycle		
+		{		
+			return 0;
+		}
+#else
+		t2 = (U16_T)SWTIMER_Tick();
+		//Test[20] = t2 - t1;
+#endif		
+		
+
+		lvar = 0;
+		if(!then_else)
 	 	{	 
 			if (*prog!=0x01)
 			{	
@@ -340,7 +462,7 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 			// added for remote point by chelsa
 			else if(type_var == REMOTE_POINT_PRG)
 			{  
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5)
 			flag_start_scan_network = 1;			
 			start_scan_network_count = 0;
 #endif				
@@ -560,30 +682,6 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 									
 									}
 									
-//								if (cond)         /* test condition*/
-//								{	
-//									memcpy(message, prog, len);									
-//									message[len]=0;
-//									prog += len;
-//									if(just_load)
-//									{
-//										memcpy(prog,&value,4);
-//									}
-//									memcpy(&v1,prog,4);	
-//																
-//									//v1 /= 1000;
-//									
-//									put_timer_value(program_index + 1,3,value,message);
-//									if(check_pro_timer_count(program_index + 1,value,3,1) >= value)
-//									{
-//										i = generatealarm(message, current_prg+1, Station_NUM, VIRTUAL_ALARM, alarm_at_all, ind_alarm_panel, alarm_panel, 0); /*printAlarms=1*/
-//						 	 			if ( i > 0 )    /* new alarm message*/
-//									 	{											
-//										 	alarm_flag = 1;
-//									 	}	
-//										clear_pro_timer(program_index + 1,swap_double(n),3);
-//									}
-//								}
 								prog += 4;
 						 }
 						 break;
@@ -752,8 +850,9 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 	if(temp >= 2000) 
 	{
 // generate a alarm		
-		generate_program_alarm(current_prg);
+		generate_program_alarm(1,current_prg + 1);
 	}
+	
 #endif
 }
 
@@ -764,7 +863,6 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 //	Str_totalizer_point *ptr;
 //	S32_T ctime;
 //	S32_T l;
-//	ctime = time_since_1970+timestart;
 //	ptr = totalizers;
 //	for( i=0; i<MAX_TOTALIZERS; i++, ptr++ )
 //	{
@@ -884,7 +982,7 @@ S32_T veval_exp(U8_T *local)
 							 {
 								for(i=0;i<m-1;i++)
 								 n = (n/1000L)*op1 + (n%1000L)*op1/1000L;
-               				 }
+               }
 							 push(swap_double( n ));
 							 break;
 		case MUL:
@@ -904,6 +1002,15 @@ S32_T veval_exp(U8_T *local)
 							 else
 								 //push( swap_double((op1/op2)*1000L + ((op1%op2)*1000L)/op2 ));
 									push( swap_double((op1/op2)*1000L + ((float)(op1%op2)/op2 *1000L)));
+							 break;
+		case INTDIV:
+								op2 = pop(); op1 = pop();
+							 op1 = swap_double(op1);
+							 op2 = swap_double(op2); 
+							 if(op2==0)
+									push(swap_double(1000L));
+							 else
+									push( swap_double(op1/op2)*1000L);
 							 break;
 		case MOD:
 							 op2 = pop(); op1 = pop();
@@ -1016,9 +1123,11 @@ S32_T veval_exp(U8_T *local)
 */
 							 break;
 		case SQR:
-/*
-							 push((float)sqrt(pop()));
-*/
+							 
+							 op1 = swap_double(pop());
+							 op1 = (float)sqrt(op1 / 1000.0) * 1000;
+							 push(swap_double(op1));
+							 //push((float)sqrt(pop()));		
 							 break;
 		case INT:							 
 							 op1 = swap_double(pop());
@@ -1233,7 +1342,7 @@ S32_T veval_exp(U8_T *local)
 				 op1 = swap_double(op1);
 				 op2 = pop();
 				 op2 = swap_double(op2);
-				 i = op1 / 1000;  
+				 i = op1 / 1000 - 1;  
 				 m = Rtc.Clk.week - 1;
 				 if (m < 0) m = 6;
 			//	 p =(S8_T *)wr_times[(op2/1000)-1][m].time;
@@ -1242,9 +1351,16 @@ S32_T veval_exp(U8_T *local)
 				    i = i * 2;
 				else
 					i = i * 2 + 1;	
-
+				
+				if(((op2 / 1000) <= 0)		||					
+				((i < 0) || (i >= MAX_SCHEDULES_PER_WEEK )) ||
+					(m <= 0))
+				{
+					push(0);
+					break;
+				}
 				value = (S32_T)wr_times[(op2/1000)-1][m - 1].time[i].hours * 3600L + (S32_T)wr_times[(op2/1000)-1][m - 1].time[i].minutes * 60L;
-
+				
 				push(swap_double(value*1000L));				 
 				 
 				 break;
@@ -1277,7 +1393,18 @@ S32_T veval_exp(U8_T *local)
 						 break;
 						}
 */
-		case POWER_LOSS: push(swap_double(0));				 break;
+		case POWER_LOSS: 
+		{
+			static char power_loss = 0;
+			if(power_loss == 0)
+			{
+				power_loss = 1;
+				push(swap_double(1));	
+			}
+			else
+				push(swap_double(0));	
+		}			
+		break;
 		case SCANS:	 push(swap_double(1));  break;  /* nr scanari pe secunda*/						 
 		case SUN:		 push(swap_double(0));						 break;
 		case MON:		 push(swap_double(1000));					 break;
@@ -1299,9 +1426,13 @@ S32_T veval_exp(U8_T *local)
 		case NOV:		 push(swap_double(11000));					 break;
 		case DEC:		 push(swap_double(12000));					 break;
 		case TIME:		// hour * 100 + (60 * min + sec) / 36
-//							value =  Rtc.Clk.hour * 100000L + Rtc.Clk.min * 1000L + Rtc.Clk.sec * 10L;				
-//  						push(swap_double((value)));			
-						value =  3600000L * Rtc.Clk.hour + 60000L * Rtc.Clk.min + 1000L * Rtc.Clk.sec;			
+//						if(Daylight_Saving_Time)  // timezone : +8 ---> 800
+//						{
+//							value =  3600000L * Rtc.Clk.hour + 60000L * Rtc.Clk.min + 1000L * Rtc.Clk.sec;// - (S16_T)timezone * 36000 - 3600000;
+//						}
+//						else
+							value =  3600000L * Rtc.Clk.hour + 60000L * Rtc.Clk.min + 1000L * Rtc.Clk.sec;// - (S16_T)timezone * 36000;
+								
 						push(swap_double(value));
 						break;
 		case USER_A:	 // ethernet
@@ -1364,7 +1495,7 @@ S32_T veval_exp(U8_T *local)
 	if (*prog==0xFF) 	{ prog++;  }
 	temp1 = pop();
 	temp2 = swap_double(temp1);
-
+	
 	return (temp2);
 }
 
@@ -1413,15 +1544,15 @@ S32_T operand(S8_T **buf,U8_T *local)
 			p = prog;
 			prog += sizeof(Point_Net);
 			num = veval_exp(local) / 1000L - 1;
-			get_net_point_value( (Point_Net *)p, &value,0 );
+			get_net_point_value( (Point_Net *)p, &value,0,0 );
 		}
 		else
 		{	// if exist remote point, try to scan network
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 )
 			flag_start_scan_network = 1;
 			start_scan_network_count = 0;
 #endif
-			get_net_point_value( ( (Point_Net *)(++prog) ), &value,0 );
+			get_net_point_value( ( (Point_Net *)(++prog) ), &value,0,0 );
 			prog += sizeof( Point_Net );
 		}	
 	/*	get_remote_point_value(*((Point_Net *)(++prog)), &value, buf);

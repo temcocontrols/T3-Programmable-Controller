@@ -145,6 +145,12 @@ void UdpData(U8_T type)
 	Scan_Infor.BAC_port = Modbus.Bip_port;  // 
 	Scan_Infor.zigbee_exist = zigbee_exist; // 0 - inexsit, 1 - exist
 	
+	Scan_Infor.subnet_protocal = 0;
+	
+	Scan_Infor.command_version = 10;
+	Scan_Infor.subnet_port = 0;
+	Scan_Infor.subnet_baudrate = 0;
+	
 	state = 1;
 	scanstart = 0;
 
@@ -288,7 +294,6 @@ void Check_whether_reiniTCP(void)
 		if(udp_scan_count > 60 * 5) // 5min
 		{
 			udp_scan_count = 0;	
-			Test[10]++;
 //			flag_reintial_tcpip = 1;
 			TCP_IP_Init();
 //			count_reintial_tcpip = 0;
@@ -357,6 +362,12 @@ void GUDPBC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 						Scan_Infor.master_sn[2] = Modbus.serialNum[2];
 						Scan_Infor.master_sn[3] = Modbus.serialNum[3];
 						
+						Scan_Infor.subnet_port = (scan_db[i].port & 0x0f) - 1;
+						Scan_Infor.subnet_baudrate = ((scan_db[i].port & 0xf0) >> 4); 
+						Scan_Infor.instance_low = 0;
+						Scan_Infor.instance_hi = 0;
+						Scan_Infor.subnet_protocal = 1;  // modbus device
+						
 						memcpy(&Scan_Infor.panelname,tstat_name[i],20);
 						
 						{	
@@ -369,26 +380,25 @@ void GUDPBC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 					}
 				}				
 			}
-			
+#if 0			
 			// if id confict, send it to T3000
-			if(conflict_num == 1)
+			for(i = 0;i < index_id_conflict;i++)
 			{
-				if(conflict_product != PRODUCT_MINI_BIG)
-				{
-					Scan_Infor.own_sn[0] = (U16_T)conflict_sn_old  << 8;
-					Scan_Infor.own_sn[1] = (U16_T)(conflict_sn_old >> 8) << 8;
-					Scan_Infor.own_sn[2] = (U16_T)(conflict_sn_old >> 16) << 8;
-					Scan_Infor.own_sn[3] = (U16_T)(conflict_sn_old >> 24) << 8;					
-
-					Scan_Infor.product = (U16_T)conflict_product << 8;
 				
-					Scan_Infor.address = (U16_T)conflict_id << 8;
+					Scan_Infor.own_sn[0] = (U16_T)id_conflict[i].sn_old  << 8;
+					Scan_Infor.own_sn[1] = (U16_T)(id_conflict[i].sn_old >> 8) << 8;
+					Scan_Infor.own_sn[2] = (U16_T)(id_conflict[i].sn_old >> 16) << 8;
+					Scan_Infor.own_sn[3] = (U16_T)(id_conflict[i].sn_old >> 24) << 8;					
+
+					Scan_Infor.product = 0x0800;//(U16_T)conflict_product << 8;
+				
+					Scan_Infor.address = (U16_T)id_conflict[i].id << 8;
 			
 					
-					Scan_Infor.master_sn[0] = Modbus.serialNum[0];
-					Scan_Infor.master_sn[1] = Modbus.serialNum[1];
-					Scan_Infor.master_sn[2] = Modbus.serialNum[2];
-					Scan_Infor.master_sn[3] = Modbus.serialNum[3];
+					Scan_Infor.master_sn[0] = (U16_T)Modbus.serialNum[0] << 8;
+					Scan_Infor.master_sn[1] = (U16_T)Modbus.serialNum[1] << 8;
+					Scan_Infor.master_sn[2] = (U16_T)Modbus.serialNum[2] << 8;
+					Scan_Infor.master_sn[3] = (U16_T)Modbus.serialNum[3] << 8;
 
 				
 				{	
@@ -399,10 +409,10 @@ void GUDPBC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 					}
 				}
 			
-				Scan_Infor.own_sn[0] = (U16_T)conflict_sn_new  << 8;
-				Scan_Infor.own_sn[1] = (U16_T)(conflict_sn_new >> 8) << 8;
-				Scan_Infor.own_sn[2] = (U16_T)(conflict_sn_new >> 16) << 8;
-				Scan_Infor.own_sn[3] = (U16_T)(conflict_sn_new >> 24) << 8;					
+				Scan_Infor.own_sn[0] = (U16_T)id_conflict[i].sn_new  << 8;
+				Scan_Infor.own_sn[1] = (U16_T)(id_conflict[i].sn_new >> 8) << 8;
+				Scan_Infor.own_sn[2] = (U16_T)(id_conflict[i].sn_new >> 16) << 8;
+				Scan_Infor.own_sn[3] = (U16_T)(id_conflict[i].sn_new >> 24) << 8;					
 
 				{	
 //					if(cSemaphoreTake( xSemaphore_tcp_send, ( portTickType ) 10 ) == pdTRUE)
@@ -411,9 +421,9 @@ void GUDPBC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 //						cSemaphoreGive( xSemaphore_tcp_send );
 					}
 				}
-			}
-		}
 			
+		}
+#endif			
 // for MSTP device		
 			for(i = 0;i < remote_panel_num;i++)
 			{	 
@@ -587,7 +597,7 @@ void GUDPBC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 			src.net = 0;
       src.len = 0;		
 			address_add(device_id, 480, &src);
-			add_remote_panel_db(device_id,&src,ptr->panel_number,NULL,0,BAC_IP);
+			add_remote_panel_db(device_id,&src,ptr->panel_number,NULL,0,BAC_IP,1);
 			}
 		}
 #endif

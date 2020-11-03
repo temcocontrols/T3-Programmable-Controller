@@ -28,7 +28,10 @@ typedef struct _SCAN_DATABASE_
 #define	SCAN_BINSEARCH			1
 #define	SCAN_ASSIGN_ID_WITH_SN	2
 
-#define READ_TSTAT_COUNT 60
+#define READ_TSTAT_COUNT 30
+
+#define SCAN_DB_TIME_TO_LIVE  600  // 1min
+
 
 extern U32_T far com_rx[3];
 extern U32_T far com_tx[3];
@@ -41,6 +44,7 @@ extern U8_T far flag_tstat_name[MAX_ID];
 extern U16_T far count_read_tstat_name[MAX_ID];
 extern SCAN_DB far current_db;
 extern SCAN_DB far scan_db[MAX_ID];
+extern S16_T far scan_db_time_to_live[MAX_ID];
 extern U8_T db_ctr;
 extern U8_T db_online[32], db_occupy[32]/*, get_para[32]*/;
 extern U8_T current_online[32];
@@ -78,25 +82,39 @@ typedef struct
 }STR_T3000;
 
 
+typedef struct
+{
+	U8_T  id;
+	U32_T sn_old;
+	U32_T sn_new;
+//	U8_T  num;
+	U8_T  port;
+	U8_T  product;
+	U16_T count;
+}Str_CONFILCT_ID;
 
+#define 	MAX_ID_CONFILCT 	20
+extern Str_CONFILCT_ID far	id_conflict[MAX_ID_CONFILCT];
+extern U8_T index_id_conflict;
 
 //#define MAX_CONFLICT_ID 10
 extern STR_T3000 far T3000_Private;
-extern U8_T far conflict_id;//[MAX_CONFLICT_ID];
-extern U32_T far conflict_sn_old;//[MAX_CONFLICT_ID];
-extern U32_T far conflict_sn_new;//[MAX_CONFLICT_ID];
-extern U8_T far conflict_num;
-extern U8_T far conflict_port;
-extern U8_T far conflict_product;
+//extern U8_T far conflict_id;//[MAX_CONFLICT_ID];
+//extern U32_T far conflict_sn_old;//[MAX_CONFLICT_ID];
+//extern U32_T far conflict_sn_new;//[MAX_CONFLICT_ID];
+//extern U8_T far conflict_num;
+//extern U8_T far conflict_port;
+//extern U8_T far conflict_product;
 
 
 void Record_conflict_ID(U8_T id, U32_T oldsn,U32_T newsn,U8_T port,U8_T product);
 void clear_conflict_id(void);
+void Check_whether_clear_conflict_id(void);
 
 //void check_write_to_nodes(void);
 //void get_parameters_from_nodes(void);
 void write_parameters_to_nodes(U8_T func,U8_T id, U16_T reg, U16_T* value, U8_T len);
-void write_NP_Modbus_to_nodes(U8_T pane,U8_T func,U8_T id, U16_T reg, U16_T value, U8_T len);
+int write_NP_Modbus_to_nodes(U8_T pane,U8_T func,U8_T id, U16_T reg, U16_T value, U8_T len);
 
 void init_scan_db(void);
 //U8_T check_master_id_in_database(U8_T set_id, U8_T increase) reentrant;
@@ -135,5 +153,8 @@ U8_T get_IO_index_by_reg(U16_T reg, U8_T* index);
 U8_T get_baut_by_port(U8_T port);
 U8_T get_baut_by_id(U8_T port,U8_T id);
 void set_baut_by_port(U8_T port,U8_T baut);   // need set real baut
+
+void Check_scan_db_time_to_live(void);
+
 #endif
 

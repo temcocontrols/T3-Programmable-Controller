@@ -56,6 +56,7 @@
 #define K_DOWN 0X4000
 #define K_UP	 0X2000
 #define K_RIGHT 0X1000
+#define K_LEFT_RIGHT 0X9000
 /*enum
 {
   KEY1 = 1,KEY2,KEY3,KEY4,LCD

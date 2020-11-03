@@ -82,7 +82,6 @@ void UART_Init(U8_T port)
 
 	if(port == PORT_RS485_MAIN)  // main 
 	{
-		
 		if(flag_temp_baut[2] == 1)
 		{
 			temp = temp_baut[2];
@@ -142,7 +141,8 @@ void UART_Init(U8_T port)
 	}
 	else if(port == PORT_ZIGBEE)
 	{	
-		if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))  // new arm tiny, dont have zigbee port
+		if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) 
+			|| (Modbus.mini_type == MINI_NANO) )  // new arm tiny, dont have zigbee port
 				return;
 		switch(uart1_baudrate)
 		{

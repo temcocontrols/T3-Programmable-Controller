@@ -428,64 +428,7 @@ void Display_Idle(U8_T index)
 		Display_Clear_Screen();
 		pre_status = index;
 	}
-/*	if(index == 0)
-	{
-		if(count < dis_temp_interval) 
-			count++;
-		else 
-		{
-			count = 0;
-			Lcd_Show_String(0,0,menu_name[dis_temp_seq[i] + 26] ,NORMAL,10);
-			if(Modbus.unit == 0)	
-			{
-				Lcd_Show_String(1,18,"~",NORMAL,3);
-				print_number(temperature[dis_temp_seq[i]], 1);
-			}
-			else//(Modbus_Data.unit == UNIT_F)
-			{
-				Lcd_Show_String(1,18,"|",NORMAL,3);
-				print_number(temperature[dis_temp_seq[i]] * 9 / 5 + 320, 1);
-			}
 
-			if(i < dis_temp_num - 1)			
-				i++;
-			else 
-				i = 0;	
-		
-		}
-
-	}
-
-	else if(index == 1)
-	{
-		Lcd_Show_String(0,5,"CM5 DEMO  ",NORMAL,21);
-		Lcd_Show_String(1,1,"MOD  ",NORMAL,5);	
-		if(DO_SoftSwitch == OFF)
-			Lcd_Show_String(1,5,"OFF  ",NORMAL,5);	//Display_Str(0,4,"OFF ",4);
-		else if(DO_SoftSwitch == ON)
-			Lcd_Show_String(1,5,"ON  ",NORMAL,5);//Display_Str(0,4,"ON  ",4);
-		else if(DO_SoftSwitch == TIMER)
-			Lcd_Show_String(1,5,"TIMER  ",NORMAL,5);//Display_Str(0,4,"TIME",4);
-
-		Lcd_Show_String(2,1,"PRI  ",NORMAL,5); 
-		Lcd_Show_Data (2,6,Priority,0,1);
-		
-		 
-		Lcd_Show_String(3,1,"TIME      :",NORMAL,12); 
-		Lcd_Show_Data (3,6,(Priority * 60 - count_priority) / 60,0,1);
-		Lcd_Show_Data (3,12,(Priority * 60 - count_priority) % 60,0,1);
-	}
-	else if(index == 1) // relay value  
-	{	 
-		
-
-	}
-	else if(index == 2)	 // di input value
-	{
-		Lcd_Show_String(0,1,"DI Input  ",NORMAL,20);
-
-	}
-	else if(index == 3)	 // ip info	*/
 	if(index == 1)
 	{
 		// ip address

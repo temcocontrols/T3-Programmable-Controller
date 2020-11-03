@@ -4,7 +4,7 @@
 
 void Set_Input_Type(uint8_t point)
 {
-#if !(ARM_WIFI)
+#if !(ARM_TSTAT_WIFI)
 		if((Modbus.mini_type == MINI_BIG)  || (Modbus.mini_type == MINI_BIG_ARM)
 		|| (Modbus.mini_type == MINI_SMALL)	|| (Modbus.mini_type == MINI_SMALL_ARM))
 		{
@@ -13,8 +13,9 @@ void Set_Input_Type(uint8_t point)
 				InputLed[point] |= ((input_type[point] - 1) << 4);			
 			else
 				InputLed[point] |= (input_type[point] << 4);
+			
 		}
-	
+	  
 		if((Modbus.mini_type == MINI_TINY && Modbus.hardRev < STM_TINY_REV)|| Modbus.mini_type == MINI_CM5)  
 		{
 #if (ASIX_MINI || ASIX_CM5)	
@@ -52,8 +53,7 @@ uint32_t conver_by_unit_5v(uint32_t sample)
 	
 	if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))	
 	{
-		if(Modbus.hardRev >= 22)  // rev22  use input moudle
-			
+		if(Modbus.hardRev >= 22)  // rev22  use input moudle			
 			return  (5000L * sample ) >> 10;
 		else
 			return  (3000L * sample) >> 10;
@@ -61,9 +61,7 @@ uint32_t conver_by_unit_5v(uint32_t sample)
 	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM)) // rev4  use input moudle
 	{
 		if(Modbus.hardRev >= 4)
-		{
 			return  (5000L * sample ) >> 10;
-		}
 		else
 			return  (3000L * sample ) >> 10;
 	}
@@ -80,7 +78,7 @@ uint32_t conver_by_unit_5v(uint32_t sample)
 	}	
 	else //if(Modbus.mini_type == MINI_CM5) // rev4  use input moudle
 	{
-		sample =  ( 5000L *  sample) >> 10;
+		return ( 5000L *  sample) >> 10;
 	}			
 }
 
@@ -119,9 +117,7 @@ uint32_t conver_by_unit_10v(uint32_t sample)
 }
 
 uint32_t conver_by_unit_custable(uint8_t point,uint32_t sample)
-{	
-	vars[20].value = input_raw[3] * 1000;
-	vars[21].value = input_raw[4] * 1000;
+{		
 	if(input_type[point] == INPUT_V0_5)
 	{
 		if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))	
@@ -184,7 +180,7 @@ uint32_t conver_by_unit_custable(uint8_t point,uint32_t sample)
 		} 
 		else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
 		{
-			return (1000L * sample ) >> 10;	 
+			return (10000L * sample ) >> 10;	 
 		}	
 		else //if(Modbus.mini_type == MINI_CM5)
 		{
@@ -192,9 +188,10 @@ uint32_t conver_by_unit_custable(uint8_t point,uint32_t sample)
 		}
 
 	}
-	else if(input_type[point] == INPUT_THERM)
+	else if(input_type[point] == INPUT_THERM || input_type[point] == INPUT_NOUSED)
 	{
-		return 0;//get_input_value_by_range( inputs[point].range, sample );
+		//Test[25 + point] = get_input_value_by_range( inputs[point].range, sample );
+		return ( 3000L  * sample ) >> 10;//get_input_value_by_range( inputs[point].range, sample );
 	}
 		
 }
@@ -235,6 +232,14 @@ uint8_t get_max_internal_input(void)
 	{
 	  return NEW_TINY_MAX_AIS;
 	}
+	else if(Modbus.mini_type == MINI_TSTAT10)
+	{
+	  return TSTAT10_MAX_AIS;
+	}
+	else if(Modbus.mini_type == MINI_T10P)
+	{
+	  return T10P_MAX_AIS;
+	}
 	return 0;
 }
 
@@ -264,84 +269,167 @@ uint8_t get_max_internal_output(void)
 	{
 	  return NEW_TINY_MAX_AOS + NEW_TINY_MAX_DOS;
 	}
+	else if(Modbus.mini_type == MINI_TSTAT10)
+	{
+		return TSTAT10_MAX_AOS + TSTAT10_MAX_DOS;
+	}
+	else if(Modbus.mini_type == MINI_T10P)
+	{
+		return T10P_MAX_AOS + T10P_MAX_DOS;
+	}
 	return 0;
+}
+
+uint8_t change_value_by_range(U8_T channel)
+{
+#if ARM_TSTAT_WIFI
+		if(Modbus.mini_type == MINI_T10P)
+		{
+			// if no internal temperature sensor, use temperature of humidity
+			if(input_raw[HI_COMMON_CHANNEL] > 1000)
+			{
+				if(channel < HI_COMMON_CHANNEL)  // 12
+					return 1;
+				else
+					return 0;
+			}
+			else
+			{
+				if(channel <= HI_COMMON_CHANNEL)  // 12
+					return 1;
+				else
+					return 0;
+			}
+		}
+		else if(Modbus.mini_type == MINI_TSTAT10)
+		{
+			// if no internal temperature sensor, use temperature of humidity
+			if(input_raw[COMMON_CHANNEL] > 1000)
+			{
+				if(channel < COMMON_CHANNEL)  // 8
+					return 1;
+				else
+					return 0;
+			}
+			else
+			{
+				if(channel <= COMMON_CHANNEL)  // 8
+					return 1;
+				else
+					return 0;
+			}
+		}
+		else
+#endif
+			return 1;
 }
 
 
 uint32_t get_high_spd_counter(uint8_t point)
 {
 	inputs[point].value = swap_double((high_spd_counter[point] + high_spd_counter_tempbuf[point]) * 1000);
+	
 	return (high_spd_counter[point] + high_spd_counter_tempbuf[point]) * 1000;
 }
 
+#if (ARM_MINI || ARM_TSTAT_WIFI)
+void Store_Pulse_Counter(uint8 flag)
+{
+	static u32 old_pulse[HI_COMMON_CHANNEL];
+	char i;
+	if((run_time % 3600 == 0) || (flag == 1))  // 每小时检查一次是否需要保存pulse counter
+	{
+		for(i = 0;i < HI_COMMON_CHANNEL;i++)
+		{
+			if((inputs[i].range == HI_spd_count) || (inputs[i].range == N0_2_32counts)
+					|| (inputs[i].range == RPM))
+			{
+				if(old_pulse[i] != (high_spd_counter[i] + high_spd_counter_tempbuf[i]))
+				{
+					old_pulse[i] = (high_spd_counter[i] + high_spd_counter_tempbuf[i]);
+					write_page_en[1] = 1; // 保存input
+					ChangeFlash = 2;
+				}
+					
+			}
+		}
+	}
+}
+
+void calculate_RPM(void)
+{
+	static u32 old_count[HI_COMMON_CHANNEL];
+	static u32 runtime[HI_COMMON_CHANNEL];
+	static u16 count[HI_COMMON_CHANNEL]; 
+	// 持续输入计数1分钟重新清掉rpm的时间和count
+	char i;
+	char channel;
+	
+	for(i = 0;i < HI_COMMON_CHANNEL;i++)
+	{			
+//		if((inputs[i].range == HI_spd_count) || (inputs[i].range == N0_2_32counts)
+//			|| (inputs[i].range == RPM))
+		if(inputs[i].range == RPM)
+		{
+			if(old_count[i] <= high_spd_counter_tempbuf[i])
+			{	
+				Input_RPM[i] = (high_spd_counter_tempbuf[i] - old_count[i]) * 60L / (run_time - runtime[i]);	
+				
+				if(count[i]++ >= 5)  // 1分钟重新计算
+				{
+					runtime[i] = run_time;	
+					old_count[i] = high_spd_counter_tempbuf[i];
+					count[i] = 0;
+				}	
+			}		
+			else
+			{
+				count[i] = 0;
+				runtime[i] = run_time;	
+				old_count[i] = high_spd_counter_tempbuf[i];
+			}
+		}		
+	}		
+}
+
+
+
+
+uint32_t get_rpm(uint8_t point)
+{	
+		return Input_RPM[point] * 1000;
+}
+
+
+
+void Check_spd_count_led(void)
+{
+	char i;
+	static u32 old_count2[HI_COMMON_CHANNEL];
+	for(i = 0;i < HI_COMMON_CHANNEL;i++)
+	{		
+		if((inputs[i].range == HI_spd_count) 
+			|| (inputs[i].range == N0_2_32counts) 
+			|| (inputs[i].range == RPM))
+		{
+			if(old_count2[i] < high_spd_counter_tempbuf[i])
+			{	
+				flag_count_in[i] = 1;
+				old_count2[i] = high_spd_counter_tempbuf[i];
+			}		
+			else
+			{	
+				flag_count_in[i] = 0;
+			}	
+		}
+	}	
+}
+#endif
 // old io.lib run it
 void map_extern_output(uint8_t point)
 {
 }
 
-//void map_extern_output(uint8_t point)
-//{
-//	U16_T reg;
-//	U8_T sub_index;
-//	U16_T value;
-
-//	
-//#if  T3_MAP
-////	if((outputs[point].sub_product == PM_T38AI8AO6DO) || (outputs[point].sub_product == PM_T322AI))
-////		return;
-////	outputs[point].switch_status = SW_AUTO;
-//	if(point >= get_max_internal_output())
-//	{
-//		if( outputs[point].digital_analog == 0 )	 // DO
-//		{		
-//			
-//			output_raw[point] = outputs[point].control ? 1000 : 0;
-//			if(output_raw[point] != output_raw_back[point])
-//			{		
-//				reg = count_output_reg(&sub_index,MAP_DO,point);
-//				if(reg > 0)
-//				{	
-////					if((sub_map[sub_index].type == PM_T38I13O) || (sub_map[sub_index].type == PM_T34AO)
-////						|| (sub_map[sub_index].type == PM_T38AI8AO6DO))   // T3 1 byte for DO
-//					{
-//						if(output_raw[point] >= 512)
-//						{	// tbd: set tstat_type, different tstat have different register list
-//							// choose 0 for now  	
-//							value = 1;							
-//							write_parameters_to_nodes(WRITE_VARIABLES,scan_db[sub_index].id,reg,(uint16*)&value,1);
-//						}
-//						else if(output_raw[point] == 0)
-//						{	
-//							value = 0;									
-//							write_parameters_to_nodes(WRITE_VARIABLES,scan_db[sub_index].id,reg,(uint16*)&value,1);	
-//						}						
-//					}
-//				}
-//				
-//				output_raw_back[point] = output_raw[point];
-//			} 					
-//		}
-//		else  // AO
-//		{
-//			output_raw[point] = (float)swap_double(outputs[point].value) / 10000 * 4095  ;
-//			if(output_raw[point] != output_raw_back[point])
-//			{
-//				reg = count_output_reg(&sub_index,MAP_AO,point);
-//				if(reg > 0)
-//				{	
-//					if((sub_map[sub_index].type == PM_T34AO) || (sub_map[sub_index].type == PM_T38AI8AO6DO))
-//					{						
-//						write_parameters_to_nodes(WRITE_VARIABLES,scan_db[sub_index].id,reg,(uint16*)&output_raw[point],1);
-//					}
-
-//				}
-//				output_raw_back[point] = output_raw[point];
-//			}
-//		}
-//	}
-//#endif
-//	
-//}
 
 
 S8_T check_external_in_on_line(U8_T index)

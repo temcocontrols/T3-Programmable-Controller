@@ -14,6 +14,7 @@ U8_T far dyndns_enable;
 
 
 STR_SEND_BUF bip_bac_buf;
+STR_SEND_BUF bip_bac_buf2;
 STR_SEND_BUF mstp_bac_buf[10];
 STR_SEND_BUF scan_buf[10];
 
@@ -52,14 +53,12 @@ void tcpip_intial(void)
 		count++;
 		delay_ms(50);
 	}
-
 	// <tcp_type == 2> means DCHP fail
 	if(Modbus.tcp_type == 0 || Modbus.tcp_type == 2)
 	{
 		if(Modbus.tcp_type == 2)
 		{
 			Modbus.tcp_type = 1;
-			Test[43]++;
 		}
 		uip_listen(HTONS(Modbus.tcp_port)); 
 		bip_Init();
@@ -69,12 +68,16 @@ void tcpip_intial(void)
 		dnsserver[1] = (Modbus.getway[3]<<8) + Modbus.getway[2];
 		resolv_init();
 		resolv_conf((u16_t *)dnsserver);
-		resolv_query("newfirmware.com");
-		SNTPC_Init();
+//		resolv_query("newfirmware.com");
+		if(Modbus.en_sntp > 1)  // 0 - no, 1-disable
+			SNTPC_Init();
 //		RM_Init();
-		resolv_query("www.3322.org");
-		resolv_query("www.dyndns.com");
-		resolv_query("www.no-ip.com");	
+		if(Modbus.en_dyndns == 2)
+		{
+			resolv_query("www.3322.org");
+			resolv_query("www.dyndns.com");
+			resolv_query("www.no-ip.com");	
+		}
 	
 	}
 
@@ -85,8 +88,6 @@ void tcpip_intial(void)
 
 
 static u16 count_connect = 0;
-
-void 	watchdog_init(void); 
 
 //u8 myMAC[] = {0x00, 0x0e, 0x00, 0x25, 0x36, 0x64}; 
 void TCPIP_Task( void *pvParameters )
@@ -120,6 +121,7 @@ void TCPIP_Task( void *pvParameters )
 				SoftReset();
 			}			
 		}		
+
 		
 		if(IP_Change)
 		{			
@@ -128,8 +130,7 @@ void TCPIP_Task( void *pvParameters )
 			{
 				count_ip_changed = 0;
 				IP_Change = 0;
-				AT24CXX_WriteOneByte(EEP_APP2BOOT_TYPE, 0x55);
-				SoftReset();
+				QuickSoftReset();
 			}
 		}
 		IWDG_ReloadCounter(); 
@@ -197,13 +198,11 @@ void uip_polling(void)
 		for(i = 0; i < UIP_CONNS; i++)
 		{
 			uip_periodic(i);							//处理TCP通信事件
-			
 	 		//当上面的函数执行后，如果需要发送数据，则全局变量uip_len>0
 			//需要发送的数据在uip_buf, 长度是uip_len (这是2个全局变量)
 	 		if(uip_len > 0)
 			{
 				// response data
-				
 				ether_tx_packet++;
 				flagLED_ether_tx = 1;
 				uip_arp_out();							//加以太网头结构，在主动连接时可能要构造ARP请求
@@ -250,7 +249,7 @@ extern uint8_t PDUBuffer_BIP[MAX_APDU];
 // udp client
 void remove_bip_client_conn(void);
 extern struct uip_udp_conn * bip_send_client_conn;
-
+// for network points
 void UDP_bip_send(void)
 {
 	static u32 t1,t2;
@@ -262,11 +261,10 @@ void UDP_bip_send(void)
 	t1 = uip_timer;
 	if(t1 - t2 >= 100)
 	{
-		if(Send_bip_Flag == 1)  // send
+		if(Send_bip_Flag)  // send
 		{
 			uip_send(bip_bac_buf.buf,bip_bac_buf.len);	
 			Send_bip_Flag = 0;		
-			
 			if(Send_bip_count > 0)
 				Send_bip_count--;
 		}		
@@ -290,7 +288,48 @@ void UDP_bip_send(void)
 		uip_udp_remove(bip_send_conn);
 	}
 	
+}
 
+// for COV
+
+void UDP_bip_send2(void)
+{
+	static u32 t1,t2;
+	uip_ipaddr_t addr;
+//	struct uip_udp_conn *bip_send_conn;
+
+	uint16_t pdu_len = 0;  
+	BACNET_ADDRESS far src; /* source address */
+	t1 = uip_timer;
+	if(t1 - t2 >= 100)
+	{
+		if(Send_bip_Flag2)  // send
+		{
+			uip_send(bip_bac_buf2.buf,bip_bac_buf2.len);	
+			Send_bip_Flag2 = 0;		
+			if(Send_bip_count2 > 0)
+				Send_bip_count2--;
+		}		
+		t2 = uip_timer;
+	}
+	
+	/*if(uip_newdata())
+	{  // receive data
+		bip_Data = PDUBuffer_BIP;
+		memcpy(bip_Data,uip_appdata,uip_len);
+		bip_len = uip_len;
+		uip_ipaddr_copy(addr, uip_udp_conn->ripaddr);
+		bip_send_conn = uip_udp_new(&addr, uip_udp_conn->rport);
+		pdu_len = bip_receive(&src, &PDUBuffer_BIP[0], MAX_APDU,BAC_IP);
+	  {
+			if(pdu_len) 
+			{ 
+				npdu_handler(&src, &PDUBuffer_BIP[0], pdu_len, BAC_IP);	
+			}			
+		}
+		uip_udp_remove(bip_send_conn);
+	}*/
+	
 }
 	
 //int8_t Get_uip_udp_conn_pos(uip_ipaddr_t *lripaddr, u16_t lrport)
@@ -372,13 +411,12 @@ extern u32 response_scan_port;
 void udp_demo_appcall(void)
 {
 // udp server
-	char pos = -1;
-	
-	pos = -1;	
-
+//	char pos = -1;
+//	
+//	pos = -1;	
 	if((uip_udp_conn->lport == HTONS(UDP_SCAN_LPORT)) && (uip_udp_conn->lport != 0))
 	{
-//		pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
+		//		pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
 		Response_Scan_appcall();
 	}
 	
@@ -396,7 +434,12 @@ void udp_demo_appcall(void)
 	case HTONS(UDP_BACNET_LPORT):
 		// get ip and port 
 //		pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
-		UDP_bacnet_APP();
+		if(Send_bip_Flag2)
+		{
+			UDP_bip_send2();
+		}
+		else
+			UDP_bacnet_APP();
 		break;
 	case HTONS(UDP_BIP_SEND_LPORT):
 //		pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
@@ -439,14 +482,6 @@ void udp_demo_appcall(void)
 			break;
 	}
 		
-//	if(pos >= 0)
-//	{
-//		Test[32]++;		
-//		Test[33] = pos;
-//		Test[34] = HTONS(uip_udp_conn->lport);
-//		Test[35] = HTONS(uip_udp_conn->rport);
-//		uip_udp_time_to_live[pos] = 50;
-//	}
 }
 void DynDNS_appcall(void);
 extern U32_T far dyndns_HostIp;
@@ -462,7 +497,9 @@ uint8_t flag_Modbus_Client_Send;
 #define Modbus_STATE_WAIT_RESPONSE		4
 #define Modbus_STATE_UPDATE_OK		5  // added by chelsea
 
-uint8_t Modbus_Client_Command[20];
+
+
+uint8_t Modbus_Client_Command[UIP_CONNS][20];
 uint8_t Modbus_Client_CmdLen;
 uint8_t tcp_client_sta[UIP_CONNS];
 S8_T get_netpoint_index_by_invoke_id_modbus(uint8_t invokeid);
@@ -472,23 +509,29 @@ extern u8_t uip_time_to_live[UIP_CONF_MAX_LISTENPORTS];
 extern int8_t conn_pos;
 
 #if NETWORK_MODBUS
-
+extern xSemaphoreHandle sem_Modbus_Client_Send;
 void Modbus_Client_appcall(struct uip_conn * conn)
 {
 	//struct tcp_demo_appstate *s = (struct tcp_demo_appstate *)&uip_conn->appstate;
 	uint32_t ip;
 	S8_T far network_point_index;	
-
+	char i;
 	memcpy(&ip,conn->ripaddr,4);
 	
 	if(uip_poll()) 
 	{
-		if(flag_Modbus_Client_Send)
-		{
-			flag_Modbus_Client_Send = 0;
-			if(Modbus_Client_Command[0] == (U8_T)(ip >> 24))
-				uip_send(Modbus_Client_Command, Modbus_Client_CmdLen);
-		}
+		//if(flag_Modbus_Client_Send == 0)  Test[25]++;
+		//{
+		//	flag_Modbus_Client_Send = 0;
+			for(i = 0;i < UIP_CONNS;i++)
+			{
+				if(Modbus_Client_Command[i][0] == (U8_T)(ip >> 24))
+				{
+					uip_send(Modbus_Client_Command[i], Modbus_Client_CmdLen);
+					break;				
+				}
+			}	
+		//}
 	}
 	
 	
@@ -515,19 +558,17 @@ void Modbus_Client_appcall(struct uip_conn * conn)
 			U8_T tcp_clinet_buf[20];
 			float val_ptr;
 			// add value
-
+			
 			if(uip_len == 11)  // response read
 			{
-				
 				memcpy(&tcp_clinet_buf, uip_appdata,uip_len);		
 				//invokeid = tcp_clinet_buf[5];
 				network_point_index = get_netpoint_index_by_invoke_id_modbus(tcp_clinet_buf[1]);
-
+				if(network_point_index == -1) return;
 				//if(network_points_list_modbus[network_point_index].point.panel == (U8_T)(ip >> 24) )
 				if((U8_T)(ip >> 24) == tcp_clinet_buf[0])
 				{			
 					val_ptr = tcp_clinet_buf[9] * 256 + tcp_clinet_buf[10];
-
 					if((tcp_clinet_buf[6] == network_points_list_modbus[network_point_index].tb.NT_modbus.id) 
 						&& (network_points_list_modbus[network_point_index].tb.NT_modbus.id != 0)
 						&& (tcp_clinet_buf[7] == (network_points_list_modbus[network_point_index].tb.NT_modbus.func & 0x7f))
@@ -550,20 +591,21 @@ void Modbus_Client_appcall(struct uip_conn * conn)
 			{
 				memcpy(&tcp_clinet_buf, uip_appdata,uip_len);	
 				
-//				network_point_index = get_netpoint_index(ip >> 24,tcp_clinet_buf[6],tcp_clinet_buf[8] * 256 + tcp_clinet_buf[9]);
+				network_point_index = get_netpoint_index_by_invoke_id_modbus(tcp_clinet_buf[1]);
 				
-//				Test[33] = ip >> 24;
-//				Test[34] = tcp_clinet_buf[6];
-//				Test[35] = tcp_clinet_buf[8] * 256 + tcp_clinet_buf[9];
-//				
-//				val_ptr = tcp_clinet_buf[10] * 256 + tcp_clinet_buf[11];
-//				
-//				add_network_point( network_points_list_modbus[network_point_index].point.panel,
-//						network_points_list_modbus[network_point_index].point.sub_id,
-//						network_points_list_modbus[network_point_index].point.point_type - 1,
-//						network_points_list_modbus[network_point_index].point.number + 1,
-//						val_ptr * 1000,
-//						0);
+				if(network_point_index == -1) return;
+				
+				if((U8_T)(ip >> 24) == tcp_clinet_buf[0])
+				{
+					val_ptr = tcp_clinet_buf[10] * 256 + tcp_clinet_buf[11];
+					
+					add_network_point( network_points_list_modbus[network_point_index].point.panel,
+							network_points_list_modbus[network_point_index].point.sub_id,
+							network_points_list_modbus[network_point_index].point.point_type - 1,
+							network_points_list_modbus[network_point_index].point.number + 1,
+							val_ptr * 1000,
+					0);
+				}			
 						
 			}
 	}
@@ -606,6 +648,42 @@ void tcp_appcall(void)
 				uip_time_to_live[pos] = 20;
 		}
 	}
+	
+#if SMTP	
+	// add SMTP
+	// tcp client
+	if(uip_conn->rport == HTONS(SMTP_SERVER_PORT))
+	{
+		uip_ipaddr(&addr,(U8_T)(smtpc_Conns.ServerIp >> 24), (U8_T)(smtpc_Conns.ServerIp >> 16), (U8_T)(smtpc_Conns.ServerIp >> 8), (U8_T)(smtpc_Conns.ServerIp));	
+		if(uip_ipaddr_cmp(&addr,uip_conn->ripaddr))
+		{
+			
+		}
+		
+		SMTPC_appcall();
+//		if(pos >= 0)
+//		{
+//			if(uip_newdata())
+//				uip_time_to_live[pos] = 20;
+//		}
+		
+		
+	}
+#endif
+	
+	#ifdef ETHERNET_DEBUG
+	if(uip_conn->rport == HTONS(1115))
+	{
+		uip_ipaddr(&addr,(U8_T)(192), (U8_T)(168), (U8_T)(0), (U8_T)(38));	
+		if(uip_ipaddr_cmp(&addr,uip_conn->ripaddr))
+		{
+			
+		}
+		EthernetDebug_appcall();
+	}
+	#endif
+	
+	
 #if NETWORK_MODBUS
 
 	if(uip_conn->rport == HTONS(502))
@@ -631,13 +709,18 @@ void dhcpc_configured(const struct dhcpc_state *s)
 	uip_setdraddr(s->default_router);
 	resolv_init();
 	resolv_conf((u16_t *)s->dnsaddr);
-	resolv_query("newfirmware.com");
+//	resolv_query("newfirmware.com");
+	Test[32]++;
 	uip_listen(HTONS(Modbus.tcp_port)); 
-	SNTPC_Init();
+	if(Modbus.en_sntp > 1)
+		SNTPC_Init();
 //	RM_Init();
-	resolv_query("www.3322.org");
-	resolv_query("www.dyndns.com");
-	resolv_query("www.no-ip.com");	
+	if(Modbus.en_dyndns == 2)
+	{
+		resolv_query("www.3322.org");
+		resolv_query("www.dyndns.com");
+		resolv_query("www.no-ip.com");
+	}		
 	
 	if(memcmp(Modbus.ip_addr,uip_hostaddr,4) && !((uip_ipaddr1(uip_hostaddr) == 0) && (uip_ipaddr2(uip_hostaddr) == 0) \
 	&& (uip_ipaddr3(uip_hostaddr)== 0) && (uip_ipaddr4(uip_hostaddr) == 0)))

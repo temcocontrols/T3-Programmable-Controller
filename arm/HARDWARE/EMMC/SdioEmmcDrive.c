@@ -37,7 +37,8 @@
 #include "main.h"
 #include "delay.h"
 
-#if (SD_BUS == SD_BUS_TYPE)
+
+#if 0//(SD_BUS == SD_BUS_TYPE)
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -521,7 +522,6 @@ EmmcError EmmcInitializeCards(EmmcCardInfo *E)
 		if (SDIO_GetPowerState() == SDIO_PowerState_OFF)
 		{
 			Result = EMMC_REQUEST_NOT_APPLICABLE;
-			Test[10] = 1;
 			return(Result);
 		}
 
@@ -536,7 +536,7 @@ EmmcError EmmcInitializeCards(EmmcCardInfo *E)
 		Result = CmdResp2Error();
 
 		if (EMMC_OK != Result)
-		{Test[10] = 2;
+		{
 			return(Result);
 		}
 // get CID after send CMD2
@@ -565,7 +565,7 @@ EmmcError EmmcInitializeCards(EmmcCardInfo *E)
 		printf("\r\n CMD3 %u \r\n",Result);
 #endif
     if (EMMC_OK != Result)
-    {Test[10] = 3;
+    {
       return(Result);
     }
     /*!< Send CMD9 SEND_CSD with argument as card's RCA */
@@ -579,7 +579,7 @@ EmmcError EmmcInitializeCards(EmmcCardInfo *E)
     Result = CmdResp2Error();
 
     if (EMMC_OK != Result)
-    {Test[10] = 4;
+    {
       return(Result);
     }
     CSD_Tab[0] = SDIO_GetResponse(SDIO_RESP1);
@@ -598,23 +598,22 @@ EmmcError EmmcInitializeCards(EmmcCardInfo *E)
 //	printf("\r\n EmmcSelectDeselect %u \r\n",Result);
 //#endif
 	if (EMMC_OK != Result)
-	{Test[10] = 5;
+	{
 		return(Result);
 	}
 
 	Result = EmmcReadExtCsd(&MyEmmcCardInfo);
 
 	if (EMMC_OK != Result)
-	{Test[10] = 6;
+	{
 		return(Result);
 	}
   Result = EmmcGetCardInfo(E, &CSD_Tab[0], &CID_Tab[0], Rca);
 
 	if (EMMC_OK != Result)
-	{Test[10] = 7;
+	{
 		return(Result);
 	}
-	Test[10] = 8;
   Result = EMMC_OK; /*!< All cards get intialized */
   return(Result);
 }
@@ -1095,7 +1094,7 @@ EmmcError EmmcReadBlock(INT8U *readbuff, INT32U ReadAddr, INT16U BlockSize)
     tempbuff++;
     count--;
   }
-Test[10] = 6;  
+ 
   /*!< Clear all the static flags */
   SDIO_ClearFlag(SDIO_STATIC_FLAGS);
 #endif

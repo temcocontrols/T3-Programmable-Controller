@@ -36,14 +36,18 @@
 //#define IIC_WP_TINY		PDout(10) // tiny
 #endif
 
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI
 #define SDA_IN()	{GPIOA->CRL &= 0XFFFFF0FF; GPIOA->CRL |= ((u32)8 << 8);}  // A2
 #define SDA_OUT()	{GPIOA->CRL &= 0XFFFFF0FF; GPIOA->CRL |= ((u32)3 << 8);}
+
+#define SCL_IN()	{GPIOA->CRL &= 0XFFFF0FFF; GPIOA->CRL |= ((u32)8 << 12);}  // A3
+#define SCL_OUT()	{GPIOA->CRL &= 0XFFFF0FFF; GPIOA->CRL |= ((u32)3 << 12);}
 
 //IO操作函数	 
 #define IIC_SCL		PAout(3)	//SCL
 #define IIC_SDA		PAout(2)	//SDA	 
 #define READ_SDA	PAin(2)		//输入SDA 
+#define READ_SCL	PAin(3)		// SCL input
 #define IIC_WP		PCout(5) // big
 
 #endif
@@ -56,7 +60,6 @@ void IIC_Stop(void);				//发送IIC停止信号
 void IIC_Send_Byte(u8 txd);			//IIC发送一个字节
 u8 IIC_Read_Byte(unsigned char ack);//IIC读取一个字节
 u8 IIC_Wait_Ack(void);				//IIC等待ACK信号
-u8 IIC_Wait_Ack1(void);
 void IIC_Ack(void);					//IIC发送ACK信号
 void IIC_NAck(void);				//IIC不发送ACK信号
 

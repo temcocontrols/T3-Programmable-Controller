@@ -22,14 +22,14 @@ void IIC_Init(void)
 	GPIO_SetBits(GPIOA, GPIO_Pin_8 | GPIO_Pin_15);	
 #endif
 	
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);//使能GPIOB时钟
 
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_2;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
-	GPIO_SetBits(GPIOA, GPIO_Pin_2 | GPIO_Pin_2);	
+	GPIO_SetBits(GPIOA, GPIO_Pin_2 | GPIO_Pin_3);	
 #endif
 }
 
@@ -58,6 +58,7 @@ void IIC_Stop(void)
 	delay_us(4);							   	
 }
 
+#if !(ARM_TSTAT_WIFI )	
 //等待应答信号到来
 //返回值：1，接收应答失败
 //        0，接收应答成功
@@ -76,7 +77,7 @@ u8 IIC_Wait_Ack(void)
 		if (READ_SDA == 0){
 	// if data line is low, pulse the clock.
 			delay_us(5);
-			
+		
 		return 0;
 		}		
 	}
@@ -84,54 +85,33 @@ u8 IIC_Wait_Ack(void)
 	return 1;
 }
 
-u8 IIC_Wait_Ack1(void)
+#else
+
+// for TSTAT10 humidity
+u8 IIC_Wait_Ack(void)
 {
-	u8 i;
-	IIC_SCL=1;
-	delay_us(2);
-	IIC_SCL=0;
-	SDA_OUT();
+	u8 ucErrTime = 0;
+	SDA_IN();		//SDA设置为输入    
 	IIC_SDA = 1;
-	delay_us(2);
-	IIC_SDA = 0;
-	delay_us(1);
+	delay_us(1);	   
 	IIC_SCL = 1;
-	IIC_SDA = 1;
-	delay_us(10);
-//	for (i=0; i<100; i++)
-//	{
-//		SDA_IN();
-//		if (READ_SDA == 1){
-//	// if data line is low, pulse the clock.
-//			delay_us(10);
-//		return 0;
-//		}		
-//	}
-//	IIC_SCL=1;
-	
-	return 1;
+	delay_us(1);	 
+	while(READ_SDA)
+	{
+		ucErrTime++;
+		if(ucErrTime > 250)
+		{
+			IIC_Stop();
+			return 1;
+		}
+	}
+	IIC_SCL = 0;	//时钟输出0 	   
+	return 0; 
 }
-//u8 IIC_Wait_Ack(void)
-//{
-//	u8 ucErrTime = 0;
-//	SDA_IN();		//SDA设置为输入  
-//	IIC_SDA = 1;
-//	delay_us(1);	   
-//	IIC_SCL = 1;
-//	delay_us(1);	 
-//	while(READ_SDA)
-//	{
-//		ucErrTime++;
-//		if(ucErrTime > 250)
-//		{
-//			IIC_Stop();
-//			return 1;
-//		}
-//	}
-//	IIC_SCL = 0;	//时钟输出0 	   
-//	return 0;  
-//}
-// 
+
+#endif
+
+ 
 
  
 

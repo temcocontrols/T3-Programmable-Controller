@@ -2,7 +2,7 @@
 #define __SDIO_SDCARD_H
 																		   
 #include "bitmap.h"
-#if 0
+#if 1
 /* Exported types ------------------------------------------------------------*/
 typedef enum
 {

@@ -721,7 +721,7 @@ U16_T Auto_Calibration_AO(U8_T channel,U16_T adc)
 				E2prom_Write_Byte(EEP_OUT_1V + output_raw[base + channel] / 100 - 1,adc / 10);
 #endif
 				
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 				E2prom_Write_Byte(EEP_OUT_1V + (output_raw[base + channel] / 100 - 1) * 2,adc / 256);
 				E2prom_Write_Byte(EEP_OUT_1V + (output_raw[base + channel] / 100 - 1) * 2 + 1,adc % 256);
 #endif
@@ -1004,7 +1004,7 @@ void Calucation_PWM_IO(U8_T refresh_index)
 
 #endif		
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)		
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )		
 		TIM_SetCompare3(TIM3, duty_Cycle1);
 		TIM_SetCompare4(TIM3, duty_Cycle2);
 #endif
@@ -1060,7 +1060,7 @@ void Calucation_PWM_IO(U8_T refresh_index)
 		PCA_ModuleSetup(PCA_MODULE1,PCA_8BIT_PWM,PCA_CCF_ENB,(U16_T)temp1);	
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 		if(refresh_index == 0)		
 			TIM_SetCompare3(TIM3, duty_Cycle1);			
 		else if(refresh_index == 1)
@@ -1087,8 +1087,7 @@ void Calucation_PWM_IO(U8_T refresh_index)
 			{
 				adc1 = output_raw[refresh_index + 4];
 				if(flag_output == ADJUST_AUTO)
-				{
-					
+				{					
 				 adc1 = Auto_Calibration_AO(refresh_index,AO_auto[refresh_index + 4]);
 				 AO_auto[refresh_index + 4] = adc1;
 				}
@@ -1312,7 +1311,8 @@ void Refresh_Output(void)
 				temp1.word = relay_value_auto;
 				
 				for(i = 0;i < 12;i++)
-				{					
+				{			
+						
 						if(outputs[i].digital_analog == 0)  // digital
 						{
 							if(output_raw[i] >= 512)						
@@ -1340,7 +1340,7 @@ void Refresh_Output(void)
 						}
 											
 				}			
-
+					
 				
 				if(temp1.byte[0] != relay_value.byte[0])
 				{
@@ -1611,9 +1611,9 @@ void Refresh_Output(void)
 					relay_value.word = temp1.word;
 					flag_DO_changed = 1;
 					DO_change_count = 0;
-	#if ASIX_MINI
+#if ASIX_MINI
 					push_cmd_to_picstack(SET_RELAY_LOW,relay_value.byte[1]); 
-	#endif	
+#endif	
 				}
 				
 				if(flag_DO_changed) 
@@ -1624,9 +1624,9 @@ void Refresh_Output(void)
 						flag_DO_changed = 0;
 						DO_change_count = 0;
 					
-	#if ASIX_MINI
+#if ASIX_MINI
 						push_cmd_to_picstack(SET_RELAY_LOW,relay_value.byte[1]); 
-	#endif	
+#endif	
 					}
 				}
 				
@@ -1685,29 +1685,29 @@ void Refresh_Output(void)
 //						else if (outputs[i].switch_status == SW_HAND )	
 //							temp1.word |= (BIT0 << i);
 					}
-	//			}		
-				
-	//						// check 4 AO, whether analog output is changed
-	//			for(i = 0;i < 8;i++)
-	//			{
-	//				if(output_raw[i + 6] != output_raw_back[i + 6])
-	//				{				
-	//					output_raw_back[i + 6] = output_raw[i + 6];
-	//					AO_auto[i + 6] = conver_ADC(output_raw[i + 6]);
-	//					flag_output_changed |= (0x01 << i);
-	//					AO_auto_count[i] = 0;
-	//					
-	//				}
+//			}		
+			
+//						// check 4 AO, whether analog output is changed
+//			for(i = 0;i < 8;i++)
+//			{
+//				if(output_raw[i + 6] != output_raw_back[i + 6])
+//				{				
+//					output_raw_back[i + 6] = output_raw[i + 6];
+//					AO_auto[i + 6] = conver_ADC(output_raw[i + 6]);
+//					flag_output_changed |= (0x01 << i);
+//					AO_auto_count[i] = 0;
+//					
+//				}
 
-	//				if(AO_auto_count[i] > 20)
-	//					// generate alarm
-	//				{
-	//					AO_auto_count[i] = 0;
-	//					flag_output = 0;					
-	//	// generate a alarm
-	//					generate_common_alarm(ALARM_AO_FB);
-	//				}
-	//			}	
+//				if(AO_auto_count[i] > 20)
+//					// generate alarm
+//				{
+//					AO_auto_count[i] = 0;
+//					flag_output = 0;					
+//	// generate a alarm
+//					generate_common_alarm(ALARM_AO_FB);
+//				}
+//			}	
 				
 				
 				if(temp1.word != relay_value.word)
@@ -1722,10 +1722,16 @@ void Refresh_Output(void)
 					if(relay_value.byte[0] & 0x08) 					TB_REALY4 = 1;				else					TB_REALY4 = 0;
 					if(relay_value.byte[0] & 0x10) 					TB_REALY5 = 1;				else					TB_REALY5 = 0;
 					if(relay_value.byte[0] & 0x20) 					TB_REALY6 = 1;				else					TB_REALY6 = 0;
-					if(relay_value.byte[0] & 0x40) 					TB_REALY7 = 1;				else					TB_REALY7 = 0;
-					if(relay_value.byte[0] & 0x80) 					TB_REALY8 = 1;				else			 		TB_REALY8 = 0;
-				}			
-			
+					if(outputs[6].digital_analog == 0)
+					{
+						if(relay_value.byte[0] & 0x40) 					TB_REALY7 = 1;				else					TB_REALY7 = 0;
+					}
+					if(outputs[7].digital_analog == 0)
+					{
+						if(relay_value.byte[0] & 0x80) 					TB_REALY8 = 1;				else			 		TB_REALY8 = 0;
+					}			
+				}
+				
 				if(flag_DO_changed) 
 				{
 					DO_change_count++;
@@ -1740,10 +1746,11 @@ void Refresh_Output(void)
 						if(relay_value.byte[0] & 0x08) 					TB_REALY4 = 1;				else					TB_REALY4 = 0;
 						if(relay_value.byte[0] & 0x10) 					TB_REALY5 = 1;				else					TB_REALY5 = 0;
 						if(relay_value.byte[0] & 0x20) 					TB_REALY6 = 1;				else					TB_REALY6 = 0;
-						if(relay_value.byte[0] & 0x40) 					TB_REALY7 = 1;				else					TB_REALY7 = 0;
-						if(relay_value.byte[0] & 0x80) 			  	TB_REALY8 = 1;				else					TB_REALY8 = 0;	
+						if(outputs[6].digital_analog == 0) {if(relay_value.byte[0] & 0x40) 					TB_REALY7 = 1;				else					TB_REALY7 = 0;}
+						if(outputs[7].digital_analog == 0) {if(relay_value.byte[0] & 0x80) 			  	TB_REALY8 = 1;				else					TB_REALY8 = 0;	}
 					}
 				}
+				
 				Calucation_PWM_IO(AnalogOutput_refresh_index);	
 								
 				if(AnalogOutput_refresh_index < 6)	  

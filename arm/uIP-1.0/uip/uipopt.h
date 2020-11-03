@@ -203,7 +203,7 @@
 #ifdef UIP_CONF_UDP_CONNS
 #define UIP_UDP_CONNS UIP_CONF_UDP_CONNS
 #else /* UIP_CONF_UDP_CONNS */
-#define UIP_UDP_CONNS    10
+#define UIP_UDP_CONNS    10//20
 #endif /* UIP_CONF_UDP_CONNS */
 
 /**

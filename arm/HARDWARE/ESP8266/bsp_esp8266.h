@@ -4,7 +4,7 @@
 
 
 #include "stm32f10x.h"
-//#include "common.h"
+#include "product.h"
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -70,15 +70,30 @@ extern struct  STRUCT_USARTx_Fram                                  //´®¿ÚÊý¾ÝÖ¡µ
 
 
 /******************************** ESP8266 Á¬½ÓÒý½Å¶¨Òå ***********************************/
-#define      macESP8266_CH_PD_APBxClock_FUN                   RCC_APB2PeriphClockCmd
-#define      macESP8266_CH_PD_CLK                             RCC_APB2Periph_GPIOG  
-#define      macESP8266_CH_PD_PORT                            GPIOG
-#define      macESP8266_CH_PD_PIN                             GPIO_Pin_13
+// always enable it
+//#define      macESP8266_CH_PD_APBxClock_FUN                   RCC_APB2PeriphClockCmd
+//#define      macESP8266_CH_PD_CLK                             RCC_APB2Periph_GPIOG  
+//#define      macESP8266_CH_PD_PORT                            GPIOG
+//#define      macESP8266_CH_PD_PIN                             GPIO_Pin_13
 
+#if ARM_TSTAT_WIFI
 #define      macESP8266_RST_APBxClock_FUN                     RCC_APB2PeriphClockCmd
 #define      macESP8266_RST_CLK                               RCC_APB2Periph_GPIOD
 #define      macESP8266_RST_PORT                              GPIOD
 #define      macESP8266_RST_PIN                               GPIO_Pin_2
+#endif
+
+#if ARM_MINI
+#define      macESP8266_RST_APBxClock_FUN                     RCC_APB2PeriphClockCmd
+#define      macESP8266_RST_CLK                               RCC_APB2Periph_GPIOG
+#define      macESP8266_RST_PORT                              GPIOG
+#define      macESP8266_RST_PIN                               GPIO_Pin_12
+
+#define      macESP8266_RST_CLK_TINY                               RCC_APB2Periph_GPIOC
+#define      macESP8266_RST_PORT_TINY                              GPIOC
+#define      macESP8266_RST_PIN_TINY                               GPIO_Pin_9
+
+#endif
 
  
 
@@ -103,13 +118,17 @@ extern struct  STRUCT_USARTx_Fram                                  //´®¿ÚÊý¾ÝÖ¡µ
 #define     macPC_Usart( fmt, ... )                printf ( fmt, ##__VA_ARGS__ )
 //#define     macPC_Usart( fmt, ... )                
 
-#define     macESP8266_CH_ENABLE()                 GPIO_SetBits ( macESP8266_CH_PD_PORT, macESP8266_CH_PD_PIN )
-#define     macESP8266_CH_DISABLE()                GPIO_ResetBits ( macESP8266_CH_PD_PORT, macESP8266_CH_PD_PIN )
+//#define     macESP8266_CH_ENABLE()                 GPIO_SetBits ( macESP8266_CH_PD_PORT, macESP8266_CH_PD_PIN )
+//#define     macESP8266_CH_DISABLE()                GPIO_ResetBits ( macESP8266_CH_PD_PORT, macESP8266_CH_PD_PIN )
 
 #define     macESP8266_RST_HIGH_LEVEL()            GPIO_SetBits ( macESP8266_RST_PORT, macESP8266_RST_PIN )
 #define     macESP8266_RST_LOW_LEVEL()             GPIO_ResetBits ( macESP8266_RST_PORT, macESP8266_RST_PIN )
 
+#define     macESP8266_RST_HIGH_LEVEL_TINY()            GPIO_SetBits ( macESP8266_RST_PORT_TINY, macESP8266_RST_PIN_TINY )
+#define     macESP8266_RST_LOW_LEVEL_TINY()             GPIO_ResetBits ( macESP8266_RST_PORT_TINY, macESP8266_RST_PIN_TINY )
 
+#define     macESP8266_RST_HIGH_LEVEL_BB()            GPIO_SetBits ( macESP8266_RST_PORT_BB, macESP8266_RST_PIN_BB )
+#define     macESP8266_RST_LOW_LEVEL_BB()             GPIO_ResetBits ( macESP8266_RST_PORT_BB, macESP8266_RST_PIN_BB )
 
 /****************************************** ESP8266 º¯ÊýÉùÃ÷ ***********************************************/
 void                     ESP8266_Init                        ( void );
@@ -125,14 +144,21 @@ bool                     ESP8266_StartOrShutServer           ( FunctionalState e
 uint8_t                  ESP8266_Get_LinkStatus              ( void );
 uint8_t                  ESP8266_Get_IdLinkStatus            ( void );
 //uint8_t                  ESP8266_Inquire_ApIp                ( uint8_t * pApIp, uint8_t ucArrayLength );
-uint8_t ESP8266_Inquire_ApIp ( uint8_t * pApIp, uint8_t * pStaIp,uint8_t ucArrayLength );
+uint8_t ESP8266_Inquire_ApIp ( /*uint8_t * pApIp,*/ uint8_t * pStaIp,uint8_t ucArrayLength );
 bool                     ESP8266_UnvarnishSend               ( void );
 void                     ESP8266_ExitUnvarnishSend           ( void );
 bool                     ESP8266_SendString                  ( FunctionalState enumEnUnvarnishTx, uint8_t * pStr, u32 ulStrLength, ENUM_ID_NO_TypeDef ucId );
 uint8_t *                ESP8266_ReceiveString               ( FunctionalState enumEnUnvarnishTx );
+bool ESP8266_CWDHCP_DET(uint8 mode,uint8 en);
 
 bool ESP8266_Link_UDP( char * ip, uint16_t remoteport, uint16_t localport, uint8_t udpmode,ENUM_ID_NO_TypeDef id);
 
+bool ESP8266_CIPSTA_DEF (void);
+bool ESP8266_JoinAP_DEF( char * pSSID, char * pPassWord );
+
+uint8_t ESP8266_CIPSTA_CUR(char type);
+uint8_t ESP8266_Set_MAC(uint8_t * pStamac);
+uint8_t ESP8266_Get_MAC(uint8_t * pStamac);
 
 #endif
 

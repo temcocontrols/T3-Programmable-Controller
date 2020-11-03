@@ -46,7 +46,7 @@ static U8_T by_shake_Count = 0;
 xTaskHandle xKeyTask;
 xQueueHandle xKeyQueue;
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 
 // ARM_CM5
 #if ARM_CM5
@@ -56,7 +56,7 @@ xQueueHandle xKeyQueue;
 #define  KEY_UP 		 PEin(15)
 #endif
 
-//#if ARM_WIFI
+//#if ARM_TSTAT_WIFI
 //#define  KEY_PRO 	   PAin(12)
 //#define  KEY_SEL 	   PAin(13)
 //#define  KEY_DOWN 	 PAin(14)
@@ -76,7 +76,7 @@ void KEY_IO_config(void)
 	GPIO_Init(GPIOE,&GPIO_InitStructure);
 #endif
 	
-#if ARM_WIFI
+#if ARM_TSTAT_WIFI
 	GPIO_InitTypeDef GPIO_InitStructure;
 	
 	RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOA, ENABLE);
@@ -146,7 +146,7 @@ void vStartKeyTasks( unsigned char uxPriority)
 
 
 
-#if ! ARM_WIFI
+#if ! ARM_TSTAT_WIFI
 void Key_Process(void) reentrant
 {
 	U8_T by_Dat = K_NONE;
@@ -154,7 +154,7 @@ void Key_Process(void) reentrant
 	U8_T by_Key_Buffer = 0;
 	portTickType xDelayPeriod = ( portTickType ) 50 / portTICK_RATE_MS;	  
 //	portTickType xLastWakeTime = xTaskGetTickCount();
-#if ARM_CM5 || ARM_WIFI
+#if ARM_CM5 || ARM_TSTAT_WIFI
 		KEY_IO_config();
 #endif
 	for (;;)
@@ -210,7 +210,7 @@ void Key_Process(void) reentrant
 		}
 #endif
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 		if(KEY_DOWN == 0) 		by_Dat = K_DOWN1;
 		if(KEY_UP == 0) 			by_Dat = K_UP1;
 		if(KEY_SEL == 0)		  by_Dat = K_SELECT1;
@@ -316,10 +316,11 @@ u8 KEY_Scan(void)
 	
 	if(key_1st & key_2nd & K_RIGHT)
 		key_val |= K_RIGHT;
-	 
+	
 	return  (key_val >> 12);
 }
- extern void watchdog(void);
+ 
+extern void watchdog(void);
 void Key_Process(void ) reentrant
 {
 	u16 key_temp;
@@ -333,31 +334,38 @@ void Key_Process(void ) reentrant
 	
 	for( ;; )
 	{
-
 		if((key_temp = KEY_Scan()) != pre_key)
 		{
-			xQueueSend(qKey, &key_temp, 0);
+			if(pre_key == 0) // 避免单键和组合键粘连
+				xQueueSend(qKey, &key_temp, 0);
 			pre_key = key_temp;
 			long_press_key_start = 0;
+			count_lcd_time_off_delay = 0;
+			BACKLIT = 1;
 		}
 		else
 		{
 			if(key_temp != K_NONE)
-			{
-				if(long_press_key_start >= LONG_PRESS_TIMER_SPEED_100)
-					key_temp |= KEY_SPEED_100;
-				else if(long_press_key_start >= LONG_PRESS_TIMER_SPEED_50)
-					key_temp |= KEY_SPEED_50;
-				else if(long_press_key_start >= LONG_PRESS_TIMER_SPEED_10)
+			{		
+				
+//				if(long_press_key_start >= LONG_PRESS_TIMER_SPEED_100)
+//					key_temp |= KEY_SPEED_100;
+//				else if(long_press_key_start >= LONG_PRESS_TIMER_SPEED_50)
+//					key_temp |= KEY_SPEED_50;
+//				else 
+				if(long_press_key_start >= LONG_PRESS_TIMER_SPEED_10)
 					key_temp |= KEY_SPEED_10;
 				else if(long_press_key_start >= LONG_PRESS_TIMER_SPEED_1)
 					key_temp |= KEY_SPEED_1;
 
 				if(long_press_key_start >= LONG_PRESS_TIMER_SPEED_1)
+				{
 					xQueueSend(qKey, &key_temp, 0);
+				}
 
 				if(long_press_key_start < LONG_PRESS_TIMER_SPEED_100)
 					long_press_key_start++;
+				
 			}
 		} 
 //		watchdog();

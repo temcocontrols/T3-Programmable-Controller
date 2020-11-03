@@ -46,6 +46,37 @@ static void RTC_NVIC_Config(void)
 //BKP->DR1用于保存是否第一次配置的设置
 //返回0:正常
 //其他:错误代码
+//void watchdog(void);
+//void RTC_Check_Initial(void)
+//{
+//	uint8 rtc_state = 0;
+//	uint8 i;
+//	
+//	rtc_state = 1;
+//	while(rtc_state)
+//	{ 
+//		watchdog();
+//		if(i < 20)
+//		{
+//			if(RTC_Init() == 1) //initial OK
+//			{
+//				rtc_state = 0;
+//				Test[43] = 1;
+//				break;
+//			}
+//			else
+//				i++;
+//		}
+//		else
+//		{
+//			Test[43] = 0;
+//			rtc_state = 0;
+//			break;
+//		}
+//		delay_ms(100);	
+//	}	
+//	
+//}
 
 u8 RTC_Init(void)
 {
@@ -61,11 +92,10 @@ u8 RTC_Init(void)
 		{
 			temp++;
 			delay_ms(10);
+			if(temp >= 250)
+				return 0;	//初始化时钟失败,晶振有问题
 		}
-		if(temp >= 250)
-		{
-			return 1;	//初始化时钟失败,晶振有问题
-		}
+		
 		RCC_RTCCLKConfig(RCC_RTCCLKSource_LSE);	//设置RTC时钟(RTCCLK),选择LSE作为RTC时钟    
 		RCC_RTCCLKCmd(ENABLE);					//使能RTC时钟  
 		RTC_WaitForLastTask();					//等待最近一次对RTC寄存器的写操作完成
@@ -89,7 +119,7 @@ u8 RTC_Init(void)
 	
 	RTC_NVIC_Config();							//RCT中断分组设置		    				     
 	RTC_Get();									//更新时间	
-	return 0;
+	return 1;
 }
 
 //RTC时钟中断
@@ -217,7 +247,7 @@ void Get_Time_by_sec(u32 sec_time,UN_Time * rtc)
 			temp1++;  
 		}   
 		rtc->Clk.year = temp1 - 2000;	//得到年份
-		rtc->Clk.day_of_year = temp;  // get day of year, added by chelsea
+		rtc->Clk.day_of_year = temp + 1;  // get day of year, added by chelsea
 		temp1 = 0;
 		while(temp >= 28)			//超过了一个月
 		{

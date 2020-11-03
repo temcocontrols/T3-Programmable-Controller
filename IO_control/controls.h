@@ -5,7 +5,7 @@
 
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 #define ARM_CON 
 #else
 #define ASIX_CON
@@ -48,7 +48,8 @@ typedef enum
 	INPUT_I0_20ma,
 	INPUT_V0_5,
 	INPUT_0_10V,
-	INPUT_THERM,
+	INPUT_THERM,// 10K
+	INPUT_PT1K,
 }E_IN_TYPE;
 
 extern uint8_t far input_type[32];
@@ -80,7 +81,10 @@ extern uint32_t conver_by_unit_5v(uint32_t sample);
 extern uint32_t conver_by_unit_10v(uint32_t sample);
 extern uint32_t conver_by_unit_custable(uint8_t point,uint32_t sample);
 extern uint32_t get_high_spd_counter(uint8_t point);
+extern void Check_spd_count_led(void);
 
+void calculate_RPM(void);
+void Store_Pulse_Counter(uint8 flag);
 
 void map_extern_output(uint8_t point);
 extern uint8_t get_max_internal_input(void);

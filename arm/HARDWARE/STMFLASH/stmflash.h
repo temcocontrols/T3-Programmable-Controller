@@ -36,7 +36,7 @@ void Test_Write(u32 WriteAddr, u16 WriteData);
 
 void iap_write_appbin(u32 appxaddr,u8 *appbuf,u32 appsize) ;
 void STMFLASH_MUL_Read(u32 ReadAddr, u8 *pBuffer, u16 NumToRead) ;  	
-
+void iap_load_app(u32 appxaddr);
 #endif
 
 

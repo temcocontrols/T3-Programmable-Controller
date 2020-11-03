@@ -20,7 +20,7 @@
 #include "mstimer.h"
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5)
 #include "uip.h"
 #endif
 
@@ -62,7 +62,7 @@ char far sntp_server[30];
 //	"2.cn.pool.ntp.org"
 //};
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5)
 static struct uip_udp_conn *sntp_conn = NULL;
 U8_T flag_sntpc_Send;
 
@@ -97,7 +97,7 @@ void SNTPC_Init(void)
 	DNSC_Start("ntp.sjtu.edu.cn");
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5)
 	resolv_query("time.windows.com");
 	resolv_query("time.nist.gov");
 	resolv_query("ntp.sjtu.edu.cn");
@@ -136,6 +136,7 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 	S8_T	signhour, signmin;
 	U8_T	hour, min;	
 	U8_T	i;
+	U16_T temp_YY;
 	
 	i = 0;
 	
@@ -169,12 +170,18 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 	tt->MI = tt->MI_r / 60;
 	tt->SS = tt->MI_r % 60;
 	tt->YY = tt->day_total / 365.2425;
+	
+	temp_YY = tt->YY;
+	if(source == 0)  // time server
+		temp_YY += 1900;
+	else  // PC
+		temp_YY += 1970;	
 
-	if((tt->YY % 4) == 0)
-	{	
+	if((temp_YY % 4) == 0)
+	{
 		tt->DD_r = tt->day_total-(tt->YY*365)-(tt->YY/4);
 		tt->DD_r++;
-		tt->DD_r++;	
+//		tt->DD_r++;	
 		while(tt->DD_r>0)
 		{
 			tt->DD = tt->DD_r;
@@ -203,6 +210,8 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 	else  // PC
 		tt->YY += 1970;	
 	
+
+	
 	rtc->Clk.sec = tt->SS;
 	rtc->Clk.min = tt->MI;
 	rtc->Clk.hour = tt->HH;
@@ -210,10 +219,11 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 //	Rtc.Clk.week = tt.SS;
 	rtc->Clk.mon = tt->MM;
 	rtc->Clk.year = tt->YY - 2000;
-	rtc->Clk.day_of_year = tt->day_total;
+//	rtc->Clk.day_of_year = tt->day_total;
 	rtc->Clk.is_dst = Daylight_Saving_Time;
+//	Test[20] = rtc->Clk.day_of_year;
 
-//#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+//#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 //	Rtc_Set(rtc->Clk.year,rtc->Clk.mon,rtc->Clk.day,rtc->Clk.hour,rtc->Clk.min,rtc->Clk.sec,0);
 //#endif
 
@@ -231,7 +241,7 @@ void Sync_timestamp(S16_T newTZ,S16_T oldTZ,S8_T newDLS,S8_T oldDLS)
 	current += (newTZ - oldTZ) * 36;
 	current += (newDLS - oldDLS) * 3600;
 	Get_RTC_by_timestamp(current,&t,&Rtc,1);
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5)
 	Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);
 #endif
 
@@ -267,8 +277,7 @@ void SNTPC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 	TCPIP_UdpClose(sntpc_Conns.UdpSocket);
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
-	Test[24]++;
+#if (ARM_MINI || ARM_CM5)
 	Get_RTC_by_timestamp(my_honts_arm(psntpcpMsg->receive_time1),&t,&Rtc,0);	
 //	flag_Updata_Clock = 1;//Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);
 #endif
@@ -349,7 +358,7 @@ void sntpc_Send(U8_T InterUdpId)
 	TCPIP_UdpSend(InterUdpId, 0, 0, Buf, len);
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)	
+#if (ARM_MINI || ARM_CM5)	
 	uip_send(Buf, len);
 #endif
 
@@ -369,7 +378,6 @@ U8_T SNTPC_Start(S16_T gmt, U32_T timesrIP)
 
 #if (ASIX_MINI || ASIX_CM5)
 	//static u32 ip_backup;
-	Test[24]++;
 	if(timesrIP == 0) 
 		return SNTP_STATE_NOTREADY;
 	sntpc_Conns.ServerIp = timesrIP;
@@ -397,7 +405,7 @@ U8_T SNTPC_Start(S16_T gmt, U32_T timesrIP)
 #endif
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5)
 	uip_ipaddr_t addr;
 		
 	if(sntp_conn != NULL) 
@@ -430,7 +438,7 @@ void SNTPC_Stop(void)
 	}
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5)
 //	uip_udp_remove(sntp_conn);
 #endif
 
@@ -467,7 +475,7 @@ U8_T SNTPC_GetState(void)
 }
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5)
 
 U8_T SNTPC_GetState(void)
 {
@@ -518,7 +526,7 @@ void Send_Time_Sync_To_Network(void)
 	if(Modbus.network_master == 1)
 		Send_TimeSync_Broadcast(BAC_IP_CLIENT);
 
-	if(Modbus.com_config[2] == BACNET_MASTER)
+	if(Modbus.com_config[2] == BACNET_MASTER || Modbus.com_config[0] == BACNET_MASTER)
 		Send_TimeSync_Broadcast(BAC_MSTP);
 }
 
@@ -564,7 +572,7 @@ void sntp_select_time_server(U8_T type)
 
 #endif
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5)
 	uint16_t * ptr_rm_ip;
 	uint8_t tempip[4];
 	
@@ -586,7 +594,7 @@ void sntp_select_time_server(U8_T type)
 }
 
 
-
+#if (!ARM_TSTAT_WIFI)
 void update_sntp(void)
 {
 	U8_T state;
@@ -612,7 +620,7 @@ void update_sntp(void)
 //					time_ptr = SNTP_GetTime();
 //											
 //					Rtc_Set(time_ptr[1],time_ptr[2],time_ptr[3],time_ptr[4],time_ptr[5],time_ptr[6],0);
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)			
+#if (ARM_MINI || ARM_CM5)			
 					Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);	
 					RTC_Get();
 					
@@ -675,5 +683,6 @@ void update_sntp(void)
 	}			
 
 }
+#endif
 
 /* End of sntpc.c */

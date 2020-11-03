@@ -41,24 +41,24 @@ void RM_Init(void)
 } /* End of SMTPC_Init() */
 
 
-void RM_Start(void/*U32_T ip , U8_T* from, U8_T* to1, U8_T* to2, U8_T* to3*/)
-{
-	uint16_t * ptr_rm_ip;
-	static U8_T RM_IP_B[4];
-	static U8_T count = 0;
+//void RM_Start(void/*U32_T ip , U8_T* from, U8_T* to1, U8_T* to2, U8_T* to3*/)
+//{
+//	uint16_t * ptr_rm_ip;
+//	static U8_T RM_IP_B[4];
+//	static U8_T count = 0;
 
-	for(;count < 10;count++)
-	{
-		ptr_rm_ip = resolv_lookup("newfirmware.com");	
-		memcpy(RM_IP,ptr_rm_ip,4);
-		
-		if(memcmp(RM_IP,RM_IP_B,4))
-		{ // ip is changed
-			//memcpy(RM_IP_B,RM_IP,4);
-//			RM_Init();
-		}	
-	}
-} 
+//	for(;count < 10;count++)
+//	{
+//		ptr_rm_ip = resolv_lookup("newfirmware.com");	
+//		memcpy(RM_IP,ptr_rm_ip,4);
+//		
+//		if(memcmp(RM_IP,RM_IP_B,4))
+//		{ // ip is changed
+//			//memcpy(RM_IP_B,RM_IP,4);
+////			RM_Init();
+//		}	
+//	}
+//} 
 
 
 void RM_Heart_appcall(void)

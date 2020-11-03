@@ -260,7 +260,7 @@ void MODBUSTCP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
 //			vTaskSuspend(Handle_MainSerial);
 			vTaskSuspend(xHandler_Output);			
 			vTaskSuspend(xHandleCommon);
-			vTaskSuspend(xHandleBacnetControl);
+//			vTaskSuspend(xHandleBacnetControl);
 			vTaskSuspend(xHandleMornitor_task);			
 #if MSTP
 			vTaskSuspend(xHandleMSTP);			
@@ -295,7 +295,7 @@ void MODBUSTCP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
 //			vTaskResume(Handle_MainSerial);
 			vTaskResume(xHandler_Output); 
 			vTaskResume(xHandleCommon);
-			vTaskResume(xHandleBacnetControl);
+//			vTaskResume(xHandleBacnetControl);
 			vTaskResume(xHandleMornitor_task);
 #if MSTP
 			vTaskResume(xHandleMSTP);			

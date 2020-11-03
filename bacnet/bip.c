@@ -51,7 +51,7 @@
 #include "handlers.h"
 
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 #ifdef BIP
 
 extern U32_T  far	Instance;
@@ -60,12 +60,14 @@ extern U32_T  far	Instance;
 #include "user_data.h"
 #include "define.h"
 
-
-#if ARM_WIFI
-void uart_send_string(U8_T *p, U16_T length,U8_T port);
-
 extern uint8_t bacnet_wifi_buf[500];
 extern uint16_t bacnet_wifi_len;
+extern uint8_t flag_wifi;
+
+#if ARM_TSTAT_WIFI
+void uart_send_string(U8_T *p, U16_T length,U8_T port);
+
+
 
 void uip_send(const void * ptr,int len)
 {
@@ -81,7 +83,16 @@ int bip_send_pdu_client(
 {
 
 }
-			
+	
+int bip_send_pdu_client2(
+    BACNET_ADDRESS * dest,      /* destination address */
+    BACNET_NPDU_DATA * npdu_data,       /* network information */
+    uint8_t * pdu,      /* any data to be sent - may be null */
+    unsigned pdu_len,uint8_t protocal
+	)
+{
+
+}
 #endif
 
 #endif
@@ -216,7 +227,7 @@ void bip_Init(U16_T localPort)
 } /* End of GUDPBC_Init() */
 #endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 
 #ifdef BIP
 extern U8_T count_bip_connect;
@@ -224,8 +235,11 @@ uint8_t far PDUBuffer_BIP[MAX_APDU];
 uint8_t * bip_Data;
 uint16_t  bip_len;
 
-#if (ARM_MINI || ASIX_MINI || ARM_CM5)
+#if (ARM_MINI || ARM_CM5)
 
+#if ARM_CM5
+uint8_t flag_wifi;
+#endif
 void bip_Init(void)
 {
 	struct uip_udp_conn *conn;
@@ -242,6 +256,10 @@ void bip_Init(void)
 	{ 
 		uip_udp_bind(conn,HTONS(UDP_BACNET_LPORT));  // src port					
 	}
+	
+#if ARM_CM5
+ flag_wifi = 0;
+#endif
 } 
 
 U8_T bip_send_mstp_rport;
@@ -262,9 +280,9 @@ void UDP_bacnet_APP(void)
 	if(uip_poll())
 	{  // auto send
 		t1 = uip_timer;
-		if(t1 - t2 >= 10)
+		if(t1 - t2 >= 50)
 		{
-			if(send_mstp_index1 < rec_mstp_index1)
+			if((send_mstp_index1 < rec_mstp_index1) && (send_mstp_index1 < 10))
 			{
 			//if(Send_mstp_Flag){ 
 				uip_send(mstp_bac_buf1[send_mstp_index1].buf,mstp_bac_buf1[send_mstp_index1].len);	
@@ -272,6 +290,11 @@ void UDP_bacnet_APP(void)
 				send_mstp_index1++;
 			//}
 			}		
+			else
+			{
+				send_mstp_index1 = 0;
+				rec_mstp_index1 = 0;
+			}
 			t2 = uip_timer;
 		}
 	}
@@ -352,7 +375,7 @@ void bip_set_broadcast_addr(
     BIP_Broadcast_Address.s_addr = net_address;
 }
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 void Set_broadcast_bip_address(void)
 {
 #if (ARM_MINI || ASIX_MINI || ARM_CM5)
@@ -409,15 +432,13 @@ void bip_send_mpdu(struct sockaddr_in *dest,
     uint8_t * mtu,
     uint16_t mtu_len)
 {
-#if (ARM_MINI || ASIX_MINI)
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5)
 	Send_bip_Flag = 1;
-//	count_send_bip = 0;	
+	count_send_bip = 0;	
 	Send_bip_count = 5;	
 	Set_broadcast_bip_address();
 #endif
 	bip_send_pdu(0,0,mtu,mtu_len,BAC_IP);
-#endif	
 }
 
 
@@ -450,18 +471,19 @@ int bip_send_pdu(
     struct in_addr address;
     uint16_t port = 0;
 		uint8_t far mtu[MAX_MPDU_IP] = { 0 };
-
  //   (void) npdu_data;
     /* assumes that the driver has already been initialized */
-#if !(ARM_WIFI)
-	if(protocal == BAC_IP)
-	{
-		if (BIP_Socket < 0) 
-		{
-		return 0;//BIP_Socket;
-		} 
-	}
+		
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+		if(flag_wifi == 0)
 #endif
+		if(protocal == BAC_IP)
+		{
+			if (BIP_Socket < 0) 
+			{
+				return 0;//BIP_Socket;
+			} 
+		}
     mtu[0] = BVLL_TYPE_BACNET_IP;
     bip_dest.sin_family = AF_INET;
     if ((dest->net == BACNET_BROADCAST_NETWORK) || ((dest->net > 0) &&
@@ -482,7 +504,6 @@ int bip_send_pdu(
     }
     bip_dest.sin_addr.s_addr = address.s_addr;
     bip_dest.sin_port = port;
-		
     memset(&(bip_dest.sin_zero), '\0', 8);
     mtu_len = 2;
     mtu_len += encode_unsigned16(&mtu[mtu_len],
@@ -495,21 +516,19 @@ int bip_send_pdu(
 #if (ASIX_MINI || ASIX_CM5)	
 		TCPIP_UdpSend(BIP_Socket, 0, 0, mtu, mtu_len);	
 #endif
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 		
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
-		
-#if (ARM_MINI || ASIX_MINI || ARM_CM5)
-#ifdef BIP
-		uip_send((char *)mtu, mtu_len);
+		if(flag_wifi == 0)
+		{
+			uip_send((char *)mtu, mtu_len);
+		}
+#if (ARM_MINI || ARM_TSTAT_WIFI)
+		else
+		{
+			memcpy(bacnet_wifi_buf,mtu,mtu_len);
+			bacnet_wifi_len = mtu_len;
+		}
 #endif
-#endif
-#if ARM_WIFI
-		//printf("response %u, %x %x %x %x \r\n",mtu_len,mtu[0],mtu[1],mtu[2],mtu[3]);
-//		uart_send_string((char *)mtu, mtu_len,3);
-		memcpy(bacnet_wifi_buf,mtu,mtu_len);
-		bacnet_wifi_len = mtu_len;
-#endif		
-
 #endif
 	}
 
@@ -520,10 +539,10 @@ int bip_send_pdu(
   return bytes_sent;	 
 }
 
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 #if (ARM_MINI || ARM_CM5)
 struct uip_udp_conn * bip_send_client_conn;
-
+// for network points
 int bip_send_pdu_client(
     BACNET_ADDRESS * dest,      /* destination address */
     BACNET_NPDU_DATA * npdu_data,       /* network information */
@@ -539,9 +558,9 @@ int bip_send_pdu_client(
     struct in_addr address;
     uint16_t port = 0;
 		uint8_t far mtu1[MAX_MPDU_IP] = { 0 };
-
  //   (void) npdu_data;
     /* assumes that the driver has already been initialized */
+
     mtu1[0] = BVLL_TYPE_BACNET_IP;
     bip_dest.sin_family = AF_INET;
     if ((dest->net == BACNET_BROADCAST_NETWORK) || ((dest->net > 0) &&
@@ -568,33 +587,109 @@ int bip_send_pdu_client(
         (uint16_t) (pdu_len + 4 /*inclusive */ ));
     memcpy(&mtu1[mtu_len], pdu, pdu_len);
     mtu_len += pdu_len;
-
 		if(Send_bip_Flag)
 		{
 			uip_ipaddr_t addr;
 			if(bip_send_client_conn != NULL) 
-			{		
+			{		Test[15]++;
 				uip_udp_remove(bip_send_client_conn);
 			}
-			
 			Send_bip_count = MAX_RETRY_SEND_BIP;
 			uip_ipaddr(addr,Send_bip_address[0],Send_bip_address[1],Send_bip_address[2],Send_bip_address[3]);	
 			bip_send_client_conn = uip_udp_new(&addr, HTONS(Send_bip_address[4] * 256 + Send_bip_address[5])); // des port
+//			Test[10] = Send_bip_address[0];
+//			Test[11] = Send_bip_address[1];
+//			Test[12] = Send_bip_address[2];
+//			Test[13] = Send_bip_address[3];
+//			Test[14] = Send_bip_address[4] * 256 + Send_bip_address[5];
+			
 			if(bip_send_client_conn != NULL) 
-			{ 
-				uip_udp_bind(bip_send_client_conn,HTONS(UDP_BIP_SEND_LPORT));  // src port					
+			{
+				// network points
+					uip_udp_bind(bip_send_client_conn,HTONS(UDP_BIP_SEND_LPORT));  // src port	
 			}
 			memcpy(bip_bac_buf.buf,&mtu1, mtu_len);			
 			bip_bac_buf.len = mtu_len;
+		}
+		else
+			uip_send((char *)mtu, mtu_len);
+		
+	bytes_sent = mtu_len;
+	memset(mtu1,0,MAX_MPDU_IP);
+	mtu_len = 0;
+  return bytes_sent;	
+
+}
+
+// for COV
+struct uip_udp_conn * bip_send_client_conn2;
+int bip_send_pdu_client2(
+    BACNET_ADDRESS * dest,      /* destination address */
+    BACNET_NPDU_DATA * npdu_data,       /* network information */
+    uint8_t * pdu,      /* any data to be sent - may be null */
+    unsigned pdu_len,uint8_t protocal
+	)
+{       /* number of bytes of data */  
+
+    struct sockaddr_in bip_dest;
+    int mtu_len = 0;
+    int bytes_sent = 0;
+    /* addr and port in host format */
+    struct in_addr address;
+    uint16_t port = 0;
+		uint8_t far mtu1[MAX_MPDU_IP] = { 0 };
+ //   (void) npdu_data;
+    /* assumes that the driver has already been initialized */
+
+
+    mtu1[0] = BVLL_TYPE_BACNET_IP;
+    bip_dest.sin_family = AF_INET;
+    if ((dest->net == BACNET_BROADCAST_NETWORK) || ((dest->net > 0) &&
+			(dest->len == 0)) || (dest->mac_len == 0)) {
+        /* broadcast */
+				
+        address.s_addr = BIP_Broadcast_Address.s_addr;
+        port = BIP_Port;
+        mtu1[1] = BVLC_ORIGINAL_BROADCAST_NPDU;
+    } else if (dest->mac_len == 6) {
+        bip_decode_bip_address(dest, &address, &port);
+        mtu1[1] = BVLC_ORIGINAL_UNICAST_NPDU;
+    } else {
+        return -1;
+
+    }
+		
+    bip_dest.sin_addr.s_addr = address.s_addr;
+    bip_dest.sin_port = port;
+		
+    memset(&(bip_dest.sin_zero), '\0', 8);
+    mtu_len = 2;
+    mtu_len += encode_unsigned16(&mtu1[mtu_len],
+        (uint16_t) (pdu_len + 4 /*inclusive */ ));
+    memcpy(&mtu1[mtu_len], pdu, pdu_len);
+    mtu_len += pdu_len;
+		if(Send_bip_Flag2)
+		{
+			uip_ipaddr_t addr;
+			if(bip_send_client_conn2 != NULL) 
+			{		
+				uip_udp_remove(bip_send_client_conn2);
+			}
+			Send_bip_count2 = MAX_RETRY_SEND_BIP;
+			uip_ipaddr(addr,Send_bip_address2[0],Send_bip_address2[1],Send_bip_address2[2],Send_bip_address2[3]);	
+			bip_send_client_conn2 = uip_udp_new(&addr, HTONS(Send_bip_address2[4] * 256 + Send_bip_address2[5])); // des port
+			if(bip_send_client_conn2 != NULL) 
+			{ 
+				uip_udp_bind(bip_send_client_conn2,HTONS(UDP_BACNET_LPORT));  // src port	
+			}
+			memcpy(bip_bac_buf2.buf,&mtu1, mtu_len);			
+			bip_bac_buf2.len = mtu_len;
 			
 		}
-//		else
-//			uip_send((char *)mtu, mtu_len);
-
-
-	
+		else
+			uip_send((char *)mtu, mtu_len);
+		
 	bytes_sent = mtu_len;
-	
 	memset(mtu1,0,MAX_MPDU_IP);
 	mtu_len = 0;
   return bytes_sent;	
@@ -638,41 +733,43 @@ uint16_t bip_receive(
 		uint16_t result_code = 0;
 	bool status = false;
     /* Make sure the socket is open */
-#if !(ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+	if(flag_wifi == 0)
+#endif
 	if(protocal == BAC_IP)
 	if (BIP_Socket < 0)
 	{		
      return 0;
 	}
-	
 #if (ASIX_MINI || ASIX_CM5) 	
 	received_bytes = bip_len;
   bip_Data = pdu;
 #endif 
 	
-#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 #ifdef BIP
 	received_bytes = bip_len;
   bip_Data = pdu;
 #endif
 	
-#endif
 	
     /* See if there is a problem */
-	if(protocal == BAC_IP)
+	if((protocal == BAC_IP) && (flag_wifi == 0))
 	{
-	    if (received_bytes < 0)        
+	    if (received_bytes <= 0) 
+			{	
 				return 0;
-	    
-	    /* no problem, just no bytes */
-	    if (received_bytes == 0)
-        	return 0;
+			}
 	}
 #endif
 	received_bytes = 0;
   /* the signature of a BACnet/IP packet */
-		if (pdu[0] != BVLL_TYPE_BACNET_IP)
-		{ 	  
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+		if((pdu[0] != BVLL_TYPE_BACNET_IP) && (flag_wifi == 0))
+#else
+		if(pdu[0] != BVLL_TYPE_BACNET_IP) 
+#endif
+		{ 	
 				return 0;
 		}
 
@@ -701,10 +798,11 @@ uint16_t bip_receive(
 //		decode_unsigned16(&pdu[pdu_len + 4], &sin.sin_port);
 //		}	
 #if (ARM_MINI || ARM_CM5)
-		sin.sin_port = uip_udp_conn->rport;
-		memcpy(&sin.sin_addr.s_addr,uip_udp_conn->ripaddr,4);
-//		memcpy(&Test[25],uip_udp_conn->ripaddr,4);
-//		memcpy(&Test[27],&uip_udp_conn->rport,2);
+		if(flag_wifi == 0)
+		{
+			sin.sin_port = uip_udp_conn->rport;
+			memcpy(&sin.sin_addr.s_addr,uip_udp_conn->ripaddr,4);
+		}
 #endif
     /* subtract off the BVLC header */
     pdu_len -= 4;
@@ -953,13 +1051,13 @@ uint16_t bip_receive(
 #endif								
 						{	
                 bvlc_internet_to_bacnet_address(src, &sin);
-                if (pdu_len < max_pdu) {
+                if (pdu_len < max_pdu) { 
                     /* shift the buffer to return a valid PDU */
                     for (i = 0; i < pdu_len + 4; i++) { 
-											// FIXED by chelsea, +4
+											// FIXED by chelsea, + 4
                         pdu[i] = pdu[4 + i];
                     }
-                } else {
+                } else { 
                     /* ignore packets that are too large */
                     /* clients should check my max-apdu first */
                     pdu_len = 0;
@@ -981,9 +1079,8 @@ uint16_t bip_receive(
                mask. See J.4.3.2.. In addition, the received BACnet NPDU
                shall be sent directly to each foreign device currently in
                the BBMD's FDT also using the BVLL Forwarded-NPDU message. */
-						
             bvlc_internet_to_bacnet_address(src, &sin);
-            if (pdu_len < max_pdu) {
+            if (pdu_len < max_pdu) { 
                 /* shift the buffer to return a valid PDU */
                 for (i = 0; i < pdu_len; i++) {
                     pdu[i] = pdu[4 + i];
@@ -994,7 +1091,7 @@ uint16_t bip_receive(
 //									bvlc_bdt_forward_npdu(&sin, &pdu[0], pdu_len);
 //									bvlc_fdt_forward_npdu(&sin, &pdu[0], pdu_len);
 //								}
-            } else {
+            } else { 
                 /* ignore packets that are too large */
                 pdu_len = 0;
             }
@@ -1039,7 +1136,7 @@ uint16_t bip_receive(
 //	}
 
 //	
-//#if (ARM_MINI || ARM_CM5 || ARM_WIFI)
+//#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 //#ifdef BIP
 //	received_bytes = bip_len_client;
 //  bip_Data_client = pdu;

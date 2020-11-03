@@ -4,11 +4,14 @@
 #include <string.h>  
 #include <stdbool.h>
 //#include "bsp_SysTick.h"
+#include "main.h"
+#include "wifi.h"
+
 
 
 
 static void                   ESP8266_GPIO_Config                 ( void );
-static void                   ESP8266_USART_Config                ( void );
+void                   ESP8266_USART_Config                ( void );
 static void                   ESP8266_USART_NVIC_Configuration    ( void );
 
 
@@ -21,7 +24,7 @@ struct  STRUCT_USARTx_Fram strEsp8266_Fram_Record = { 0 };
 
 
 
-static char *                 itoa                                ( int value, char * string, int radix );
+char *                 itoa                                ( int value, char * string, int radix );
 
 /*
  * 函数名：USART2_printf
@@ -128,7 +131,7 @@ void USART_printf ( USART_TypeDef * USARTx, char * Data, ... )
  * 返回  ：无
  * 调用  ：被USART2_printf()调用
  */
-static char * itoa( int value, char *string, int radix )
+char * itoa( int value, char *string, int radix )
 {
 	int     i, d;
 	int     flag = 0;
@@ -191,11 +194,12 @@ void ESP8266_Init ( void )
 	ESP8266_GPIO_Config (); 
 	
 	ESP8266_USART_Config (); 
-	
+   
+	dma_init_uart4();
 	
 	macESP8266_RST_HIGH_LEVEL();
 
-	macESP8266_CH_DISABLE();
+//	macESP8266_CH_DISABLE();
 	
 	
 }
@@ -223,6 +227,7 @@ static void ESP8266_GPIO_Config ( void )
 
 //	GPIO_Init ( macESP8266_CH_PD_PORT, & GPIO_InitStructure );	 
 
+
 	
 	/* 配置 RST 引脚*/
 	macESP8266_RST_APBxClock_FUN ( macESP8266_RST_CLK, ENABLE ); 
@@ -240,7 +245,7 @@ static void ESP8266_GPIO_Config ( void )
   * @param  无
   * @retval 无
   */
-static void ESP8266_USART_Config ( void )
+void ESP8266_USART_Config ( void )
 {
 	GPIO_InitTypeDef GPIO_InitStructure;
 	USART_InitTypeDef USART_InitStructure;
@@ -296,7 +301,7 @@ static void ESP8266_USART_NVIC_Configuration ( void )
 	
 	
 	/* Configure the NVIC Preemption Priority Bits */  
-	NVIC_PriorityGroupConfig ( NVIC_PriorityGroup_2 );
+//	NVIC_PriorityGroupConfig ( NVIC_PriorityGroup_2 );
 
 	/* Enable the USART2 Interrupt */
 	NVIC_InitStructure.NVIC_IRQChannel = macESP8266_USART_IRQ;	 
@@ -315,63 +320,20 @@ static void ESP8266_USART_NVIC_Configuration ( void )
  * 返回  : 无
  * 调用  ：被 ESP8266_AT_Test 调用
  */
-void ESP8266_Rst ( void )
-{
-	#if 0
-	 ESP8266_Cmd ( "AT+RST", "OK", "ready", 2500 );   	
-	
-	#else
-	 macESP8266_RST_LOW_LEVEL();
-	 delay_ms ( 500 ); 
-	 macESP8266_RST_HIGH_LEVEL();
-	#endif
-
-}
-
-bool ESP8266_Cmd_unit8 ( uint8_t * cmd, char * reply1, char * reply2, uint16_t len,u32 waittime )
-{    
-	uint16_t i;
-	strEsp8266_Fram_Record .InfBit .FramLength = 0;               //从新开始接收新的数据包
-
-//	macESP8266_Usart ( "%s\r\n", cmd );
-	
-	for(i = 0;i < len;i++)
-	{	
-		USART_SendData(UART4, cmd[i]);
-		while( USART_GetFlagStatus(UART4, USART_FLAG_TXE) == RESET );
-	}
-	
-	strEsp8266_Fram_Record .InfBit .FramLength = 0;
-	strEsp8266_Fram_Record .InfBit .FramFinishFlag = 0;
-	
-	while ( ! strEsp8266_Fram_Record .InfBit .FramFinishFlag )
-	{
-		delay_ms(50) ;
-		IWDG_ReloadCounter();
-	}
-	strEsp8266_Fram_Record .Data_RX_BUF [ strEsp8266_Fram_Record .InfBit .FramLength ] = '\0';
-	
-//	if ( ( reply1 == 0 ) && ( reply2 == 0 ) )                      //不需要接收数据
-//		return true;
+//void ESP8266_Rst ( void )
+//{
+//	#if 0
+//	 ESP8266_Cmd ( "AT+RST", "OK", "ready", 2500 );   	
 //	
-//	delay_ms ( waittime );                 //延时
-//	
-//	strEsp8266_Fram_Record .Data_RX_BUF [ strEsp8266_Fram_Record .InfBit .FramLength ]  = '\0';
+//	#else
+//	 macESP8266_RST_LOW_LEVEL();
+//	 delay_ms ( 500 ); 
+//	 macESP8266_RST_HIGH_LEVEL();
+//	#endif
 
-//	macPC_Usart ( "%s", strEsp8266_Fram_Record .Data_RX_BUF );
-  
-	if ( ( reply1 != 0 ) && ( reply2 != 0 ) )
-		return ( ( bool ) strstr ( strEsp8266_Fram_Record .Data_RX_BUF, reply1 ) || 
-						 ( bool ) strstr ( strEsp8266_Fram_Record .Data_RX_BUF, reply2 ) ); 
- 	
-	else 
-		if ( reply1 != 0 )
-		return ( ( bool ) strstr ( strEsp8266_Fram_Record .Data_RX_BUF, reply1 ) );
-	
-	else
-		return ( ( bool ) strstr ( strEsp8266_Fram_Record .Data_RX_BUF, reply2 ) );
-	
-}
+//}
+
+
 /*
  * 函数名：ESP8266_Cmd
  * 描述  ：对WF-ESP8266模块发送AT指令
@@ -385,7 +347,8 @@ bool ESP8266_Cmd_unit8 ( uint8_t * cmd, char * reply1, char * reply2, uint16_t l
 bool ESP8266_Cmd ( char * cmd, char * reply1, char * reply2, u32 waittime )
 {    
 //	strEsp8266_Fram_Record .InfBit .FramLength = 0;               //从新开始接收新的数据包
-
+	uint16 count;
+	uint16 delay_num;
 	macESP8266_Usart ( "%s\r\n", cmd );
 
 	if ( ( reply1 == 0 ) && ( reply2 == 0 ) )                      //不需要接收数据
@@ -397,25 +360,34 @@ bool ESP8266_Cmd ( char * cmd, char * reply1, char * reply2, u32 waittime )
 	strEsp8266_Fram_Record .InfBit .FramLength = 0;
 	strEsp8266_Fram_Record .InfBit .FramFinishFlag = 0;
 	
-	while ( ! strEsp8266_Fram_Record .InfBit .FramFinishFlag )
+	count = 0;
+	delay_num = waittime / 50;
+	while ( (! strEsp8266_Fram_Record .InfBit .FramFinishFlag) && (count++ < delay_num))
 	{
 		delay_ms(50) ;
 		IWDG_ReloadCounter();
 	}
+
 	strEsp8266_Fram_Record .Data_RX_BUF [ strEsp8266_Fram_Record .InfBit .FramLength ] = '\0';
-	
-//	macPC_Usart ( "%s", strEsp8266_Fram_Record .Data_RX_BUF );
-  
+#if 0
+	uart1_init(115200);
+	DEBUG_EN = 1;
+	printf("ret: %s \r\n",strEsp8266_Fram_Record .Data_RX_BUF);
+#endif	
+ 
 	if ( ( reply1 != 0 ) && ( reply2 != 0 ) )
+	{
 		return ( ( bool ) strstr ( strEsp8266_Fram_Record .Data_RX_BUF, reply1 ) || 
 						 ( bool ) strstr ( strEsp8266_Fram_Record .Data_RX_BUF, reply2 ) ); 
- 	
+ 	}
 	else if ( reply1 != 0 )
+	{
 		return ( ( bool ) strstr ( strEsp8266_Fram_Record .Data_RX_BUF, reply1 ) );
-	
+	}
 	else
+	{
 		return ( ( bool ) strstr ( strEsp8266_Fram_Record .Data_RX_BUF, reply2 ) );
-	
+	}
 }
 
 
@@ -435,24 +407,25 @@ bool ESP8266_Cmd ( char * cmd, char * reply1, char * reply2, u32 waittime )
 //	while ( ! ESP8266_Cmd ( "AT", "OK", NULL, 500 ) ) ESP8266_Rst ();  	
 
 //}
-char ESP8266_AT_Test ( void )
-{
-	char count=0;
-	
-	macESP8266_RST_HIGH_LEVEL();	
-	delay_ms ( 1000 );
-	while ( count < 10 )
-	{
-		if( ESP8266_Cmd ( "AT", "OK", NULL, 500 ) ) 
-			return 2;
-		ESP8266_Rst();
-		++ count;
-	}
-	if(count == 10)
-		return 0;
-	else
-		return 1;
-}
+//char ESP8266_AT_Test ( void )
+//{
+//	char count=0;
+
+//	macESP8266_RST_HIGH_LEVEL();	
+//	delay_ms ( 1000 );
+
+//	while ( count < 10 )
+//	{
+//		if( ESP8266_Cmd ( "AT", "OK", NULL, 500 ) ) 
+//			return 2;
+//		ESP8266_Rst();
+//		++ count;
+//	}
+//	if(count == 10)
+//		return 0;
+//	else
+//		return 1;
+//}
 
 
 /*
@@ -502,6 +475,49 @@ bool ESP8266_JoinAP ( char * pSSID, char * pPassWord )
 	
 }
 
+
+bool ESP8266_JoinAP_DEF( char * pSSID, char * pPassWord )
+{
+	char cCmd [120];
+
+	sprintf ( cCmd, "AT+CWJAP_DEF=\"%s\",\"%s\"", pSSID, pPassWord );
+	
+	return ESP8266_Cmd ( cCmd, "OK", NULL, 5000 );
+	
+}
+
+bool ESP8266_CIPSTA_DEF (void)
+{
+	char i;
+	char cStr [100] = { 0 }, cCmd [120];
+	char strip[4][4];
+	char strsubnet[4][4];
+	char strgetway[4][4];
+	
+	for(i=0;i<4;i++)
+		itoa(SSID_Info.ip_addr[i],strip[i],10);
+	for(i=0;i<4;i++)
+		itoa(SSID_Info.net_mask[i],strsubnet[i],10);
+	for(i=0;i<4;i++)
+		itoa(SSID_Info.getway[i],strgetway[i],10);
+  
+//	sprintf ( cStr, "\"%s.%s.%s.%s\",\"192.168.10.1\",\"255.255.255.0\"", strip[0],strip[1],strip[2],strip[3]);	
+	sprintf ( cStr, "\"%s.%s.%s.%s\",\"%s.%s.%s.%s\",\"%s.%s.%s.%s\"", 
+	strip[0],strip[1],strip[2],strip[3],
+	strgetway[0],strgetway[1],strgetway[2],strgetway[3],
+	strsubnet[0],strsubnet[1],strsubnet[2],strsubnet[3]);
+	
+  sprintf ( cCmd, "AT+CIPSTA_DEF=%s",cStr);	
+//	sprintf ( cCmd, "AT+CIPSTA_DEF=\"192.168.1.77\",\"192.168.1.1\",\"255.255.255.0\"");
+
+#if 0
+	uart1_init(115200);
+	DEBUG_EN = 1;
+	printf("cCMD: %s \r\n",cCmd);
+#endif
+	return ESP8266_Cmd (cCmd, "OK",0, 4000 );
+	
+}
 
 /*
  * 函数名：ESP8266_BuildAP
@@ -637,10 +653,12 @@ bool ESP8266_StartOrShutServer ( FunctionalState enumMode, char * pPortNum, char
  * 函数名：ESP8266_Get_LinkStatus
  * 描述  ：获取 WF-ESP8266 的连接状态，较适合单端口时使用
  * 输入  ：无
- * 返回  : 2，获得ip
- *         3，建立连接
- *         3，失去连接
+ * 返回  : 2，已连接AP,获得IP
+ *         3，已建立连接
+ *         4，断开网络连接
+ *				 5，未连接AP
  *         0，获取状态失败
+ *  			 6, WIFI_SSID_FAIL
  * 调用  ：被外部调用
  */
 uint8_t ESP8266_Get_LinkStatus ( void )
@@ -654,11 +672,13 @@ uint8_t ESP8266_Get_LinkStatus ( void )
 			return 3;
 		
 		else if ( strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "STATUS:4\r\n" ) )
-			return 4;		
+			return 4;	
+		else if ( strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "STATUS:5\r\n" ) )
+			return 5;	 // no link
 
 	}
 	
-	return 0;
+	return 6;
 	
 }
 
@@ -709,6 +729,84 @@ uint8_t ESP8266_Get_IdLinkStatus ( void )
 }
 
 
+//	AT+CIPSTAMAC?
+
+//+CIPSTAMAC:"ec:fa:bc:40:e0:f0"
+
+//OK
+uint8_t ESP8266_Get_MAC(uint8_t * pStamac)
+{
+	char uc;
+	char * pCh;
+	char i;
+	
+	char pos;
+	char datlen;
+	uint8_t mac[6];
+// GET MAC address
+	ESP8266_Cmd ( "AT+CIPSTAMAC?", "OK", 0, 200 );	
+	pos = 0;
+	datlen = 0;
+	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "+CIPSTAMAC:\"" );
+	
+//	AT+CIPSTAMAC?
+
+//+CIPSTAMAC:"ec:fa:bc:40:e0:f0"
+
+//OK
+	if( pCh )
+		pCh += 11;
+	
+	else
+	{Test[10]++;
+		return 0;
+	}
+	
+	for ( uc = 0; uc < 40; uc ++ )
+	{
+		if(*( pCh + uc) == ':')
+		{
+			if(datlen == 2)
+				pStamac[pos] = mac[0] * 16 + mac[1];
+			pos++;
+			datlen = 0;
+		}
+		else
+		{
+			if((pos == 5) && (* ( pCh + uc) == '\"'))
+				break;
+			
+			if((* ( pCh + uc) >= '0') && (* ( pCh + uc) <= '9'))
+				mac[datlen++] = * ( pCh + uc) - '0';
+			else if((* ( pCh + uc) >= 'a') && (* ( pCh + uc) <= 'f'))
+				mac[datlen++] = * ( pCh + uc) - 'a' + 10;
+		}	
+		
+	}
+	
+	if(datlen == 2)
+		pStamac[pos] = mac[0] * 16 + mac[1];
+	Test[11]++;
+	return 1;
+}
+
+
+// AT+CIPSTAMAC_DEF
+// AT+CIPSTAMAC_DEF="18:fe:35:98:d3:7b"
+//
+uint8_t ESP8266_Set_MAC(uint8_t * pStamac)
+{
+	char cStr[50];
+	char ret;
+
+	sprintf(cStr, "AT+CIPSTAMAC_DEF=\"%x:%x:%x:%x:%x:%x\"", pStamac[0],
+	pStamac[1],pStamac[2],pStamac[3],pStamac[4],pStamac[5]);
+//	sprintf(cStr, "AT+CIPSTAMAC_DEF=\"18:fe:35:98:d3:7b\"");
+	ret = ESP8266_Cmd(cStr, "OK", 0, 1000);
+	// 1 suc
+	return ret;
+}
+
 /*
  * 函数名：ESP8266_Inquire_ApIp
  * 描述  ：获取 F-ESP8266 的 AP IP
@@ -718,7 +816,7 @@ uint8_t ESP8266_Get_IdLinkStatus ( void )
  *         1，获取成功
  * 调用  ：被外部调用
  */
-uint8_t ESP8266_Inquire_ApIp ( uint8_t * pApIp, uint8_t * pStaIp,uint8_t ucArrayLength )
+uint8_t ESP8266_Inquire_ApIp (/* uint8_t * pStamac,*/ uint8_t * pStaIp,uint8_t ucArrayLength )
 {
 	char uc;
 	
@@ -728,49 +826,9 @@ uint8_t ESP8266_Inquire_ApIp ( uint8_t * pApIp, uint8_t * pStaIp,uint8_t ucArray
 	char pos;
 	char datlen;
 	uint8_t ip[4];
+//	uint8_t mac[6];
 	
   ESP8266_Cmd ( "AT+CIFSR", "OK", 0, 500 );
-	
-	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "APIP,\"" );
-	
-	if ( pCh )
-		pCh += 6;
-	
-	else
-		return 0;
-	
-	pos = 0;
-	datlen = 0;
-	for ( uc = 0; uc < ucArrayLength; uc ++ )
-	{		
-		if(*( pCh + uc) == '.')
-		{
-			if(datlen == 1)
-				pApIp[pos] = ip[0];
-			else if(datlen == 2)
-				pApIp[pos] = ip[0] * 10 + ip[1];
-			else if(datlen == 3)
-				pApIp[pos] = ip[0] * 100 + ip[1] * 10 + ip[2];
-			
-			pos++;
-			datlen = 0;
-		}
-		else
-		{
-			if((pos == 3) && (* ( pCh + uc) == '\"'))
-				break;
-			ip[datlen++] = * ( pCh + uc) - '0';
-		}		
-		
-	}
-	
-	if(datlen == 1)
-		pApIp[pos] = ip[0];
-	else if(datlen == 2)
-		pApIp[pos] = ip[0] * 10 + ip[1];
-	else if(datlen == 3)
-		pApIp[pos] = ip[0] * 100 + ip[1] * 10 + ip[2];
-			
 	
 	pos = 0;
 	datlen = 0;
@@ -802,9 +860,7 @@ uint8_t ESP8266_Inquire_ApIp ( uint8_t * pApIp, uint8_t * pStaIp,uint8_t ucArray
 				break;
 			
 			ip[datlen++] = * ( pCh + uc) - '0';
-		}		
-
-		
+		}			
 	}
 	
 	if(datlen == 1)
@@ -814,12 +870,278 @@ uint8_t ESP8266_Inquire_ApIp ( uint8_t * pApIp, uint8_t * pStaIp,uint8_t ucArray
 	else if(datlen == 3)
 		pStaIp[pos] = ip[0] * 100 + ip[1] * 10 + ip[2];
 	
-	
+
+//// GET MAC address
+//	ESP8266_Cmd ( "AT+CIPSTAMAC?", "OK", 0, 500 );	
+//	pos = 0;
+//	datlen = 0;
+//	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "+CIPSTAMAC:\"" );
+//	
+////	AT+CIPSTAMAC?
+
+////+CIPSTAMAC:"ec:fa:bc:40:e0:f0"
+
+////OK
+//	if( pCh )
+//		pCh += 11;
+//	
+//	else
+//		return 0;
+//	
+//	for ( uc = 0; uc < ucArrayLength; uc ++ )
+//	{
+//		if(*( pCh + uc) == ':')
+//		{
+//			if(datlen == 2)
+//				pStamac[pos] = mac[0] * 16 + mac[1];
+//			pos++;
+//			datlen = 0;
+//		}
+//		else
+//		{
+//			if((pos == 5) && (* ( pCh + uc) == '\"'))
+//				break;
+//			
+//			if((* ( pCh + uc) >= '0') && (* ( pCh + uc) <= '9'))
+//				mac[datlen++] = * ( pCh + uc) - '0';
+//			else if((* ( pCh + uc) >= 'a') && (* ( pCh + uc) <= 'f'))
+//				mac[datlen++] = * ( pCh + uc) - 'a' + 10;
+//		}	
+//		
+//	}
+//	
+//	if(datlen == 2)
+//		pStamac[pos] = mac[0] * 16 + mac[1];
+
+  // GET SSID and password
+    ESP8266_Cmd("AT+CWJAP_CUR?", "OK", 0, 500);
+    pos = 0;
+    datlen = 0;
+    pCh = strstr(strEsp8266_Fram_Record.Data_RX_BUF, "+CWJAP_CUR:");
+
+    if (pCh)
+        pCh += 12;
+    else
+        return 0;
+
+    for (uc = 0; uc < ucArrayLength; uc++)
+    {
+        if (*(pCh + uc) == '"')
+        {
+            pCh += uc + 1;
+            datlen = 0;
+            break;
+        }
+        else
+        {
+            SSID_Info.name[datlen++] = *(pCh + uc);
+        }
+    }
+
 	return 1;
 	
 }
 
 
+//AT+CIPSTA_CUR?
+//AT+CIPSTA_CUR?  查询指令 Station IP
+//AT+CIPSTA_CUR? +CIPSTA_CUR:ip:"192.168.0.118"
+//+CIPSTA_CUR:gateway:"192.168.0.4"
+//+CIPSTA_CUR:netmask:"255.255.255.0"
+
+/*
+ret: 0 -- error
+		1 -- ip dont change
+		2 -- ip changed.
+
+param:
+type : 0 - dont check ip chagned
+			 1 - check ip changed
+*/
+uint8_t ESP8266_CIPSTA_CUR(char type)
+{
+	char i;
+	char datlen;
+	char pos;
+	char uc;	
+	char * pCh;
+	uint8_t temp[4];
+	uint8_t Ip[4],gateway[4],netmask[4];
+	
+	ESP8266_Cmd ( "AT+CIPSTA_CUR?", "OK", 0, 500 );
+	
+	pos = 0;
+	datlen = 0;
+	
+	// 获得IP
+	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, ":ip:\"" );
+	
+	if ( pCh )
+		pCh += 5;	
+	else
+		return 0;
+	
+	for ( uc = 0; uc < 40; uc ++ )
+	{
+		if(*( pCh + uc) == '.')
+		{
+			if(datlen == 1)
+				Ip[pos] = temp[0];
+			else if(datlen == 2)
+				Ip[pos] = temp[0] * 10 + temp[1];
+			else if(datlen == 3)
+				Ip[pos] = temp[0] * 100 + temp[1] * 10 + temp[2];
+			
+			pos++;
+			datlen = 0;
+		}
+		else
+		{
+			if((pos == 3) && (* ( pCh + uc) == '\"'))
+				break;
+			
+			temp[datlen++] = * ( pCh + uc) - '0';
+		}			
+	}
+	
+	if(datlen == 1)
+		Ip[pos] = temp[0];
+	else if(datlen == 2)
+		Ip[pos] = temp[0] * 10 + temp[1];
+	else if(datlen == 3)
+		Ip[pos] = temp[0] * 100 + temp[1] * 10 + temp[2];
+
+	if(type == 0)			
+	{
+		memcpy(&SSID_Info.ip_addr[0],Ip,4);
+	}
+	else
+	{
+		if((Ip[0] != SSID_Info.ip_addr[0]) || 
+			(Ip[1] != SSID_Info.ip_addr[1])  ||
+			(Ip[2] != SSID_Info.ip_addr[2]) ||
+			(Ip[3] != SSID_Info.ip_addr[3]) )
+		{
+			memcpy(&SSID_Info.ip_addr[0],Ip,4);
+			return 2;
+		}
+	}
+	// 获得gateway
+	
+	pos = 0;
+	datlen = 0;
+	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, ":gateway:\"" );
+	
+	if ( pCh )
+		pCh += 10;	
+	else
+		return 0;
+	
+	for ( uc = 0; uc < 40; uc ++ )
+	{
+		if(*( pCh + uc) == '.')
+		{
+			if(datlen == 1)
+				gateway[pos] = temp[0];
+			else if(datlen == 2)
+				gateway[pos] = temp[0] * 10 + temp[1];
+			else if(datlen == 3)
+				gateway[pos] = temp[0] * 100 + temp[1] * 10 + temp[2];
+			
+			pos++;
+			datlen = 0;
+		}
+		else
+		{
+			if((pos == 3) && (* ( pCh + uc) == '\"'))
+				break;
+			
+			temp[datlen++] = * ( pCh + uc) - '0';
+		}			
+	}
+	
+	if(datlen == 1)
+		gateway[pos] = temp[0];
+	else if(datlen == 2)
+		gateway[pos] = temp[0] * 10 + temp[1];
+	else if(datlen == 3)
+		gateway[pos] = temp[0] * 100 + temp[1] * 10 + temp[2];
+	
+	if(type == 0)			
+	{
+		memcpy(&SSID_Info.getway[0],gateway,4);
+	}
+	else
+	{
+		if((gateway[0] != SSID_Info.getway[0]) || 
+			(gateway[1] != SSID_Info.getway[1])  ||
+			(gateway[2] != SSID_Info.getway[2]) ||
+			(gateway[3] != SSID_Info.getway[3]) )
+		{
+			memcpy(&SSID_Info.getway[0],gateway,4);
+			return 2;
+		}
+	}
+	
+	// 获得netmask
+	
+	pos = 0;
+	datlen = 0;
+	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, ":netmask:\"" );
+	
+	if ( pCh )
+		pCh += 10;	
+	else
+		return 0;
+	
+	for ( uc = 0; uc < 40; uc ++ )
+	{
+		if(*( pCh + uc) == '.')
+		{
+			if(datlen == 1)
+				netmask[pos] = temp[0];
+			else if(datlen == 2)
+				netmask[pos] = temp[0] * 10 + temp[1];
+			else if(datlen == 3)
+				netmask[pos] = temp[0] * 100 + temp[1] * 10 + temp[2];
+			
+			pos++;
+			datlen = 0;
+		}
+		else
+		{
+			if((pos == 3) && (* ( pCh + uc) == '\"'))
+				break;
+			
+			temp[datlen++] = * ( pCh + uc) - '0';
+		}			
+	}
+	
+	if(datlen == 1)
+		netmask[pos] = temp[0];
+	else if(datlen == 2)
+		netmask[pos] = temp[0] * 10 + temp[1];
+	else if(datlen == 3)
+		netmask[pos] = temp[0] * 100 + temp[1] * 10 + temp[2];
+	
+	if(type == 0)	
+	{
+		memcpy(&SSID_Info.net_mask[0],netmask,4);
+	}
+	else
+	{
+		if((netmask[0] != SSID_Info.net_mask[0]) || 
+			(netmask[1] != SSID_Info.net_mask[1])  ||
+			(netmask[2] != SSID_Info.net_mask[2]) ||
+			(netmask[3] != SSID_Info.net_mask[3]) )
+		{
+			memcpy(&SSID_Info.net_mask[0],netmask,4);
+			return 2;
+		}
+	}
+	
+	return 1;
+}
 
 /*
  * 函数名：ESP8266_UnvarnishSend
@@ -871,9 +1193,15 @@ void ESP8266_ExitUnvarnishSend ( void )
  */
 bool ESP8266_SendString ( FunctionalState enumEnUnvarnishTx, uint8_t * pStr, u32 ulStrLength, ENUM_ID_NO_TypeDef ucId )
 {
-	uint8_t cStr [200];
+	uint8_t cStr [600];
+	u16 i,j;
+    u16 temp_length; //计算发送长度
+									
 	bool bRet = false;
-	
+ 
+	if(ulStrLength > 550) 
+		return 0;
+
 	if ( enumEnUnvarnishTx )
 	{
 		macESP8266_Usart ( "%s", pStr );
@@ -881,18 +1209,26 @@ bool ESP8266_SendString ( FunctionalState enumEnUnvarnishTx, uint8_t * pStr, u32
 	}
 	else
 	{
-		if ( ucId < 5 )
-			sprintf ( cStr, "AT+CIPSEND=%d,%d", ucId, ulStrLength);
-		else
-			sprintf ( cStr, "AT+CIPSEND=%d", ulStrLength);
-		
-		macESP8266_Usart ( "%s\r\n", cStr );
-		delay_ms ( 200 );
-		//bRet = ESP8266_Cmd ( cStr, "> ", 0, 500 );
-		//printf("bRet = %d\r\d",bRet);
-		//bRet = ESP8266_Cmd ( pStr, "SEND OK", 0, 1000 );
-		bRet = ESP8266_Cmd_unit8 ( pStr, "SEND OK", 0, ulStrLength,100 );
-		
+			if (ucId < 5)
+					sprintf(cStr, "AT+CIPSEND=%d,%d\r\n", ucId, ulStrLength);
+			else
+					sprintf(cStr, "AT+CIPSEND=%d\r\n", ulStrLength);
+			temp_length = strlen(cStr);
+			if ((temp_length == 0) || (temp_length > 540))
+			{
+					return 0;
+			}
+			Send_Uart_Data(cStr, temp_length);
+	
+			delay_ms ( 2 );
+
+			Send_Uart_Data(pStr, ulStrLength);
+
+		//for(i = 0;i < ulStrLength;i++)
+		//{	
+		//	USART_SendData(UART4, pStr[i]);
+		//	while( (USART_GetFlagStatus(UART4, USART_FLAG_TXE) == RESET) );
+		//}
   }
 	
 	return bRet;
@@ -909,15 +1245,17 @@ bool ESP8266_SendString ( FunctionalState enumEnUnvarnishTx, uint8_t * pStr, u32
  */
 uint8_t * ESP8266_ReceiveString ( FunctionalState enumEnUnvarnishTx )
 {
-	uint8_t * pRecStr = 0;
-	
+	uint8_t * pRecStr = NULL;
+	uint16_t count;
 	
 	strEsp8266_Fram_Record .InfBit .FramLength = 0;
 	strEsp8266_Fram_Record .InfBit .FramFinishFlag = 0;
+	memset(&strEsp8266_Fram_Record,0,sizeof(strEsp8266_Fram_Record));
 	
-	while ( ! strEsp8266_Fram_Record .InfBit .FramFinishFlag )
+	count = 0;
+	while ( (! strEsp8266_Fram_Record .InfBit .FramFinishFlag) && (count++ < 100))
 	{
-		delay_ms(50) ;
+		delay_ms(10) ;
 		IWDG_ReloadCounter();
 	}
 	strEsp8266_Fram_Record .Data_RX_BUF [ strEsp8266_Fram_Record .InfBit .FramLength ] = '\0';
@@ -929,9 +1267,9 @@ uint8_t * ESP8266_ReceiveString ( FunctionalState enumEnUnvarnishTx )
 	{
 		if ( strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "+IPD" ) )
 			pRecStr = strEsp8266_Fram_Record .Data_RX_BUF;
-
 	}
-//	memset(&strEsp8266_Fram_Record,0,sizeof(strEsp8266_Fram_Record));
+	
 	return pRecStr;
 	
 }
+

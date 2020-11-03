@@ -8,6 +8,7 @@
 #define	SD_CS_BIG	PCout(5) //SD卡片选引脚					    	  
 #define	SD_CS_SMALL	PDout(3)
 #define	SD_CS_NEW_TINY	PDout(9)
+#define SD_CS_TSTAT10   PGout(12)
 
 
 void SPI1_Init(u8 type);							//初始化SPI1口

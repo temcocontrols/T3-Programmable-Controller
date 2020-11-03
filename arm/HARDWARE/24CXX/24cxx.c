@@ -7,7 +7,7 @@ void AT24CXX_Init(void)
 {
 	IIC_Init();
 }
-
+extern u16 Test[50];
 //在AT24CXX指定地址读出一个数据
 //ReadAddr:开始读数的地址  
 //返回值  :读到的数据
@@ -35,13 +35,14 @@ u8 AT24CXX_ReadOneByte(u16 ReadAddr)
 	IIC_Wait_Ack();	 
   temp = IIC_Read_Byte(0);
 			   
-    IIC_Stop();							//产生一个停止条件	    
+  IIC_Stop();							//产生一个停止条件	    
 	return temp;
 }
 
 //在AT24CXX指定地址写入一个数据
 //WriteAddr  :写入数据的目的地址    
 //DataToWrite:要写入的数据
+
 void AT24CXX_WriteOneByte(u16 WriteAddr, u8 DataToWrite)
 {			
 	if((Get_Mini_Type() != MINI_NEW_TINY) && (Get_Mini_Type() != MINI_TINY_ARM))

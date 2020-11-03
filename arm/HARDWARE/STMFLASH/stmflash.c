@@ -237,7 +237,13 @@ void Test_Write(u32 WriteAddr, u16 WriteData)
 	STMFLASH_Write(WriteAddr, &WriteData, 1);	//写入一个字 
 }
 
-
+//设置栈顶地址
+//addr:栈顶地址
+__asm void MSR_MSP(u32 addr) 
+{
+    MSR MSP, r0    //set Main Stack value
+    BX r14
+}
 
 void iap_write_appbin(u32 appxaddr,u8 *appbuf,u32 appsize)
 {
@@ -270,3 +276,17 @@ void iap_write_appbin(u32 appxaddr,u8 *appbuf,u32 appsize)
 	}
 }
 
+typedef  void (*iapfun)(void);				//定义一个函数类型的参数.
+
+iapfun jump2app; 
+
+void iap_load_app(u32 appxaddr)
+{
+	if(((*(vu32*)appxaddr)&0x2FFE0000)==0x20000000)	//检查栈顶地址是否合法.
+	{ 
+		jump2app=(iapfun)*(vu32*)(appxaddr+4);		//用户代码区第二个字为程序开始地址(复位地址)		
+		MSR_MSP(*(vu32*)appxaddr);					//初始化APP堆栈指针(用户代码区的第一个字用于存放栈顶地址)
+		jump2app();									//跳转到APP.
+		
+	}
+}	

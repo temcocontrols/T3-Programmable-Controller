@@ -688,6 +688,16 @@
               <FileType>1</FileType>
               <FilePath>..\uIP-1.0\uip\uip-split.c</FilePath>
             </File>
+            <File>
+              <FileName>CMIME64.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\uIP-APP\CMIME64.c</FilePath>
+            </File>
+            <File>
+              <FileName>smtpc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\uIP-APP\smtpc.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

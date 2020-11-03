@@ -70,9 +70,8 @@ void smtp_init(void);
 
 /* Functions. */
 void smtp_configure(char *localhostname, u16_t *smtpserver);
-unsigned char smtp_send(char *to, char *from,
-			char *subject, char *msg,
-			u16_t msglen);
+unsigned char smtp_send(char *to, char *cc, char *from,
+			char *subject, char *msg,	u16_t msglen);
 #define SMTP_SEND(to, cc, from, subject, msg) \
         smtp_send(to, cc, from, subject, msg, strlen(msg))
 
@@ -88,14 +87,20 @@ struct smtp_state {
   
   u16_t sentlen, textlen;
   u16_t sendptr;
-
+	
+	// added by chelsea
+	struct psock psock;
+	char *inputbuffer;
+	char *cc;
+	u8_t connected;
 };
 
 
-#ifndef UIP_APPCALL
-#define UIP_APPCALL     smtp_appcall
-#endif
-typedef struct smtp_state uip_tcp_appstate_t;
+//#ifndef UIP_APPCALL
+//#define UIP_APPCALL     smtp_appcall
+//#endif
+
+//typedef struct smtp_state uip_tcp_appstate_t;
 
 
 #endif /* __SMTP_H__ */

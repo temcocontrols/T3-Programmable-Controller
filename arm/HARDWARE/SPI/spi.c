@@ -35,8 +35,8 @@ void SPI1_Init(u8 type)
 	GPIO_InitTypeDef GPIO_InitStructure;
 	SPI_InitTypeDef SPI_InitStructure;	
 	
-	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
-		return;
+//	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO))
+//		return;
 	
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1 | RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD, ENABLE);	//PORTB?SPI1???? 
 
@@ -48,7 +48,7 @@ void SPI1_Init(u8 type)
 	GPIO_SetBits(GPIOA, GPIO_Pin_5 | GPIO_Pin_6 | GPIO_Pin_7);
 
 // top board  NNS PC1
-
+#if ARM_MINI	
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;				
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;			//??????
@@ -61,6 +61,22 @@ void SPI1_Init(u8 type)
 		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;			//??????
 		GPIO_Init(GPIOD, &GPIO_InitStructure);
+	}
+#endif
+	if(Modbus.mini_type == MINI_TSTAT10 || Modbus.mini_type == MINI_T10P)
+	{
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOG, ENABLE);
+		
+		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;				
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;			//??????
+		GPIO_Init(GPIOG, &GPIO_InitStructure);
+		
+		SPI_InitStructure.SPI_CPOL = SPI_CPOL_High;									//???????????????
+		SPI_InitStructure.SPI_CPHA = SPI_CPHA_2Edge;
+		SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_16;		//??????????:????????256
+
+		SD_CS_TSTAT10 = 0;
 	}
 	
 
@@ -109,7 +125,13 @@ void SPI1_Init(u8 type)
 		SPI1_SetSpeed(SPI_BaudRatePrescaler_256);
 	}
 	else
+	{
 		SPI1_SetSpeed(SPI_BaudRatePrescaler_16);
+//		if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
+//			SPI1_SetSpeed(SPI_BaudRatePrescaler_16);
+//		else
+//			SPI1_SetSpeed(SPI_BaudRatePrescaler_2);
+	}
 }
 
 void SPI1_SetSpeed(u8 SPI_BaudRatePrescaler)
@@ -130,14 +152,14 @@ u8 SPI1_ReadWriteByte(u8 TxData)
 	while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) == RESET)
 	{
 		retry++;
-		if(retry > 0xffff) {return 0;}
+		if(retry > 0xfff) {return 0;}
 	};
 	SPI_I2S_SendData(SPI1, TxData);
 	retry = 0;
 	while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET)
 	{
 		retry++;
-		if(retry > 0xffff) {return 0;}
+		if(retry > 0xfff) {return 0;}
 	};
 	return SPI_I2S_ReceiveData(SPI1);
 }
@@ -169,7 +191,7 @@ void SPI3_Init(void)
 		GPIO_Init(GPIOC, &GPIO_InitStructure);
 		GPIO_ResetBits(GPIOC, GPIO_Pin_5);
 	}
-	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO))
 	{
 		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;				
 		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -221,14 +243,14 @@ u8 SPI3_ReadWriteByte(u8 TxData)
 	while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) == RESET)
 	{
 		retry++;
-		if(retry > 0xffff) {return 0;}
+		if(retry > 0xfff) {return 0;}
 	};
 	SPI_I2S_SendData(SPI3, TxData);
 	retry = 0;
 	while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET)
 	{
 		retry++;
-		if(retry > 0xffff) {return 0;}
+		if(retry > 0xfff) {return 0;}
 	};
 	return SPI_I2S_ReceiveData(SPI3);
 }
@@ -294,14 +316,14 @@ u8 SPI2_ReadWriteByte(u8 TxData)
 	while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET)
 	{
 		retry++;
-		if(retry > 0xffff) return 0;
+		if(retry > 0xfff) return 0;
 	};
 	SPI_I2S_SendData(SPI2, TxData);
 	retry = 0;
 	while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_RXNE) == RESET)
 	{
 		retry++;
-		if(retry > 0xffff) return 0;
+		if(retry > 0xfff) return 0;
 	};
 	return SPI_I2S_ReceiveData(SPI2);
 }
