@@ -2243,12 +2243,22 @@ void Scan_network_bacnet_Task(void)
 							{
 								if(network_points_list_bacnet[j].instance == remote_panel_db[i].device_id)
 								{// instance is same, update panel
-									network_points_list_bacnet[j].point.panel = temcovar_panel;
-									network_points_list_bacnet[j].point.sub_id = temcovar_panel;
+									if(temcovar_panel != 0)
+									{
+										network_points_list_bacnet[j].point.panel = temcovar_panel;
+										network_points_list_bacnet[j].point.sub_id = temcovar_panel;
+									}
 								}
 							}
-							remote_panel_db[i].panel = temcovar_panel;
-							remote_panel_db[i].sub_id = temcovar_panel;
+							if(temcovar_panel != 0)
+							{
+								remote_panel_db[i].panel = temcovar_panel;
+								remote_panel_db[i].sub_id = temcovar_panel;
+							}
+							else
+							{
+								;//Test[10]++;
+							}
 							
 						}
 						
@@ -2302,7 +2312,6 @@ void Scan_network_bacnet_Task(void)
 				for(network_point_index = 0;network_point_index < number_of_network_points_bacnet;network_point_index++)
 				{
 					Test[22]++;
-					Test[23] = network_points_list_bacnet[network_point_index].point.sub_id;
 					if(network_points_list_bacnet[network_point_index].lose_count > 5)
 					{
 						network_points_list_bacnet[network_point_index].lose_count = 0;

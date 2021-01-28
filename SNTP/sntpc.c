@@ -97,7 +97,7 @@ void SNTPC_Init(void)
 	DNSC_Start("ntp.sjtu.edu.cn");
 #endif
 
-#if (ARM_MINI || ARM_CM5)
+#if (ARM_MINI || ARM_CM5 )//|| ARM_TSTAT_WIFI)
 	resolv_query("time.windows.com");
 	resolv_query("time.nist.gov");
 	resolv_query("ntp.sjtu.edu.cn");
@@ -139,7 +139,6 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 	U16_T temp_YY;
 	
 	i = 0;
-	
 	tt->timestamp = timestamp;
 	
 	signhour = timezone / 100;
@@ -158,9 +157,13 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 		tt->timestamp += (hour*3600 + min*60);
 	}
 
+
 	if(Daylight_Saving_Time)
 	{
-		tt->timestamp += 3600;
+		if((Rtc.Clk.day_of_year >= 105) && (Rtc.Clk.day_of_year <= 260))
+		{
+			tt->timestamp += 3600;
+		}
 	}
 
 	tt->second_remain = tt->timestamp % 86400;
@@ -176,12 +179,12 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 		temp_YY += 1900;
 	else  // PC
 		temp_YY += 1970;	
-
 	if((temp_YY % 4) == 0)
 	{
 		tt->DD_r = tt->day_total-(tt->YY*365)-(tt->YY/4);
 		tt->DD_r++;
-//		tt->DD_r++;	
+		if(source == 0)
+			tt->DD_r++;	
 		while(tt->DD_r>0)
 		{
 			tt->DD = tt->DD_r;
@@ -192,7 +195,8 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 	else
 	{
 		tt->DD_r = tt->day_total-(tt->YY*365)-(tt->YY/4);
-		tt->DD_r++;
+		if(source == 0)
+			tt->DD_r++;
 		if(tt->DD_r>365){
 			tt->DD_r = 1;
 			tt->YY++;
@@ -211,7 +215,6 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 		tt->YY += 1970;	
 	
 
-	
 	rtc->Clk.sec = tt->SS;
 	rtc->Clk.min = tt->MI;
 	rtc->Clk.hour = tt->HH;
@@ -239,7 +242,8 @@ void Sync_timestamp(S16_T newTZ,S16_T oldTZ,S8_T newDLS,S8_T oldDLS)
 
 	current = get_current_time();
 	current += (newTZ - oldTZ) * 36;
-	current += (newDLS - oldDLS) * 3600;
+	if((Rtc.Clk.day_of_year >= 105) && (Rtc.Clk.day_of_year <= 260))
+		current += (newDLS - oldDLS) * 3600;
 	Get_RTC_by_timestamp(current,&t,&Rtc,1);
 #if (ARM_MINI || ARM_CM5)
 	Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);
@@ -265,21 +269,19 @@ void SNTPC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 {
 	t.sntpcPktPtr = (SNTPHeader*)pData;
 	psntpcpMsg = (SNTPHeader*)t.sntpcPktPtr;
-	
 	if(id != 0)
 		return;
 	
 	length = length;
-
 #if (ASIX_MINI || ASIX_CM5)	
 	Get_RTC_by_timestamp(psntpcpMsg->receive_time1,&t,&Rtc,0);	
 //	flag_Updata_Clock = 1;
 	TCPIP_UdpClose(sntpc_Conns.UdpSocket);
 #endif
-	
-#if (ARM_MINI || ARM_CM5)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 	Get_RTC_by_timestamp(my_honts_arm(psntpcpMsg->receive_time1),&t,&Rtc,0);	
-//	flag_Updata_Clock = 1;//Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);
+	flag_Updata_Clock = 1;//Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);
+	Test[27]++;
 #endif
 	
 	sntpc_Conns.State = SNTP_STATE_GET_DONE;	
@@ -373,6 +375,8 @@ void sntpc_Send(U8_T InterUdpId)
  * Note:
  * ----------------------------------------------------------------------------
  */
+uint8_t flag_send_ntp_by_wifi;
+void Sync_with_NTP_by_Wifi(void);
 U8_T SNTPC_Start(S16_T gmt, U32_T timesrIP)
 {
 
@@ -383,17 +387,14 @@ U8_T SNTPC_Start(S16_T gmt, U32_T timesrIP)
 	sntpc_Conns.ServerIp = timesrIP;
 //	GMT = gmt;
 	/* Create SNTP client port */
-
 	if(sntpc_Conns.UdpSocket != NULL) 
 		TCPIP_UdpClose(sntpc_Conns.UdpSocket);
-	Test[25]++;
+	
 	if((sntpc_Conns.UdpSocket = TCPIP_UdpNew(sntpc_InterAppId, 0, sntpc_Conns.ServerIp,
 		0, SNTP_SERVER_PORT)) == TCPIP_NO_NEW_CONN)
 	{
 		return SNTP_STATE_NOTREADY;
 	}
-
-	Test[26]++;
 		
 	sntpc_Send(sntpc_Conns.UdpSocket);
 	sntpc_Conns.State = SNTP_STATE_WAIT;
@@ -407,15 +408,16 @@ U8_T SNTPC_Start(S16_T gmt, U32_T timesrIP)
 
 #if (ARM_MINI || ARM_CM5)
 	uip_ipaddr_t addr;
-		
 	if(sntp_conn != NULL) 
 		uip_udp_remove(sntp_conn);
-
 	uip_ipaddr(addr, (U8_T)(timesrIP >> 24), (U8_T)(timesrIP >> 16), (U8_T)(timesrIP >> 8), (U8_T)(timesrIP));	
 	sntp_conn = uip_udp_new(&addr, HTONS(123));
-
 	flag_sntpc_Send = 1;
 #endif	
+	
+#if ARM_TSTAT_WIFI
+//	Sync_with_NTP_by_Wifi();
+#endif
 } /* End of SNTPC_Start() */
 
 /*
@@ -502,14 +504,13 @@ void sntp_appcall(void)
 		{
 			sntpc_Send(0);
 			flag_sntpc_Send = 0;
-			
 		}
 	}
 	
 	if(uip_newdata()) 
 	{
 // deal with receiving data
-		SNTPC_Receive(uip_appdata, uip_len, 0);	
+		SNTPC_Receive(uip_appdata, uip_len, 0);
 	}
 }
 
@@ -588,13 +589,13 @@ void sntp_select_time_server(U8_T type)
 		ptr_rm_ip = resolv_lookup(sntp_server);
 	}
 	memcpy(SntpServer,ptr_rm_ip,4);
-
+	
 	
 #endif
 }
 
 
-#if (!ARM_TSTAT_WIFI)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)	//(!ARM_TSTAT_WIFI)
 void update_sntp(void)
 {
 	U8_T state;
@@ -606,11 +607,16 @@ void update_sntp(void)
 	{
 		count_sntp++;	
 		if(flag_Update_Sntp == 0)
-		{		
-			
+		{	
+#if ARM_MINI || ARM_CM5
 				state = SNTPC_GetState();
+#endif
+			
+#if ARM_TSTAT_WIFI
+				state = SNTP_STATE_GET_DONE;
+#endif
 				if(SNTP_STATE_GET_DONE  == state)
-				{		
+				{
 					Setting_Info.reg.sync_with_ntp_result = 1;
 					// update successfullly	
 #if 1//ARM					
@@ -630,10 +636,14 @@ void update_sntp(void)
 #if (ASIX_MINI || ASIX_CM5)
 					//Updata_Clock(0);
 					flag_Updata_Clock = 1;
-#endif
-						
-					}						
-					update_sntp_last_time = get_current_time();
+#endif						
+					}		
+   				if(Rtc.Clk.year % 4 == 0)
+					{			
+						if(Rtc.Clk.day_of_year > 60)
+							update_sntp_last_time = get_current_time() + 86400;
+					}
+					Test[20]++;
 					E2prom_Write_Byte(EEP_SNTP_TIME4,(U8_T)(update_sntp_last_time >> 24));
 					E2prom_Write_Byte(EEP_SNTP_TIME3,(U8_T)(update_sntp_last_time >> 16));
 					E2prom_Write_Byte(EEP_SNTP_TIME2,(U8_T)(update_sntp_last_time >> 8));
@@ -649,15 +659,16 @@ void update_sntp(void)
 					count_sntp = 0;
 				}
 				else
-				{			  
+				{	
 					if(Update_Sntp_Retry < MAX_SNTP_RETRY_COUNT)
 					{
 						if(count_sntp % 20 == 0)
-						{	
+						{
 							if(Setting_Info.reg.en_time_sync_with_pc == 0)
 							{// udpate with NTP
 								sntp_select_time_server(Modbus.en_sntp);
 								SNTPC_Start(timezone, (((U32_T)SntpServer[0]) << 24) | ((U32_T)SntpServer[1] << 16) | ((U32_T)SntpServer[2] << 8) | (SntpServer[3]));
+								
 							}
 							Update_Sntp_Retry++;
 						}

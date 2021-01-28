@@ -59,10 +59,13 @@
  * $Id: resolv.c,v 1.5 2006/06/11 21:46:37 adam Exp $
  *
  */
-
+#include "main.h"
 #include "resolv.h"
+
+#if ARM_MINI || ARM_CM5
 #include "uip.h"
 #include "tcpip.h"
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -71,7 +74,10 @@
 #define NULL (void *)0
 #endif /* NULL */
 
-
+#if ARM_TSTAT_WIFI
+#include "bsp_esp8266.h"
+extern uint8_t packet[1024];
+#endif
 
 /** \internal The DNS message header. */
 struct dns_hdr {
@@ -113,9 +119,9 @@ struct dns_answer {
 struct namemap names[RESOLV_ENTRIES];
 
 static u8_t seqno;
-
+#if ARM_MINI || ARM_CM5
 static struct uip_udp_conn *resolv_conn = NULL;
-
+#endif
 
 /*---------------------------------------------------------------------------*/
 /** \internal
@@ -179,7 +185,13 @@ check_entries(void)
 	namemapptr->tmr = 1;
 	namemapptr->retries = 0;
       }
+#if ARM_MINI || ARM_CM5
       hdr = (struct dns_hdr *)uip_appdata;
+#endif
+			
+#if ARM_TSTAT_WIFI
+			hdr = (struct dns_hdr *)packet;
+#endif
       memset(hdr, 0, sizeof(struct dns_hdr));
       hdr->id = htons(i);
       hdr->flags1 = DNS_FLAG1_RD;
@@ -190,21 +202,28 @@ check_entries(void)
 
       /* Convert hostname into suitable query format. */
       do {
-	++nameptr;
-	nptr = query;
-	++query;
-	for(n = 0; *nameptr != '.' && *nameptr != 0; ++nameptr) {
-	  *query = *nameptr;
-	  ++query;
-	  ++n;
-	}
-	*nptr = n; 		
+				++nameptr;
+				nptr = query;
+				++query;
+				for(n = 0; *nameptr != '.' && *nameptr != 0; ++nameptr) {
+					*query = *nameptr;
+					++query;
+					++n;
+				}
+				*nptr = n; 		
       } while(*nameptr != 0);
       {
-	static unsigned char endquery[] =  {0,0,1,0,1};
-	memcpy(query, endquery, 5);
+				static unsigned char endquery[] =  {0,0,1,0,1};
+				memcpy(query, endquery, 5);
       }
+#if ARM_MINI || ARM_CM5
       uip_udp_send((unsigned char)(query + 5 - (char *)uip_appdata));
+#endif
+			
+#if ARM_TSTAT_WIFI
+			// wifi send		
+			ESP8266_SendString( DISABLE, (uint8_t *)&packet, (unsigned char)(query + 5 - (char *)packet),3);
+#endif
     break;
     }
   }
@@ -305,6 +324,8 @@ newdata(void)
   }
 
 }
+
+#if ARM_MINI || ARM_CM5
 /*---------------------------------------------------------------------------*/
 /** \internal
  * The main UDP function.
@@ -322,6 +343,7 @@ resolv_appcall(void)
     }
   }
 }
+#endif
 /*---------------------------------------------------------------------------*/
 /**
  * Queues a name so that a question for the name will be sent out.
@@ -411,6 +433,7 @@ resolv_lookup(char *name)
  * been configured.
  */
 /*---------------------------------------------------------------------------*/
+#if ARM_MINI || ARM_CM5
 u16_t *
 resolv_getserver(void)
 {
@@ -427,6 +450,7 @@ resolv_getserver(void)
  * address of the DNS server to be configured.
  */
 /*---------------------------------------------------------------------------*/
+
 void
 resolv_conf(u16_t *dnsserver)
 {
@@ -435,6 +459,7 @@ resolv_conf(u16_t *dnsserver)
   }
 	resolv_conn = uip_udp_new((uip_ipaddr_t *)dnsserver, HTONS(53));
 }
+#endif
 /*---------------------------------------------------------------------------*/
 /**
  * Initalize the resolver.
@@ -463,7 +488,9 @@ resolv_found(char *name, u16_t *ipaddr)
 	}
 	else
 	{
+#if ARM_MINI || ARM_CM5
 		if(DNSC_flag == REMOTE_SERVER)
+#endif
 		{				
 //				RM_Conns.ServerIp = DNSC.QueryIP;
 //				E2prom_Write_Byte(EEP_REMOTE_SERVER1,(U8_T)(DNSC.QueryIP >> 24));
@@ -483,7 +510,7 @@ resolv_found(char *name, u16_t *ipaddr)
 //               htons(ipaddr[1]) >> 8,
 //               htons(ipaddr[1]) & 0xff);
         /*    webclient_get("www.sics.se", 80, "/~adam/uip");*/
-    }
+   }
 }
 /*---------------------------------------------------------------------------*/
 

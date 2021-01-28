@@ -211,6 +211,7 @@ void Check_Pulse_Counter(void)
 		shift = 4;
 	else 
 		shift = 1;
+	
 	for(loop = 0;loop < HI_COMMON_CHANNEL;loop++)
 	{
 		if(high_spd_flag[loop] == 1) // start
@@ -220,7 +221,6 @@ void Check_Pulse_Counter(void)
 			{
 				high_spd_counter_tempbuf[loop]++;
 			}
-
 		}
 		if(high_spd_flag[loop] == 2) // clear
 		{
@@ -319,7 +319,13 @@ void Update_Led(void)
 		if(outputs[7].digital_analog == 0)
 			max_digout++;	
 	}
-
+	else  if(Modbus.mini_type == MINI_TINY_11I)
+	{
+		max_in = 11;
+		max_out = 11;
+		max_digout = 6;
+		
+	}
 	for(loop = 0;loop < max_in;loop++)
 	{	
 		pre_status = InputLed[loop];
@@ -651,7 +657,7 @@ void Updata_Comm_Led(void)
 		if(flagLED_uart0_rx)	{ temp1 |= 0x01;		flagLED_uart0_rx = 0;}
 		if(flagLED_uart0_tx)	{	temp1 |= 0x02;		flagLED_uart0_tx = 0;}
 	}
-	else  if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+	else  if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I))
 	{
 		// TBD: 
 //		if(flagLED_uart2_rx)	{ temp1 |= 0x10;	 	flagLED_uart2_rx = 0;}

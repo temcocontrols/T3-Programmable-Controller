@@ -55,6 +55,7 @@ void Comm_Tstat_Initial_Data(void)
 	else if(Modbus.mini_type == MINI_VAV)	{	base_in = 6;		base_out = 3;	}
 	else if(Modbus.mini_type == MINI_CM5) {	base_in = 24;		base_out = 10;}
 	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)) {	base_in = 8;		base_out = 14;}
+	else if(Modbus.mini_type == MINI_TINY_11I) 	{	base_in = 11;		base_out = 11;}
 	else if(Modbus.mini_type == MINI_TSTAT10) {base_in = TSTAT10_MAX_AIS;		base_out = TSTAT10_MAX_DOS + TSTAT10_MAX_AOS;}
 	else if(Modbus.mini_type == MINI_T10P) {base_in = T10P_MAX_AIS;		base_out = T10P_MAX_DOS + T10P_MAX_AOS;}
 	else if(Modbus.mini_type == MINI_NANO) {base_in = 0;		base_out = 0;}
@@ -78,7 +79,7 @@ void remap_table(U8_T index,U8_T type)
 	U16_T reg;
 
 	if(sub_map[index].add_in_map == 0)
-	{Test[14 + index]++;
+	{
 		if(type == PM_T3IOA)
 		{
 			for(i = 0;i < 8;i++)  // 8 ai
@@ -1229,6 +1230,7 @@ void refresh_extio_by_database(uint8_t ai_start,uint8_t ai_end,uint8_t out_start
 	else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))	{	ptr->reg.input_end = 16;		ptr->reg.output_end = 10;		}
 	else if(Modbus.mini_type == MINI_TINY)	{	ptr->reg.input_end = 11;		ptr->reg.output_end = 8;		}
 	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))	{	ptr->reg.input_end = 8;		ptr->reg.output_end = 14;		}
+	else if(Modbus.mini_type == MINI_TINY_11I)	{	ptr->reg.input_end = 11;		ptr->reg.output_end = 11;		}
 	else if(Modbus.mini_type == MINI_NANO)	{	// no I/O
 		ptr->reg.input_start = 0;	
 	ptr->reg.output_start = 0;ptr->reg.input_end = 0;		ptr->reg.output_end = 0;		}
@@ -1347,14 +1349,14 @@ void push_expansion_out_stack(Str_out_point* ptr,uint8 point,uint8_t type)
 		U16_T value;
 		//if( ptr->digital_analog == 0 )	 // DO
 		if(!(ptr->sub_number & 0x80))  // digital output
-		{	Test[11]++;
+		{	
 			output_raw[point] = ptr->control ? 1000 : 0;
 			//if(output_raw[point] != output_raw_back[point])
 			{		
 				reg = count_output_reg(&sub_index,MAP_DO,point);
 				
 				if(reg > 0)
-				{	Test[12] = reg;
+				{	
 //					if((sub_map[sub_index].type == PM_T38I13O) || (sub_map[sub_index].type == PM_T34AO)
 //						|| (sub_map[sub_index].type == PM_T38AI8AO6DO))   // T3 1 byte for DO
 					if(!(ptr->sub_number & 0x80))  // digital output
@@ -1380,12 +1382,11 @@ void push_expansion_out_stack(Str_out_point* ptr,uint8 point,uint8_t type)
 		else  // AO
 		{
 			//output_raw[point] = (float)swap_double(ptr->value) / 10000 * 4095  ;
-			Test[13]++;
 			//if(output_raw[point] != output_raw_back[point])
 			{
 				reg = count_output_reg(&sub_index,MAP_AO,point);
 				if(reg > 0)
-				{	Test[14] = reg;
+				{	
 					if(sub_map[sub_index].type == PM_T34AO)
 					{						
 						write_parameters_to_nodes(WRITE_VARIABLES,scan_db[sub_index].id,reg,(uint16*)&output_raw[point],1);

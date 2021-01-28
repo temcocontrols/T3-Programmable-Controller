@@ -167,6 +167,7 @@ typedef struct
 	U16_T zigbee_module_id;
 	U8_T dead_master;
 	U8_T disable_tstat10_display;  // display icons and scrolling string
+	lcdconfig display_lcd;
 }STR_MODBUS;
 
 typedef struct
@@ -206,6 +207,7 @@ typedef enum
 	E_FLAG_PT1K,// bit11. AI ????1KPT 
 	//E_FLAG_10K,// bit13. 
 }E_EX_FLAG;
+
 
 
 typedef enum {PORT_RS485_SUB,PORT_ZIGBEE,PORT_RS485_MAIN}E_UART_PORT;
@@ -877,6 +879,16 @@ typedef enum {
 	MODBUS_PULSE2 ,
 	MODBUS_PULSE3 ,
 	MODBUS_PULSE4 ,
+	
+	// type
+	// uint8_t number;
+//	uint8_t point_type;	 // first 3 bit for number
+//	uint8_t panel;   
+//	uint8_t sub_id;
+//	uint8_t	network_number; // networknumber, when first bit is 0
+
+	MODBUS_LCD_CONFIG_FIRST = 800,
+	MODBUS_LCD_CONFIG_END = MODBUS_LCD_CONFIG_FIRST + sizeof(lcdconfig) - 1,
 	
 
 

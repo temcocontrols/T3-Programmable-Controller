@@ -705,7 +705,7 @@ void Bacnet_Control(void) reentrant
 		{
 			inputs[COMMON_CHANNEL + 2].range = 0;
 		}
-#endif
+#endif				
 		control_input();
 #if ARM_TSTAT_WIFI
 		if(Check_sensor_exist(E_FLAG_HUM))
@@ -730,6 +730,7 @@ void Bacnet_Control(void) reentrant
 				inputs[COMMON_CHANNEL + 2].range = 0;
 			}
 		}
+		check_trendlog_1s(2); // T3 里面该函数因为一些特殊放在outputtask
 #endif
 		current_task = 9;
 		task_test.count[9]++;
@@ -868,6 +869,7 @@ void Bacnet_Control(void) reentrant
 //			count_1s = 0;
 		
 
+
 		
 		taskYIELD();
 	}		
@@ -875,7 +877,7 @@ void Bacnet_Control(void) reentrant
 }
 
 
-void check_trendlog_1s(void)
+void check_trendlog_1s(unsigned char count)
 {
 	static U16_T count_wait_sample = 0;
 	static U8_T count_1s = 0;
@@ -884,7 +886,7 @@ void check_trendlog_1s(void)
 	{
 		count_wait_sample = 0;
 		
-		if(count_1s++ % 20 == 0)
+		if(count_1s++ % count == 0)
 		{
 			count_1s = 0;
 		sample_points();	

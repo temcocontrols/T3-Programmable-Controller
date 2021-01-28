@@ -76,7 +76,7 @@ void check_SD_PnP(void)
 {
 	if((Modbus.mini_type == MINI_BIG) ||(Modbus.mini_type == MINI_BIG_ARM)
 			|| (Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)	
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)	|| (Modbus.mini_type == MINI_TINY_11I)
 			|| (Modbus.mini_type == MINI_TINY)
 			|| (Modbus.mini_type == MINI_NANO) 
 			)
@@ -668,7 +668,7 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 	uint8 ret;//, loop = 50;
 	uint8 result;	
 	uint8 file_index;  // range is  0 - 23
-	Test[10]++;
+
 	if(SD_exist != 2) 
 	{
 		return 1;
@@ -710,20 +710,20 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 	//if(star_pos == 0) // first packet, record start time
 	{
 		U32_T time;
-		ret = open_file(0,file_index + 24);Test[11]++;
+		ret = open_file(0,file_index + 24);
 		if(ret == FR_OK)
-		{Test[12]++;
+		{
 			time = get_current_time();//RTC_GetCounter();
 			// check time is valid or not
 			if((time > 1514736000) && (time < 1893427200))  //from 2018/1/1 to 2030/1/1
-			{Test[13]++;
+			{
 				ret = f_lseek(&file[file_index + 24] , (U32_T)SD_block_num[file_index] * 4);
 //				if(ana_dig == 1)
 //						memcpy(rw_sd_buf,&time,4);
 //				else
 				if(ret != FR_OK)
 				{
-					Test[14]++;
+					
 				}
 				else
 				{
@@ -746,12 +746,12 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 				
 			}	
 			else
-				Test[15]++;
+				;
 			
 			f_close(&file[file_index + 24]);	
 		}
 		else
-		{Test[16]++;
+		{
 			if(ret == 13)  // FILE SYSTEM is not correct
 			{
 				SD_exist = 3;

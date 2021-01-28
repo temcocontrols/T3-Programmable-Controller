@@ -447,27 +447,27 @@ void init_panel(void)
 		memset(msv_data,0,MAX_MSV * STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
 		msv_data[1][0].status = 1;
 		msv_data[1][0].msv_value = 0;
-    strcpy(msv_data[1][0].msv_name, "Auto");
+    strcpy(msv_data[1][0].msv_name, "AUTO");
 		msv_data[1][1].status = 1;
     msv_data[1][1].msv_value = 1;
-    strcpy(msv_data[1][1].msv_name, "On");
+    strcpy(msv_data[1][1].msv_name, "ON");
 		msv_data[1][2].status = 1;
     msv_data[1][2].msv_value = 2;
-    strcpy(msv_data[1][2].msv_name, "Off");
+    strcpy(msv_data[1][2].msv_name, "OFF");
 		
 		msv_data[2][0].status = 1;
     msv_data[2][0].msv_value = 0;
-    strcpy(msv_data[2][0].msv_name, "Auto");
+    strcpy(msv_data[2][0].msv_name, "AUTO");
 		msv_data[2][1].status = 1;
     msv_data[2][1].msv_value = 1;
-    strcpy(msv_data[2][1].msv_name, "Cool");
+    strcpy(msv_data[2][1].msv_name, "COOL");
 		msv_data[2][2].status = 1;
     msv_data[2][2].msv_value = 2;
-    strcpy(msv_data[2][2].msv_name, "Heat");
+    strcpy(msv_data[2][2].msv_name, "HEAT");
 		write_page_en[25] = 1;
 		
 		initial_tstat10_range();
-
+		
 #endif
 	}
 	memset(outputs,'\0', MAX_OUTS *sizeof(Str_out_point) );
@@ -505,7 +505,7 @@ void init_panel(void)
 				ptr.pout->digital_analog = 1;
 			}
 		}
-		else  if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+		else  if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) )
 		{
 			if((i >= 0) && (i < 8))
 			{
@@ -513,6 +513,19 @@ void init_panel(void)
 				ptr.pout->digital_analog = 0;
 			}
 			else if((i >= 8) && (i < 14))
+			{
+				ptr.pout->range = 4;  // 0-100%
+				ptr.pout->digital_analog = 1;
+			}
+		}
+		else  if(Modbus.mini_type == MINI_TINY_11I)
+		{
+			if((i >= 0) && (i <= 5))
+			{
+				ptr.pout->range = 1; // off-on
+				ptr.pout->digital_analog = 0;
+			}
+			else if((i >= 6) && (i < 11))
 			{
 				ptr.pout->range = 4;  // 0-100%
 				ptr.pout->digital_analog = 1;
@@ -538,6 +551,7 @@ void init_panel(void)
 	for( i = 0; i < MAX_CONS; i++, ptr.pcon++ )
 	{
 		ptr.pcon->repeats_per_min = 1;
+		
 	}
 	memset(programs,'\0',MAX_PRGS *sizeof(Str_program_point));
 	ptr.pprg = programs;
@@ -627,7 +641,6 @@ void init_panel(void)
 		ptr.pgrp->element_count = 0;
 	}
 
-	memset(controllers,'\0',MAX_CONS*sizeof(Str_controller_point));
 	memset(con_aux,'\0',MAX_CONS*sizeof(Con_aux));		
 	memset(&passwords,'\0',sizeof(Password_point) * MAX_PASSW);
 
@@ -834,14 +847,21 @@ void init_panel(void)
 	memset(&SSID_Info,0,sizeof(STR_SSID));
 #endif	
 
+#if ARM_TSTAT_WIFI
+	memset(Modbus.display_lcd.lcddisplay,0,sizeof(lcdconfig));
+#endif
 }
 
 void Initial_Panel_Info(void)
 {
-  uint8 temp[2];
 	memset(&Panel_Info,0,sizeof(Str_Panel_Info));
 	memset(&Setting_Info,0,sizeof(Str_Setting_Info));
 
+}
+void Sync_Panel_Info(void)
+{
+  uint8 temp[2];
+	
 	Panel_Info.reg.mac[0] = Modbus.ip_addr[0];
 	Panel_Info.reg.mac[1] = Modbus.ip_addr[1];
 	Panel_Info.reg.mac[2] = Modbus.ip_addr[2];
@@ -1021,7 +1041,7 @@ void Initial_Panel_Info(void)
 
 	if(Modbus.mini_type == MINI_CM5)
 		Panel_Info.reg.product_type = PRODUCT_CM5;		// TO BE CHANGED
-	else if((Modbus.mini_type >= MINI_BIG_ARM) && (Modbus.mini_type <= MINI_TINY_ARM))
+	else if((Modbus.mini_type >= MINI_BIG_ARM) && (Modbus.mini_type <= MINI_TINY_11I))
 		Panel_Info.reg.product_type = PRODUCT_MINI_ARM;
 	else 
 		Panel_Info.reg.product_type = PRODUCT_MINI_BIG;
@@ -1039,7 +1059,10 @@ void Initial_Panel_Info(void)
 	Setting_Info.reg.MAX_MASTER = MAX_MASTER;
 #endif
 	
-
+#if ARM_TSTAT_WIFI
+	memcpy(	Setting_Info.reg.display_lcd.lcddisplay, Modbus.display_lcd.lcddisplay,sizeof(lcdconfig));
+	memcpy(&Test[5],Setting_Info.reg.display_lcd.lcddisplay,sizeof(lcdconfig));
+#endif
 
 }
 
@@ -1132,10 +1155,17 @@ void update_timers( void )
 
 U32_T get_current_time(void)
 {
-
 #if (ASIX_MINI || ASIX_CM5)
 	if(Daylight_Saving_Time)  // timezone : +8 ---> 800
-		return time_since_1970 + timestart - (S16_T)timezone * 36 - 3600;
+	{	// 每年的四月中旬到9月中旬
+		if((Rtc.Clk.day_of_year >= 105) && (Rtc.Clk.day_of_year <= 260))
+		{
+			return time_since_1970 + timestart - (S16_T)timezone * 36 - 3600;
+		}
+		else
+			return time_since_1970 + timestart - (S16_T)timezone * 36;
+		
+	}
 	else
 		return time_since_1970 + timestart - (S16_T)timezone * 36;
 #endif
@@ -1143,7 +1173,12 @@ U32_T get_current_time(void)
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if(Daylight_Saving_Time)  // timezone : +8 ---> 800
 	{
-		return RTC_GetCounter() - (S16_T)timezone * 36 - 3600;
+		if((Rtc.Clk.day_of_year >= 105) && (Rtc.Clk.day_of_year <= 260))
+		{
+			return RTC_GetCounter() - (S16_T)timezone * 36 - 3600;
+		}
+		else
+			return RTC_GetCounter() - (S16_T)timezone * 36;
 	}
 	else
 		return RTC_GetCounter() - (S16_T)timezone * 36;
@@ -1312,10 +1347,9 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 				}
 				
 			}
-			
 			remote_panel_db[remote_panel_num].retry_reading_panel = 0;
 			remote_panel_num++;
-			Test[30] = remote_panel_num;			
+			Test[30] = remote_panel_num;	
 		}
 	}
 #endif
@@ -1339,8 +1373,8 @@ void Check_Remote_Panel_Table(void)
 				if(remote_panel_num > 0)
 				{
 				// delete this point
-				Test[48]++;
-				Test[49] = ptr->panel;
+//				Test[48]++;
+//				Test[49] = ptr->panel;
 				memcpy(ptr,ptr+1,(remote_panel_num - i - 1) * sizeof(STR_REMOTE_PANEL_DB));
 				memset(&remote_panel_db[remote_panel_num - 1],0,sizeof(STR_REMOTE_PANEL_DB));
 				remote_panel_num--;

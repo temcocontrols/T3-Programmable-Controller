@@ -333,7 +333,7 @@ void initSerial(void)
 	if(Modbus.com_config[0] == MODBUS_SLAVE || Modbus.com_config[0] == BACNET_SLAVE || Modbus.com_config[0] == BACNET_MASTER)
 	{
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I)
 		|| (Modbus.mini_type == MINI_NANO))
 				UART0_TXEN_TINY = RECEIVE;
 		else
@@ -343,7 +343,7 @@ void initSerial(void)
 	else if(Modbus.com_config[2] == MODBUS_SLAVE || Modbus.com_config[2] == BACNET_SLAVE || Modbus.com_config[2] == BACNET_MASTER)
 	{
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I))
 		{			
 				UART2_TXEN_TINY = RECEIVE;
 		}
@@ -562,7 +562,7 @@ void uart_init_send_com(U8_T port)
 	   uart0_transmit_finished = 0;
 #endif
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I)
 		|| (Modbus.mini_type == MINI_NANO))
 			UART0_TXEN_TINY = SEND;		
 		else
@@ -571,7 +571,7 @@ void uart_init_send_com(U8_T port)
 	else if(port == 2)
 	{
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)|| (Modbus.mini_type == MINI_TINY_11I))
 		{			
 				UART2_TXEN_TINY = SEND;
 		}
@@ -935,7 +935,7 @@ void set_subnet_parameters(U8_T io, U16_T length,U8_T port)
 		
 #if ARM_MINI || ASIX_MINI
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I))
 		{			
 				UART2_TXEN_TINY = io;
 		}
@@ -1852,7 +1852,7 @@ void uart_serial_restart(U8_T port)
 		uart0_dealwithTag = 0;
 #if (ARM_MINI || ASIX_MINI) 
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I)
 		|| (Modbus.mini_type == MINI_NANO))
 			UART0_TXEN_TINY = RECEIVE;
 		else
@@ -1879,7 +1879,7 @@ void uart_serial_restart(U8_T port)
 		uart2_dealwithTag = 0;
 #if (ARM_MINI || ASIX_MINI)
 		if((Modbus.mini_type == MINI_TINY) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I))
 		{			
 				UART2_TXEN_TINY = RECEIVE;
 		}
@@ -3093,6 +3093,11 @@ void responseCmd(U8_T type,U8_T* pData)
 							sendbuf[HeadLen + 3 + loop * 2 + 1] = 0; 	
 						} 	
 					}
+					else if(StartAdd + loop >= MODBUS_LCD_CONFIG_FIRST && StartAdd + loop <= MODBUS_LCD_CONFIG_END)
+					{						
+							sendbuf[HeadLen + 3 + loop * 2] = Modbus.display_lcd.lcddisplay[StartAdd + loop - MODBUS_LCD_CONFIG_FIRST] >> 8;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.display_lcd.lcddisplay[StartAdd + loop - MODBUS_LCD_CONFIG_FIRST]; 	
+					}
 #endif					
 					
 					else if(StartAdd + loop >= MODBUS_NAME1 && StartAdd + loop <= MODBUS_NAME_END)
@@ -3754,7 +3759,6 @@ void responseCmd(U8_T type,U8_T* pData)
 
 			if(cmd == READ_COIL)
 			{
-//				Test[20]++;
 				crc_val = crc16(sendbuf,sendbuf[HeadLen + 2] + 3);
 				sendbuf[sendbuf[HeadLen + 2] + 3]	= crc_val >> 8;
 				sendbuf[sendbuf[HeadLen + 2] + 4]	= (U8_T)crc_val;
@@ -4585,7 +4589,15 @@ void responseCmd(U8_T type,U8_T* pData)
 			Modbus.disable_tstat10_display = pData[HeadLen + 5];
 			E2prom_Write_Byte(EEP_DISABLE_T10_DIS,pData[HeadLen + 5]);
 		}
-		
+		else if(StartAdd >= MODBUS_LCD_CONFIG_FIRST && StartAdd <= MODBUS_LCD_CONFIG_END)
+		{
+			Modbus.display_lcd.lcddisplay[StartAdd - MODBUS_LCD_CONFIG_FIRST] = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+			memcpy(Setting_Info.reg.display_lcd.lcddisplay,Modbus.display_lcd.lcddisplay,sizeof(lcdconfig));
+
+			// save it to flash memory
+			write_page_en[25] = 1;	
+			Flash_Write_Mass();
+		}
 #endif
 		else if(StartAdd == MODBUS_UART0_PARITY)
 		{
@@ -5437,7 +5449,7 @@ void responseCmd(U8_T type,U8_T* pData)
 				E2prom_Write_Byte(EEP_MAC + 3, Modbus.mac_addr[3]);
 				E2prom_Write_Byte(EEP_MAC + 4, Modbus.mac_addr[4]);
 				E2prom_Write_Byte(EEP_MAC + 5, Modbus.mac_addr[5]);
-				IP_Change = 1 ;
+				//IP_Change = 1;
 #endif
 				Mac_Address_write_enable = 0;
 				
@@ -5933,10 +5945,9 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			E2prom_Write_Byte(EEP_DAYLIGHT_SAVING_TIME,(U8_T)Daylight_Saving_Time);
 
 		}	
-#if !(ARM_TSTAT_WIFI )	
-		
+
 		if((Modbus.en_sntp != ptr->reg.en_sntp) || ((Modbus.en_sntp == 5) && memcmp(sntp_server,Setting_Info.reg.sntp_server,30)))
-		{ 			
+		{ 
 			Modbus.en_sntp = ptr->reg.en_sntp;	
 			
 			if(Modbus.en_sntp <= 5)
@@ -5944,7 +5955,6 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 				E2prom_Write_Byte(EEP_EN_SNTP,Modbus.en_sntp);
 				if(Modbus.en_sntp >= 2)
 				{	
-					
 						if(Modbus.en_sntp == 5)  // defined by customer
 						{
 							memcpy(sntp_server,Setting_Info.reg.sntp_server,30);
@@ -5952,7 +5962,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 							DNSC_Start(sntp_server);
 #endif
 						
-#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+#if (ARM_MINI || ARM_CM5)
 							resolv_query(sntp_server);
 #endif
 						}
@@ -5960,13 +5970,13 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 						flag_Update_Sntp = 0;
 						Update_Sntp_Retry = 0;
 						count_sntp = 0;
-
 						
 						SNTPC_Start(timezone, (((U32_T)SntpServer[0]) << 24) | ((U32_T)SntpServer[1] << 16) | ((U32_T)SntpServer[2] << 8) | (SntpServer[3]));
 					
 				}
 			}
-		}			
+		}		
+#if !(ARM_TSTAT_WIFI )			
 		if(Modbus.en_dyndns != ptr->reg.en_dyndns)
 		{ 						
 			Modbus.en_dyndns = ptr->reg.en_dyndns;
@@ -6240,7 +6250,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			Modbus.LCD_time_off_delay = ptr->reg.LCD_time_off_delay;
 			E2prom_Write_Byte(EEP_LCD_TIME_OFF_DELAY,Modbus.LCD_time_off_delay);
 		}
-#if !(ARM_TSTAT_WIFI )
+
 		if(ptr->reg.reset_default == 99)	 // update sntp right now
 		{
 			ptr->reg.reset_default = 0;
@@ -6250,7 +6260,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			count_sntp = 0;
 			SNTPC_Start(timezone, (((U32_T)SntpServer[0]) << 24) | ((U32_T)SntpServer[1] << 16) | ((U32_T)SntpServer[2] << 8) | (SntpServer[3]));
 		}		
-		
+#if !(ARM_TSTAT_WIFI )		
 		if((memcmp(Modbus.ip_addr,ptr->reg.ip_addr,4) && !((ptr->reg.ip_addr[0] == 0) && (ptr->reg.ip_addr[1] == 0) \
 				&& (ptr->reg.ip_addr[2] == 0) && (ptr->reg.ip_addr[3] == 0)))
 			|| (memcmp(Modbus.subnet,ptr->reg.subnet,4) && !((ptr->reg.subnet[0] == 0) && (ptr->reg.subnet[1] == 0) \
@@ -6363,6 +6373,15 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 		{
 			MAX_MASTER = ptr->reg.MAX_MASTER;
 			E2prom_Write_Byte(EEP_MAX_MASTER, ptr->reg.MAX_MASTER);
+		}
+#endif
+		
+#if ARM_TSTAT_WIFI
+		if(memcmp(Modbus.display_lcd.lcddisplay,ptr->reg.display_lcd.lcddisplay,sizeof(lcdconfig)))
+		{
+			memcpy(Modbus.display_lcd.lcddisplay,ptr->reg.display_lcd.lcddisplay,sizeof(lcdconfig));
+			write_page_en[25] = 1;	
+			Flash_Write_Mass();
 		}
 #endif
 	 }
@@ -6832,7 +6851,6 @@ void send_rs232_command(void)
 			uart1_baudrate = UART_9600;
 		
 		UART_Init(1);
-		Test[30]++;
 		if(uart1_baudrate == UART_9600)
 		{
 			if(rs232_cmd.type == 1)  // meter
@@ -6845,15 +6863,13 @@ void send_rs232_command(void)
 				if(rs232_cmd.cmd[0] == 'R')		
 				{		
 					set_subnet_parameters(RECEIVE, 13,1);
-					Test[31]++;
 					if(length = wait_subnet_response(100,1))	 
 					{
-						Test[32]++;							
 						if(subnet_response_buf[11] == 0x0d && subnet_response_buf[12] == 0x0a)
-						{	Test[33]++;			
+						{			
 							// wn0000.00kg
 							if(subnet_response_buf[0] == 'w' && subnet_response_buf[1] == 'n')
-							{Test[34]++;	
+							{	
 								rs232_cmd.res = 1000000l * (subnet_response_buf[2] - '0') + 100000l * (subnet_response_buf[3]- '0') \
 								+ 10000l * (subnet_response_buf[4]- '0') + 1000l * (subnet_response_buf[5]- '0') \
 							+ 100l * (subnet_response_buf[7]- '0') + 10l * (subnet_response_buf[8]- '0');

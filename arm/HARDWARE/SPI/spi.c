@@ -191,7 +191,7 @@ void SPI3_Init(void)
 		GPIO_Init(GPIOC, &GPIO_InitStructure);
 		GPIO_ResetBits(GPIOC, GPIO_Pin_5);
 	}
-	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO))
+	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I) || (Modbus.mini_type == MINI_NANO))
 	{
 		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;				
 		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;

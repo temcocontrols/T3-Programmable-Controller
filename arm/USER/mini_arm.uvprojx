@@ -347,7 +347,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>2</Optim>
+            <Optim>3</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>0</OneElfS>
@@ -704,11 +704,6 @@
               <FilePath>.\udp_scan.c</FilePath>
             </File>
             <File>
-              <FileName>resolv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\uIP-1.0\apps\resolv\resolv.c</FilePath>
-            </File>
-            <File>
               <FileName>clock-arch.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\uIP-APP\clock-arch.c</FilePath>
@@ -748,6 +743,11 @@
               <FileType>1</FileType>
               <FilePath>..\uIP-APP\smtpc.c</FilePath>
             </File>
+            <File>
+              <FileName>resolv.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\uIP-1.0\apps\resolv\resolv.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -767,9 +767,9 @@
               <FilePath>..\..\bacnet\bip.c</FilePath>
             </File>
             <File>
-              <FileName>bacnet_ARM_rev16_mini.lib</FileName>
+              <FileName>bacnet_ARM_revXX_mini.lib</FileName>
               <FileType>4</FileType>
-              <FilePath>..\..\bacnet\bacnet_ARM_rev16_mini.lib</FilePath>
+              <FilePath>..\..\bacnet\bacnet_ARM_revXX_mini.lib</FilePath>
             </File>
           </Files>
         </Group>

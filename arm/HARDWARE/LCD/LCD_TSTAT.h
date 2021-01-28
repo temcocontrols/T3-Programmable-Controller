@@ -69,11 +69,18 @@
 #define TOP_AREA_DISP_ITEM_TEMPERATURE   	0
 #define TOP_AREA_DISP_ITEM_HUM					 	1
 #define TOP_AREA_DISP_ITEM_CO2				   	2
+//#define TOP_AREA_DISP_ITEM_OFFON					3
 
 #define TOP_AREA_DISP_UNIT_C   					 	0
 #define TOP_AREA_DISP_UNIT_F					 	 	1
 #define TOP_AREA_DISP_UNIT_PPM				   	2
 #define TOP_AREA_DISP_UNIT_PERCENT			 	3
+#define TOP_AREA_DISP_UNIT_Pa			 				4
+#define TOP_AREA_DISP_UNIT_kPa						5
+#define TOP_AREA_DISP_UNIT_RH							6
+
+#define TOP_AREA_DISP_UNIT_NONE			 			100
+
 
 #define TSTAT8_CH_COLOR   	0xffff //0xd6e0
 #define TSTAT8_MENU_COLOR   0x7e17//0x3bef//0x43f2//0x14a9
@@ -127,7 +134,7 @@ void vStartMenuTask(unsigned char uxPriority);
 
 #ifndef TSTAT7_ARM
 
-#define MAX_SCOROLL 16
+#define MAX_SCOROLL 20//16
 
 extern uint8 *scroll;
 extern uint8 scroll_ram[5][MAX_SCOROLL];

@@ -327,6 +327,7 @@ void Read_ALL_Data(void)
 	else if(Modbus.mini_type == MINI_VAV)		{		max_dos = VAV_MAX_DOS;	max_aos = VAV_MAX_AOS; }
 	else if(Modbus.mini_type == MINI_CM5)		{		max_dos = CM5_MAX_DOS;	max_aos = CM5_MAX_AOS; }
 	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))		{		max_dos = NEW_TINY_MAX_DOS;	max_aos = NEW_TINY_MAX_AOS; }
+	else if(Modbus.mini_type == MINI_TINY_11I)		{		max_dos = TINY_11I_MAX_DOS;	max_aos = TINY_11I_MAX_AOS; }
 	else if(Modbus.mini_type == MINI_TSTAT10)			{		max_dos = TSTAT10_MAX_DOS;	max_aos = TSTAT10_MAX_AOS;}
 	else if(Modbus.mini_type == MINI_T10P)			{		max_dos = T10P_MAX_DOS;	max_aos = T10P_MAX_AOS;}
 	else 	{	max_aos = 0; max_dos = 0;	}
@@ -1019,7 +1020,7 @@ void set_default_parameters(void)
     }
     ChangeFlash = 2;
 
-//  flag_reboot = 1;
+  flag_reboot = 1;
 	
 #endif
 
@@ -1069,7 +1070,7 @@ void Inital_Bacnet_Server(void)
 			Set_Object_Name("T3-BB");
 		else if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 			Set_Object_Name("T3-LB");
-		if((Modbus.mini_type == MINI_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+		if((Modbus.mini_type == MINI_TINY) || (Modbus.mini_type == MINI_TINY_ARM)|| (Modbus.mini_type == MINI_TINY_ARM)) 
 			Set_Object_Name("T3-TB");
 		if(Modbus.mini_type == MINI_NANO) 
 			Set_Object_Name("T3-NB");
@@ -1121,7 +1122,7 @@ void Inital_Bacnet_Server(void)
 #endif
 
 #if BAC_PROPRIETARY
-	TemcoVars = 4;
+	TemcoVars = 5;
 	// add initial code
 #endif
 
@@ -1365,7 +1366,6 @@ void Common_task(void) reentrant
 	for (;;)
 	{
 		vTaskDelay(250 / portTICK_RATE_MS);
-
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 		if(task_test.count[0] == 0)  // if tcptask is not running, need watchdog in lower task
 			IWDG_ReloadCounter(); 
@@ -1386,19 +1386,20 @@ void Common_task(void) reentrant
 		if(count % 4 == 0)  // 1 second
 		{	
 
-#if !(ARM_TSTAT_WIFI  )
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)	//!(ARM_TSTAT_WIFI  )
 			update_sntp();
 #if (ARM_MINI || ASIX_MINI || ASIX_CM5)
 			PIC_refresh();	
-#endif			
+			
 			if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))
 			{								
 // Check LCD				
 				Check_Lcd();				
 			}
+#endif
 #endif	
 			
-#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)			
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)	
 			RTC_Get();
 #endif
 			
@@ -1501,7 +1502,6 @@ void Monitor_Task_task(void) reentrant
 	task_test.enable[14] = 1;
 	flag_resume_rs485 = 0;
 	resume_rs485_count = 0;
-//	monitor_init();  // ???????????????????????
 	check_sd = 0;
 	Device_Set_Object_Instance_Number(Instance);
 	
@@ -1517,6 +1517,7 @@ void Monitor_Task_task(void) reentrant
 		Check_LCD_time_off();	
 		
 #if ARM_TSTAT_WIFI		
+		memcpy(&Test[0],Setting_Info.reg.display_lcd.lcddisplay,sizeof(lcdconfig));
 		check_override_timer_1s();
 #endif
 		
@@ -1573,7 +1574,7 @@ void Monitor_Task_task(void) reentrant
 #if 1
 		if((Modbus.mini_type == MINI_BIG) ||(Modbus.mini_type == MINI_BIG_ARM)
 			|| (Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM) 
-			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)	
+			|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)	|| (Modbus.mini_type == MINI_TINY_ARM)
 			|| (Modbus.mini_type == MINI_TINY)
 			|| (Modbus.mini_type == MINI_NANO) 
 			)
@@ -1734,7 +1735,7 @@ void Monitor_Task_task(void) reentrant
 			resume_rs485_count++;
 			if(resume_rs485_count > 5)
 			{			
-				//vTaskResume(Handle_Scan);	
+				vTaskResume(Handle_Scan);	
 				flag_resume_rs485 = 2;  // resume rs485 task
 				resume_rs485_count = 0;
 			}
@@ -2021,7 +2022,7 @@ void main( void )
 
 	E2prom_Read_Byte(EEP_MINI_TYPE,&Modbus.mini_type);
 #if (ARM_MINI || ASIX_MINI)
-	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) ||
+	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_ARM)|| (Modbus.mini_type == MINI_TINY_11I) ||
 		(Modbus.mini_type == MINI_NANO))
 	{	
 		UART0_TXEN_TINY = 1;
@@ -2225,7 +2226,7 @@ void main( void )
 	
 #endif		
 	Initial_Panel_Info();  // read panel name, must read flash first
-
+	Sync_Panel_Info();
 	initSerial();
 	current_online_ctr = 0;
 #if (ARM_MINI || ASIX_MINI || ASIX_CM5)
@@ -2274,7 +2275,7 @@ void main( void )
 	/* slave select output enable, SPI master, SSO auto, SPI enable, SPI_STCFIE enable, baudrate, slave select */
 		if((Modbus.mini_type == MINI_BIG) ||(Modbus.mini_type == MINI_BIG_ARM)
 	|| (Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM) 
-	|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)	
+	|| (Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)	|| (Modbus.mini_type == MINI_TINY_ARM)
 	|| (Modbus.mini_type == MINI_TINY)) 
 	{
 #if ASIX_MINI
@@ -2288,7 +2289,7 @@ void main( void )
 			|| (Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))
 			vStartCommToTopTasks(tskIDLE_PRIORITY + 7);		
 
-		else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+		else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I))
 		{
 			sTaskCreate(refresh_led_switch_Task, "refresh_led_task", 500, NULL, tskIDLE_PRIORITY + 3, (xTaskHandle *)&xHandleLedRefresh);
 		}		

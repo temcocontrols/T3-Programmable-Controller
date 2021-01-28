@@ -2144,7 +2144,6 @@ Test[31]++;
 	
 	if (LD_WORD(fs->win+BPB_BytsPerSec) != SS(fs))		/* (BPB_BytsPerSec must be equal to the physical sector size) */
 		return FR_NO_FILESYSTEM;
-	Test[34]++;
 	fasize = LD_WORD(fs->win+BPB_FATSz16);				/* Number of sectors per FAT */
 	if (!fasize) fasize = LD_DWORD(fs->win+BPB_FATSz32);
 	fs->fsize = fasize;
@@ -2155,7 +2154,6 @@ Test[31]++;
 	if (!b || (b & (b - 1))) return FR_NO_FILESYSTEM;	/* (Must be power of 2) */
 	fs->n_rootdir = LD_WORD(fs->win+BPB_RootEntCnt);	/* Number of root directory entries */
 	if (fs->n_rootdir % (SS(fs) / SZ_DIR)) return FR_NO_FILESYSTEM;	/* (BPB_RootEntCnt must be sector aligned) */
-	Test[35]++;
 	tsect = LD_WORD(fs->win+BPB_TotSec16);				/* Number of sectors on the volume */
 	if (!tsect) tsect = LD_DWORD(fs->win+BPB_TotSec32);
 	nrsv = LD_WORD(fs->win+BPB_RsvdSecCnt);				/* Number of reserved sectors */
@@ -2323,7 +2321,6 @@ FRESULT f_open (
 	mode &= FA_READ;
 	res = chk_mounted(&path, &dj.fs, 0);
 #endif
-	Test[20] = res + 5;
 	if (res == FR_OK) {
 		INIT_BUF(dj);
 		res = follow_path(&dj, path);	/* Follow the file path */
@@ -2341,8 +2338,7 @@ FRESULT f_open (
 		/* Create or Open a file */
 		if (mode & (FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW)) {
 			DWORD dw, cl;
-		Test[33]++;
-			if (res != FR_OK) {	Test[34]++;				/* No file, create new */
+			if (res != FR_OK) {				/* No file, create new */
 				if (res == FR_NO_FILE)			/* There is no file to open, create a new entry */
 #if _FS_LOCK
 					res = enq_lock() ? dir_register(&dj) : FR_TOO_MANY_OPEN_FILES;
@@ -2382,8 +2378,8 @@ FRESULT f_open (
 
 			}
 		}
-		else {Test[34]++;	/* Open an existing file */
-			if (res == FR_OK) {	Test[35]++;					/* Follow succeeded */
+		else {	/* Open an existing file */
+			if (res == FR_OK) {						/* Follow succeeded */
 				if (dir[DIR_Attr] & AM_DIR) {		/* It is a directory */
 					res = FR_NO_FILE;
 				} else {
@@ -2392,8 +2388,8 @@ FRESULT f_open (
 				}
 
 			}
-		}Test[37]++;
-		if (res == FR_OK) {Test[38]++;
+		}
+		if (res == FR_OK) {
 			if (mode & FA_CREATE_ALWAYS)			/* Set file change flag if created or overwritten */
 				mode |= FA__WRITTEN;
 			fp->dir_sect = dj.fs->winsect;			/* Pointer to the directory entry */
@@ -2406,7 +2402,7 @@ FRESULT f_open (
 		}
 
 #else				/* R/O configuration */
-		if (res == FR_OK) {	Test[39]++;				/* Follow succeeded */
+		if (res == FR_OK) {			/* Follow succeeded */
 			dir = dj.dir;
 			if (!dir) {						/* Current dir itself */
 				res = FR_INVALID_NAME;
@@ -2419,7 +2415,7 @@ FRESULT f_open (
 
 		FREE_BUF();
 
-		if (res == FR_OK) {Test[29]++;
+		if (res == FR_OK) {
 			fp->flag = mode;					/* File access mode */
 			fp->sclust = ld_clust(dj.fs, dir);	/* File start cluster */
 			fp->fsize = LD_DWORD(dir+DIR_FileSize);	/* File size */

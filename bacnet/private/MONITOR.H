@@ -105,7 +105,7 @@ U32_T get_input_sample( int number );
 //void sample_analog_points( char i, Str_monitor_point *mon_ptr/*,Mon_aux  *aux_ptr */);
 //void sample_digital_points(char i, Str_monitor_point *mon_ptr/*, Mon_aux *aux_ptr */);
 void sample_points( void );
-void check_trendlog_1s(void);
+void check_trendlog_1s(unsigned char count);
 void ReadPicture( Mon_Data *PTRtable);
 
 

@@ -2,6 +2,7 @@
 #include "wifi.h"
 #include "bsp_esp8266.h"
 
+void Sync_with_NTP_by_Wifi(void);
 
 #if ARM_MINI
 #include "tcpip.h"
@@ -60,7 +61,7 @@ char ESP8266_AT_Test ( void )
 void ESP8266_Rst ( void )
 {
 #if ARM_MINI
-	if((Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO))
+	if((Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO) || (Modbus.mini_type == MINI_TINY_11I))
 	{
 		macESP8266_RST_LOW_LEVEL_TINY();
 		delay_ms ( 2000 ); 
@@ -84,7 +85,7 @@ static void ESP8266_GPIO_Config ( void )
 	/* 配置 RST 引脚*/
 					   
 #if ARM_MINI
-  if((Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO))
+  if((Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO) || (Modbus.mini_type == MINI_TINY_11I))
 	{
 		macESP8266_RST_APBxClock_FUN ( macESP8266_RST_CLK_TINY, ENABLE );
 		GPIO_InitStructure.GPIO_Pin = macESP8266_RST_PIN_TINY;
@@ -173,7 +174,8 @@ uint16_t check_packet(uint8_t * str,uint8_t * dat)
 
 
 #define UCID_BACNET 0
-#define UCID_SCAN 1
+#define UCID_SCAN 	1
+#define UCID_NTP	 	2
 
 #if ARM_TSTAT_WIFI
 typedef struct 
@@ -337,6 +339,26 @@ void connect_AP(void)
 		ESP8266_Cmd( "AT+CWSTOPSMART", "OK", 0, 500 );
 		delay_ms(200);
 	}
+	// 设置静态IP需要放在连接路由之前，连接路由需要时间太长
+	if(SSID_Info.IP_Auto_Manual == 1)	
+	{
+		count = 0;
+		ESP8266_CIPSTA_DEF();
+		delay_ms(1000);
+		//需要等待
+		while(count++ < 5)
+		{
+			memcpy(cStr,ESP8266_ReceiveString(DISABLE),1024);
+			if ( strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "OK" ) )
+			{
+				break;
+			}
+			delay_ms(1000);
+		}
+		ESP8266_Cmd ( "AT+RST", "OK", "ready", 1000 );
+		delay_ms(200);
+		get_ip = 0;
+	}
 	if(SSID_Info.MANUEL_EN == 1 /*&& SSID_Info.IP_Auto_Manual == 1*/)	
 	{		
 		ESP8266_Net_Mode_Choose ( STA );
@@ -354,19 +376,12 @@ void connect_AP(void)
 			delay_ms(1000);
 		}
 	}
-	if(SSID_Info.IP_Auto_Manual == 1)	
-	{
-		count = 0;
-		ESP8266_CIPSTA_DEF();
-		delay_ms(1000);
-		count = 0;
-		ESP8266_Cmd ( "AT+RST", "OK", "ready", 1000 );
-		delay_ms(200);
-		get_ip = 0;
-	}
+	
 	
 	check_linkStatus();
 }
+
+extern uint8_t flag_send_ntp_by_wifi;
 
 uint8_t bacnet_wifi_buf[600];
 uint16_t bacnet_wifi_len;
@@ -421,7 +436,7 @@ void WIFI_task(void) reentrant//one second base software timer
 	ESP8266_USART_Config(); 
 	ESP8266_GPIO_Config();
 	dma_init_uart4();
-	if((Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO))
+	if((Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_NANO) || (Modbus.mini_type == MINI_TINY_11I))
 		GPIO_SetBits ( macESP8266_RST_PORT_TINY, macESP8266_RST_PIN_TINY );
 	else
 		GPIO_SetBits ( macESP8266_RST_PORT, macESP8266_RST_PIN);
@@ -576,9 +591,15 @@ void WIFI_task(void) reentrant//one second base software timer
 				count = 0;
 				while ((!ESP8266_Link_UDP("255.255.255.255",SSID_Info.bacnet_port,SSID_Info.bacnet_port,2,UCID_BACNET)) && (count++ < 5))
 					IWDG_ReloadCounter();
+				
 				count = 0;
 				while ((!ESP8266_Link_UDP("255.255.255.255",1234,1234,2,UCID_SCAN)) && (count++ < 5))
-					IWDG_ReloadCounter();		
+					IWDG_ReloadCounter();
+				
+//				count = 0;
+//					while ((!ESP8266_Link_UDP("192.168.10.110",123,123,2,UCID_NTP)) && (count++ < 5))
+//					IWDG_ReloadCounter();
+					
 				count = 0;				
 				while ((!ESP8266_StartOrShutServer(ENABLE,tcp_port,&overtime)) && (count++ < 5)) 
 					IWDG_ReloadCounter();
@@ -586,22 +607,27 @@ void WIFI_task(void) reentrant//one second base software timer
 			}
 			else
 			{
-				
 				memset(packet,0,1024);
 				memset(cStr,0,1024);
 				packet_len = 0;
 
 				memcpy(cStr,ESP8266_ReceiveString(DISABLE),1024);
 // clear rx buffer	
-		
 				ucID = cStr[7] - '0';
 				packet_len = check_packet(cStr,packet);
 				if(packet_len > 0)
-				{					
+				{			
 					if(ucID >= 2 && ucID <= 4)  // modbus TCP 502
 					{
+						// tbd: add more for dns
+						if(packet[0] == 0x1c && packet_len == 48)
+						{ // ntp
+							// receive data
+							// close 
+							SNTPC_Receive(packet, packet_len, 0);
+						}
 				// check modbus data
-						if((packet[0] == 0xee) && (packet[1] == 0x10) &&
+						else if((packet[0] == 0xee) && (packet[1] == 0x10) &&
 						(packet[2] == 0x00) && (packet[3] == 0x00) &&
 						(packet[4] == 0x00) && (packet[5] == 0x00) &&
 						(packet[6] == 0x00) && (packet[7] == 0x00) )
@@ -690,8 +716,7 @@ void WIFI_task(void) reentrant//one second base software timer
 						}
 
 					}	
-					else 
-						if(ucID == UCID_BACNET) // udp bacnet port 47808
+					else 	if(ucID == UCID_BACNET) // udp bacnet port 47808
 					{
 						uint16_t pdu_len = 0;  
 						BACNET_ADDRESS far src;
@@ -878,7 +903,8 @@ void WIFI_task(void) reentrant//one second base software timer
 								}								
 							}
 						}
-					}						
+					}	
+					
 				}
 				
 				if(count_checkip++ > 300)
@@ -967,4 +993,50 @@ unsigned char Send_Uart_Data(char * m_send_data, uint16 nlength)
     dma_send_uart4_data(nlength);
 }
 
+void Sync_with_NTP_by_Wifi(void)
+{
+	char count;
+	flag_send_ntp_by_wifi = 0;
+	count = 0;
+	while ((!ESP8266_Link_UDP("176.221.42.125",123,123,2,UCID_NTP)) && (count++ < 5))
+	IWDG_ReloadCounter();
+	{
+		U8_T len = 48;
+		U8_T i;
+		U8_T far Buf[48];
+		len = 48;
+	
+		Buf[0] = 0xdb;
+		Buf[1] = 0x00;
+		Buf[2] = 0x04;
+		Buf[3] = 0xfa;
+		Buf[4] = 0x00;
+		Buf[5] = 0x01;
+		Buf[6] = 0x00;
+		Buf[7] = 0x00;
+		Buf[8] = 0x00;
+		Buf[9] = 0x01;
+		for(i = 10;i < len;i++)
+		{
+			Buf[i] = 0;
+		}						
+		Test[25]++;
+		ESP8266_SendString ( DISABLE, (uint8_t *)&Buf, len,UCID_NTP);
+	}
+}
 
+
+//void ntp_initial(void)
+//{
+//	resolv_init();
+////		resolv_query("newfirmware.com");
+//	if(Modbus.en_sntp > 1)  // 0 - no, 1-disable
+//		SNTPC_Init();
+//	check_entries();
+//	if(Modbus.en_dyndns == 2)
+//	{
+//		resolv_query("www.3322.org");
+//		resolv_query("www.dyndns.com");
+//		resolv_query("www.no-ip.com");	
+//	}
+//}

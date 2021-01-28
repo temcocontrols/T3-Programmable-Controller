@@ -45,7 +45,7 @@ u8 AT24CXX_ReadOneByte(u16 ReadAddr)
 
 void AT24CXX_WriteOneByte(u16 WriteAddr, u8 DataToWrite)
 {			
-	if((Get_Mini_Type() != MINI_NEW_TINY) && (Get_Mini_Type() != MINI_TINY_ARM))
+	if((Get_Mini_Type() != MINI_NEW_TINY) && (Get_Mini_Type() != MINI_TINY_ARM) && (Get_Mini_Type() != MINI_TINY_11I))
 		IIC_WP = 0 ;
 	
 	delay_us(100);	
@@ -67,7 +67,7 @@ void AT24CXX_WriteOneByte(u16 WriteAddr, u8 DataToWrite)
 	IIC_Send_Byte(DataToWrite);			//发送字节							   
 	IIC_Wait_Ack();	  		    	   
 	IIC_Stop();							//产生一个停止条件 
-	if((Get_Mini_Type() != MINI_NEW_TINY) && (Get_Mini_Type() != MINI_TINY_ARM))
+	if((Get_Mini_Type() != MINI_NEW_TINY) && (Get_Mini_Type() != MINI_TINY_ARM) && (Get_Mini_Type() != MINI_TINY_11I))
 		IIC_WP = 0 ;
 	delay_ms(3);	 
 }

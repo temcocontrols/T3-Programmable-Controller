@@ -379,13 +379,13 @@ void initial_tstat10_range(void)
 	{
 		if(Modbus.mini_type == MINI_T10P)
 		{
-			inputs[HI_COMMON_CHANNEL + 2].range = 27;  //????????????	
+			inputs[HI_COMMON_CHANNEL + 2].range = 27;  //humidity RANGE	
 			inputs[HI_COMMON_CHANNEL + 2].digital_analog = 1;
 			inputs[HI_COMMON_CHANNEL + 2].value = 0;
 		}
 		else
 		{
-			inputs[COMMON_CHANNEL + 2].range = 27;  //????????????	
+			inputs[COMMON_CHANNEL + 2].range = 27;   //humidity RANGE		
 			inputs[COMMON_CHANNEL + 2].digital_analog = 1;
 			inputs[COMMON_CHANNEL + 2].value = 0;
 		}

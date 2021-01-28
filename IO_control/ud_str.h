@@ -276,7 +276,7 @@ typedef enum { not_used_input, Y3K_40_150DegC,Y3K_40_300DegF,/*PT100_40_1000DegC
 	V0_5, I0_100Amps,
 	I0_20ma, I0_20psi, N0_2_32counts,  /* N0_3000FPM_0_10V,*/P0_100_0_10V, P0_100_0_5V,
 	P0_100_4_20ma/*, P0_255p_min*/, V0_10_IN, table1, table2, table3, table4,	table5, 
-	HI_spd_count,  // HZ 56   		HUMIDTY 57  		CO2 PPM 58 
+	HI_spd_count,   // HZ 56   		HUMIDTY 57  		CO2 PPM 58 
 	RPM = 29, PPB = 30/*TVOC*/,UG_M3 = 31,NUM_CM3=32,DB=33,LUX=34,
 	AC_PWM,
 	} Analog_input_range_equate;

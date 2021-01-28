@@ -90,7 +90,24 @@ typedef	union
 	}UN_Time;
 
 	
+typedef union
+{
+    uint8_t lcddisplay[7];
+    struct
+    {
+        uint8_t display_type; // 0:?????????    1:modbus ??????????
+        Point_Net npoint;     //?????input output var ???
+    }lcd_mod_reg;
 
+    struct
+    {
+        uint8_t display_type; // 0:?????????    2:Bacnet ?????????
+        unsigned long obj_instance;
+        uint8_t point_type;
+        uint8_t point_number;
+    }lcd_bac_reg;
+
+}lcdconfig;
 	
 typedef	union
 {
@@ -171,6 +188,7 @@ typedef	union
 // 	USART_StopBits_2        2           
 // 	USART_StopBits_1_5  		3
 	
+	lcdconfig display_lcd;
 
 	}reg;
 }Str_Setting_Info;
@@ -477,7 +495,7 @@ U16_T convert_pointer_to_word( U8_T *iAddr );  //	 mGetPointWord
 U32_T convert_pointer_to_double( U8_T *iAddr ) ;  // DoulbemGetPointWord
 S32_T swap_double( S32_T dat ) ;  //DoulbemGetPointWord2
 void Initial_Panel_Info(void);
-
+void Sync_Panel_Info(void);
 
 typedef union
 {

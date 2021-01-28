@@ -72,7 +72,7 @@ uint32_t conver_by_unit_5v(uint32_t sample)
 		else
 			return (8300L * sample ) >> 10;	// input 模块有内阻，必须加调整		 
 	}	
-	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) )
+	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I)  )
 	{
 		return (5000L * sample ) >> 10;	 
 	}	
@@ -106,7 +106,7 @@ uint32_t conver_by_unit_10v(uint32_t sample)
 			else 
 				return ( 9000L * sample ) >> 10;	
 		}
-		else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) )
+		else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)|| (Modbus.mini_type == MINI_TINY_11I) )
 		{
 			return (10000L * sample ) >> 10;	 
 		}	
@@ -141,7 +141,7 @@ uint32_t conver_by_unit_custable(uint8_t point,uint32_t sample)
 			else
 				return ( 8300L * sample  ) >> 10;	// input 模块有内阻，必须加调整		 
 		}
-		else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+		else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)|| (Modbus.mini_type == MINI_TINY_11I))
 		{
 			return (5000L * sample ) >> 10;	 
 		}	
@@ -178,7 +178,7 @@ uint32_t conver_by_unit_custable(uint8_t point,uint32_t sample)
 			else 
 				return (9000L * sample  ) >> 10;	
 		} 
-		else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+		else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I))
 		{
 			return (10000L * sample ) >> 10;	 
 		}	
@@ -190,7 +190,6 @@ uint32_t conver_by_unit_custable(uint8_t point,uint32_t sample)
 	}
 	else if(input_type[point] == INPUT_THERM || input_type[point] == INPUT_NOUSED)
 	{
-		//Test[25 + point] = get_input_value_by_range( inputs[point].range, sample );
 		return ( 3000L  * sample ) >> 10;//get_input_value_by_range( inputs[point].range, sample );
 	}
 		
@@ -232,6 +231,10 @@ uint8_t get_max_internal_input(void)
 	{
 	  return NEW_TINY_MAX_AIS;
 	}
+	else if(Modbus.mini_type == MINI_TINY_11I)
+	{
+	  return TINY_11I_MAX_AIS;
+	}
 	else if(Modbus.mini_type == MINI_TSTAT10)
 	{
 	  return TSTAT10_MAX_AIS;
@@ -268,6 +271,10 @@ uint8_t get_max_internal_output(void)
 	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
 	{
 	  return NEW_TINY_MAX_AOS + NEW_TINY_MAX_DOS;
+	}
+	else if(Modbus.mini_type == MINI_TINY_11I)
+	{
+	  return TINY_11I_MAX_AOS + TINY_11I_MAX_DOS;
 	}
 	else if(Modbus.mini_type == MINI_TSTAT10)
 	{
@@ -355,7 +362,7 @@ void Store_Pulse_Counter(uint8 flag)
 		}
 	}
 }
-
+// 10s 调用一次
 void calculate_RPM(void)
 {
 	static u32 old_count[HI_COMMON_CHANNEL];

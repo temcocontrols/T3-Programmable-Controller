@@ -674,7 +674,7 @@
             <File>
               <FileName>bacnet_ARM_revXX_mini.lib</FileName>
               <FileType>4</FileType>
-              <FilePath>..\..\bacnet\bacnet_ARM_revXX_mini.lib</FilePath>
+              <FilePath>..\..\..\BACLIB\bacnet_ARM_revXX_mini.lib</FilePath>
             </File>
           </Files>
         </Group>

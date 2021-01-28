@@ -158,11 +158,13 @@ void sample_analog_points(char i, Str_monitor_point *mon_ptr/*, Mon_aux  *aux_pt
 	
 #endif
 				mon_block[i * 2].index++;
-			}	
+			}
 //		}			
 	}
+	//Test[20]++;
+	//Test[21] = mon_block[i * 2].index;
 	if(mon_block[i * 2].index +  mon_block[i * 2].no_points > MAX_MON_POINT)
-	{ 
+	{ //Test[22]++;
 		// current buffer is full, save data to SD card.	
 		// clear no used point
 		for(k = mon_block[i * 2].index;k < MAX_MON_POINT;k++)
@@ -493,7 +495,6 @@ void sample_points( void  )
 	Str_monitor_point *mon_ptr;
 	mon_ptr = monitors;
 
-
 	for( i = 0; i < MAX_MONITORS; i++, mon_ptr++)
 	{		
 		if((mon_ptr->status > 0) /*&& (max_monitor_time[i] > 0)*/)
@@ -502,9 +503,9 @@ void sample_points( void  )
 			{
 				//count_max_time[i]--;
 				if( mon_ptr->an_inputs > 0)
-				{	
+				{
 					if( mon_ptr->next_sample_time <= get_current_time() )
-					{		
+					{	
 						sample_analog_points(i, mon_ptr);
 					}
 				}
@@ -546,7 +547,7 @@ U8_T ReadMonitor( Mon_Data *PTRtable)
 	ret = 1;
 //	reading_sd = 1;
 //	count_reading_sd = 0;
-
+	Test[25]++;
 	ana_dig = PTRtable->sample_type;
 	if(ana_dig == 1)
 	{

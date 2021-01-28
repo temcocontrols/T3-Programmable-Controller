@@ -48,6 +48,7 @@ STR_flag_flash 	far bac_flash;
 // other page2
 #define BASE_MSV_DATA					0x8078800  	// lenght is  3x8x23  0x228, 552
 #define BASE_OUT_RELINQUISH	  0x8078a28   // length is 4*MAX_OUTS  0x100  256
+#define BASE_DIS_CONFIG			  0x8078b28  // length is 7
 
 
 
@@ -460,6 +461,10 @@ void Flash_Write_Other_Page2(void)
 				STMFLASH_ErasePage(FLASH_OTHER_ADDR2);
 				iap_write_appbin(BASE_MSV_DATA, (u8 *)(msv_data), MAX_MSV * STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
 				iap_write_appbin(BASE_OUT_RELINQUISH, (u8 *)(output_relinquish), 4 * MAX_OUTS);
+			
+#if ARM_TSTAT_WIFI
+			iap_write_appbin(BASE_DIS_CONFIG,Modbus.display_lcd.lcddisplay,sizeof(lcdconfig));
+#endif				
 				write_page_en[25] = 0;
 
 			STMFLASH_Lock();
@@ -481,7 +486,7 @@ void Flash_Write_Other(void)
 		//	iap_write_appbin(BASE_SNTP_SERVER,(u8 *)(&sntp_server), 30);
 			
 			iap_write_appbin(BASE_PANEL_NAME,(u8 *)(&panelname),20);
-	#if ARM_MINI
+#if ARM_MINI
 			iap_write_appbin(BASE_DYNDNS_DONAME,dyndns_domain_name,MAX_DOMAIN_SIZE);
 
 			iap_write_appbin(BASE_DYNDNS_USER,dyndns_username,MAX_USERNAME_SIZE);
@@ -495,15 +500,14 @@ void Flash_Write_Other(void)
 
 			// store sntp
 			iap_write_appbin(BASE_SNTP_SERVER,(u8 *)(&sntp_server), 30);
-	#endif		
+#endif		
 			iap_write_appbin(BASE_WEEKLY_ONOFF,(u8 *)(&wr_time_on_off),576);
 			
 			iap_write_appbin(BASE_EMAIL_SETTING,(u8 *)(&Email_Setting),100/*sizeof(Str_Email_point)*/);
 #if (ARM_MINI || ARM_TSTAT_WIFI)			
 			iap_write_appbin(BASE_WIFI_SETTING,(u8 *)(&SSID_Info),sizeof(STR_SSID));
 #endif
-			write_page_en[24] = 0;
-	
+
 		
 		STMFLASH_Lock();
 	}
@@ -596,27 +600,38 @@ void Flash_Read_Other(void)
 	{
 		msv_data[1][0].status = 1;
 		msv_data[1][0].msv_value = 0;
-    strcpy(msv_data[1][0].msv_name, "Auto");
+    strcpy(msv_data[1][0].msv_name, "AUTO");
 		msv_data[1][1].status = 1;
     msv_data[1][1].msv_value = 1;
-    strcpy(msv_data[1][1].msv_name, "On");
+    strcpy(msv_data[1][1].msv_name, "ON");
 		msv_data[1][2].status = 1;
     msv_data[1][2].msv_value = 2;
-    strcpy(msv_data[1][2].msv_name, "Off");
+    strcpy(msv_data[1][2].msv_name, "OFF");
 		write_page_en[25] = 1;
 	}
 	if(msv_data[2][0].msv_value == 0xffff)
 	{
 		msv_data[2][0].status = 1;
     msv_data[2][0].msv_value = 0;
-    strcpy(msv_data[2][0].msv_name, "Auto");
+    strcpy(msv_data[2][0].msv_name, "AUTO");
 		msv_data[2][1].status = 1;
     msv_data[2][1].msv_value = 1;
-    strcpy(msv_data[2][1].msv_name, "Cool");
+    strcpy(msv_data[2][1].msv_name, "COOL");
 		msv_data[2][2].status = 1;
     msv_data[2][2].msv_value = 2;
-    strcpy(msv_data[2][2].msv_name, "Heat");
+    strcpy(msv_data[2][2].msv_name, "HEAT");
 		write_page_en[25] = 1;
+	}
+	STMFLASH_MUL_Read(BASE_DIS_CONFIG, (u8 *)(Modbus.display_lcd.lcddisplay), sizeof(lcdconfig));
+	if(Modbus.display_lcd.lcddisplay[0] == 0xff || Modbus.display_lcd.lcddisplay[0] == 0)
+	{
+		memset(Modbus.display_lcd.lcddisplay,0,sizeof(lcdconfig));
+		Modbus.display_lcd.lcddisplay[0] = 1;
+		Modbus.display_lcd.lcd_mod_reg.npoint.point_type = IN;
+		if(Modbus.mini_type == MINI_T10P)
+			Modbus.display_lcd.lcd_mod_reg.npoint.number = HI_COMMON_CHANNEL + 1;  // IN13 is internal termperature
+		else
+			Modbus.display_lcd.lcd_mod_reg.npoint.number = COMMON_CHANNEL + 1;  // IN9 is internal termperature
 	}
 #endif
 

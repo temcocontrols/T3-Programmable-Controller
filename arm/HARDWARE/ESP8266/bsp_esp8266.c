@@ -786,7 +786,6 @@ uint8_t ESP8266_Get_MAC(uint8_t * pStamac)
 	
 	if(datlen == 2)
 		pStamac[pos] = mac[0] * 16 + mac[1];
-	Test[11]++;
 	return 1;
 }
 

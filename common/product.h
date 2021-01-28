@@ -3,11 +3,11 @@
 
 #include "types.h"
 
-#define SW_REV	5308
+#define SW_REV	5403
 
 #define ARM_MINI 1
 #define ARM_CM5  0
-#define ARM_TSTAT_WIFI 0
+#define ARM_TSTAT_WIFI 0//1
 
 #define ASIX_MINI 0
 #define ASIX_CM5  0
@@ -60,6 +60,13 @@
 #define NEW_TINY_MAX_DIS 0
 #define NEW_TINY_MAX_SCS 8
 
+#define TINY_11I_MAX_AIS 11
+#define TINY_11I_MAX_DOS 6
+#define TINY_11I_MAX_AOS 5
+#define TINY_11I_MAX_AVS 128
+#define TINY_11I_MAX_DIS 0
+#define TINY_11I_MAX_SCS 8
+
 #define VAV_MAX_AIS 6
 #define VAV_MAX_DOS 1
 #define VAV_MAX_AOS 2
@@ -102,8 +109,9 @@
 #define MINI_TSTAT10 9
 #define MINI_T10P	 11
 #define MINI_VAV	 10   // no used
+#define MINI_TINY_11I		12
 
-#define MAX_MINI_TYPE 11
+#define MAX_MINI_TYPE 12
 
 
 #define STM_TINY_REV 7
@@ -153,7 +161,7 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 #define SD_BUS_TYPE 0
 #define SPI_BUS_TYPE 1
 
-#define REBOOT_PER_WEEK 1
+#define REBOOT_PER_WEEK 0//1
 #define SD_BUS SPI_BUS_TYPE
 
 #define far
@@ -171,7 +179,7 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 
 
 #define MSTP 1  // < 1k
-#define ALARM_SYNC  1 // ~ 2k
+#define ALARM_SYNC  0// 1 // ~ 2k
 #define TIME_SYNC 1 // >1k
 
 #endif
@@ -189,9 +197,9 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 #define SMTP  0
 #define NETWORK_MODBUS 	1
 //#define ETHERNET_DEBUG  1  //网络端口的调试信息 往 192.168.0.38    端口1115打印数据;
-#define ARM_UART_DEBUG 1
-#define DEBUG_EN  UART0_TXEN_BIG 
-//#define DEBUG_EN  UART0_TXEN_TINY  //Tiny 引脚不一样用这个
+#define ARM_UART_DEBUG 0
+//#define DEBUG_EN  UART0_TXEN_BIG 
+#define DEBUG_EN  UART0_TXEN_TINY  //Tiny 引脚不一样用这个
 
 #define PING  0
 

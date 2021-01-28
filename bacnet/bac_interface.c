@@ -6,6 +6,8 @@
 #include <string.h>
 #include "datetime.h"
 
+
+char * itoa( int value, char *string, int radix );
 #if ARM_TSTAT_WIFI
 #include "Constcode.h"
 #endif
@@ -32,7 +34,7 @@ void Set_TXEN(uint8_t dir)
 
 	if(mstp_port == 2)
 	{
-		if(Modbus.mini_type == MINI_TINY || Modbus.mini_type == MINI_NEW_TINY || Modbus.mini_type == MINI_TINY_ARM)
+		if(Modbus.mini_type == MINI_TINY || Modbus.mini_type == MINI_NEW_TINY || Modbus.mini_type == MINI_TINY_ARM || (Modbus.mini_type == MINI_TINY_11I))
 		{			
 				UART2_TXEN_TINY = dir;
 		}
@@ -47,7 +49,7 @@ void Set_TXEN(uint8_t dir)
 	}
 	else
 	{
-		if(Modbus.mini_type == MINI_TINY || Modbus.mini_type == MINI_NEW_TINY || Modbus.mini_type == MINI_TINY_ARM 
+		if(Modbus.mini_type == MINI_TINY || Modbus.mini_type == MINI_NEW_TINY || Modbus.mini_type == MINI_TINY_ARM || (Modbus.mini_type == MINI_TINY_11I)
 			|| Modbus.mini_type == MINI_NANO)
 		{	
 				UART0_TXEN_TINY = dir;
@@ -139,6 +141,7 @@ char* get_description(uint8_t type,uint8_t num)
 		else if(num == 1) return "dead master";
 		else if(num == 2) return "lcd time off delay";
 		else if(num == 3) return "disable icon";
+		else if(num == 4) return "lcd display configure";
 		else return "reserved";
 	}
 #endif
@@ -217,6 +220,7 @@ char* get_label(uint8_t type,uint8_t num)
 		else if(num == 1) return "dead master";
 		else if(num == 2) return "lcd time off delay";
 		else if(num == 3) return "disable icon";
+		else if(num == 4) return "lcd display configure";
 		else return "reserved";
 	}
 #endif
@@ -2372,6 +2376,77 @@ void Store_MASTER_To_Eeprom(uint8_t master)
 	
 	E2prom_Write_Byte(EEP_MAX_MASTER,master);
 }
+
+#if BAC_PROPRIETARY
+char* Get_temcovars_string_from_buf(uint8_t number)
+{
+	char type,num;
+	char str[20];
+	if(number == 4)
+	{
+		memset(str,'\0',20);
+		type = Setting_Info.reg.display_lcd.lcd_mod_reg.npoint.point_type;
+		num = Setting_Info.reg.display_lcd.lcd_mod_reg.npoint.number;
+		if(type == IN)
+		{
+			memcpy(&str,"IN",2);
+			itoa(num,&str[2],10);
+			return (char *)(str);
+		}
+		else if(type == VAR)
+		{
+			memcpy(&str,"VAR",3);
+			itoa(num,&str[3],10);
+			return (char *)(str);
+		}
+		else
+			return "null";
+	}
+	else
+		return "error";
+}
+
+
+char Write_temcovars_string_to_buf(uint8_t number,char * str)
+{
+	char type,num;
+	if(number == 4)
+	{
+		if(str[0] == 'I' && str[1] == 'N')
+		{
+			Setting_Info.reg.display_lcd.lcd_mod_reg.npoint.point_type = IN;
+			
+			if((str[2] >= '0' && str[2] <= '9') && (str[3] >= '0' && str[3] <= '9'))
+				num = str[3] - '0' + 10 * (str[2] - '0');
+			else if(str[2] >= '0' && str[2] <= '9')
+				num = str[2] - '0';
+			
+			if(num >= 1)
+				Setting_Info.reg.display_lcd.lcd_mod_reg.npoint.number = num;
+			memcpy(Modbus.display_lcd.lcddisplay,Setting_Info.reg.display_lcd.lcddisplay,sizeof(lcdconfig));
+			write_page_en[25] = 1;	
+			Flash_Write_Mass();
+		}
+		else if(str[0] == 'V' && str[1] == 'A' && str[2] == 'R')
+		{
+			Setting_Info.reg.display_lcd.lcd_mod_reg.npoint.point_type = VAR;
+			
+			if((str[3] >= '0' && str[3] <= '9') && (str[4] >= '0' && str[4] <= '9'))
+				num = str[4] - '0' + 10 * (str[3] - '0');
+			else if(str[3] >= '0' && str[3] <= '9')
+				num = str[3] - '0';
+			
+			if(num >= 1)
+				Setting_Info.reg.display_lcd.lcd_mod_reg.npoint.number = num;
+			memcpy(Modbus.display_lcd.lcddisplay,Setting_Info.reg.display_lcd.lcddisplay,sizeof(lcdconfig));
+			write_page_en[25] = 1;	
+			Flash_Write_Mass();
+		}
+		return 1;
+	}
+	return 0;
+}
+#endif
 
 #if (ARM_MINI || ASIX_MINI || ARM_CM5)
 extern uint8_t header_len;

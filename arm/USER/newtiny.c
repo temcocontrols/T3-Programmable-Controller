@@ -55,6 +55,7 @@ TOP board deal with these task
 #define SEL1_IN   PFout(10)
 #define SEL2_IN   PFout(9)
 #define SEL3_IN   PFout(8)
+#define SEL4_IN   PFout(7)  // ADDED in TB-11I
 
 #define RANGE_SET0			PCout(5)
 #define RANGE_SET1			PFout(6)
@@ -197,6 +198,8 @@ void Check_switch_status(void)
 	U8_T sw_1[14],sw_2[14];
 	U8_T loop;
 	U8_T temp;
+	U8_T base;
+	
 	SWITCH_AUTO = 0;
 	SWITCH_HAND = 1;
 	delay_ms(1);
@@ -233,19 +236,23 @@ void Check_switch_status(void)
 	sw_2[12] = SWITCH_5;
 	sw_2[13] = SWITCH_4;
 	
-	for(loop = 0;loop < 14;loop++)
+	if(Modbus.mini_type == MINI_TINY_11I)
+		base = 3;
+	else
+		base = 0;
+	for(loop = base;loop < 14;loop++)
 	{	
-		temp = outputs[loop].switch_status;
+		temp = outputs[loop - base].switch_status;
 		if(sw_1[loop] == sw_2[loop])
-			outputs[loop].switch_status = SW_OFF;		
+			outputs[loop - base].switch_status = SW_OFF;		
 		else if(sw_1[loop] == 1) /* from 1 to 0 */
-			outputs[loop].switch_status = SW_AUTO;
+			outputs[loop - base].switch_status = SW_AUTO;
 		else  /* from 0 to 1 */
-			outputs[loop].switch_status = SW_HAND;	
+			outputs[loop - base].switch_status = SW_HAND;	
 
 		// if switch is changed
-		if(temp != outputs[loop].switch_status)
-			check_output_priority_HOA(loop);
+		if(temp != outputs[loop - base].switch_status)
+			check_output_priority_HOA(loop - base);
 	}
 }
 
@@ -373,11 +380,11 @@ void Input_IO_Init(void)
 	GPIO_SetBits(GPIOC, GPIO_Pin_2);  // PT1K_SET
 	GPIO_ResetBits(GPIOC, GPIO_Pin_5);
 	
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10; 	
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10; 	
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOF, &GPIO_InitStructure);
-	GPIO_ResetBits(GPIOF, GPIO_Pin_6 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10);	
+	GPIO_ResetBits(GPIOF, GPIO_Pin_6 | GPIO_Pin_7 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10);	
 }
 
 u32 ADC_getChannal(ADC_TypeDef* ADCx, u8 channal,uint8 rank)
@@ -437,36 +444,81 @@ void inpust_scan(void)
 	}
 
 	channel_count++;
-	channel_count %= 8;
-
-	switch(channel_count)
+	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
 	{
-		case 0: 
-			SEL1_IN = 0;	SEL2_IN = 0;	SEL3_IN = 0;
-			break;
-		case 1: 
-			SEL1_IN = 1;	SEL2_IN = 0;	SEL3_IN = 0;
-			break;
-		case 2: 
-			SEL1_IN = 0;	SEL2_IN = 1;	SEL3_IN = 0;
-			break;
-		case 3: 
-			SEL1_IN = 1;	SEL2_IN = 1;	SEL3_IN = 0;
-			break;		
-		case 4: 
-			SEL1_IN = 0;	SEL2_IN = 0;	SEL3_IN = 1;
+		channel_count %= 8;
+		switch(channel_count)
+		{
+			case 0: 
+				SEL1_IN = 0;	SEL2_IN = 0;	SEL3_IN = 0; 
+				break;
+			case 1: 
+				SEL1_IN = 1;	SEL2_IN = 0;	SEL3_IN = 0; 
+				break;
+			case 2: 
+				SEL1_IN = 0;	SEL2_IN = 1;	SEL3_IN = 0;
+				break;
+			case 3: 
+				SEL1_IN = 1;	SEL2_IN = 1;	SEL3_IN = 0; 
+				break;		
+			case 4: 
+				SEL1_IN = 0;	SEL2_IN = 0;	SEL3_IN = 1; 
+				break;	
+			case 5: 
+				SEL1_IN = 1;	SEL2_IN = 0;	SEL3_IN = 1;
+				break;		
+			case 6: 
+				SEL1_IN = 0;	SEL2_IN = 1;	SEL3_IN = 1; 
+				break;		
+			case 7: 
+				SEL1_IN = 1;	SEL2_IN = 1;	SEL3_IN = 1;
+				break;
+			default:
+				break;	
+		}	
+	}
+	else if(Modbus.mini_type == MINI_TINY_11I)
+	{
+		channel_count %= 11;
+		switch(channel_count)
+		{
+			case 0: 
+				SEL1_IN = 0;	SEL2_IN = 0;	SEL3_IN = 0; SEL4_IN = 0;
+				break;
+			case 1: 
+				SEL1_IN = 1;	SEL2_IN = 0;	SEL3_IN = 0; SEL4_IN = 0;
+				break;
+			case 2: 
+				SEL1_IN = 0;	SEL2_IN = 1;	SEL3_IN = 0; SEL4_IN = 0;
+				break;
+			case 3: 
+				SEL1_IN = 1;	SEL2_IN = 1;	SEL3_IN = 0; SEL4_IN = 0;
+				break;		
+			case 4: 
+				SEL1_IN = 0;	SEL2_IN = 0;	SEL3_IN = 1; SEL4_IN = 0;
+				break;	
+			case 5: 
+				SEL1_IN = 1;	SEL2_IN = 0;	SEL3_IN = 1; SEL4_IN = 0;
+				break;		
+			case 6: 
+				SEL1_IN = 0;	SEL2_IN = 1;	SEL3_IN = 1; SEL4_IN = 0;
+				break;		
+			case 7: 
+				SEL1_IN = 1;	SEL2_IN = 1;	SEL3_IN = 1; SEL4_IN = 0;
+				break;
+			case 8:
+				SEL1_IN = 0;	SEL2_IN = 0;	SEL3_IN = 0; SEL4_IN = 1;
+				break;
+			case 9:
+				SEL1_IN = 1;	SEL2_IN = 0;	SEL3_IN = 0; SEL4_IN = 1;
+				break;
+			case 10:
+				SEL1_IN = 0;	SEL2_IN = 1;	SEL3_IN = 0; SEL4_IN = 1;
+				break;
+			default:
 			break;	
-		case 5: 
-			SEL1_IN = 1;	SEL2_IN = 0;	SEL3_IN = 1;
-			break;		
-		case 6: 
-			SEL1_IN = 0;	SEL2_IN = 1;	SEL3_IN = 1;
-			break;		
-		case 7: 
-			SEL1_IN = 1;	SEL2_IN = 1;	SEL3_IN = 1;
-			break;		
-		default:
-			break;	
+		}
+		
 	}	
 	
 
@@ -480,13 +532,22 @@ void Count_LED_Buffer(void)
 {
 	u8 i,j;
 	
-	memcpy(LED_status,OutputLed,OUT_NUM);
-	memcpy(&LED_status[OUT_NUM],InputLed,IN_NUM);
+	if(Modbus.mini_type == MINI_NEW_TINY || Modbus.mini_type == MINI_TINY_ARM)
+	{
+		memcpy(LED_status,OutputLed,OUT_NUM);
+		memcpy(&LED_status[OUT_NUM],InputLed,IN_NUM);
+	}
+	else if(Modbus.mini_type == MINI_TINY_11I)
+	{
+		memcpy(LED_status,OutputLed,11);
+		memcpy(&LED_status[11],InputLed,11);
+		
+	}
 	
 	for(i = 0;i < MAX_LEVEL;i++)
 	{		
 		for(j = 0;j < IN_OUT_NUM;j++)
-		{			
+		{
 			if((LED_status[j] & 0x0f) <= i)	 
 			{
 				LED_Level[j / 16][i] |= (0x01 << (j % 16));	  
@@ -508,7 +569,7 @@ void scan_led(void)
 	static U8_T  level1 = 0;
 	static U8_T  level2 = 0;
 
-	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I))
 	{	
 		if(flag_ready_to_scan != 1) return;
 		if(scanled % 500 == 0) 
@@ -522,21 +583,40 @@ void scan_led(void)
 			LED_LATCH_1 = 1;
 			LED_LATCH_2 = 0;
 
-			LED_1 = (LED_Level[0][level1] & 0x01) ? 1 : 0;// DO1
-			LED_2 = (LED_Level[0][level1] & 0x02) ? 1 : 0;  // DO2
-			LED_3 = (LED_Level[0][level1] & 0x04) ? 1 : 0;  // DO3
-			LED_4 = (LED_Level[0][level1] & 0x4000) ? 1 : 0;  // IN0
-			LED_5 = (LED_Level[0][level1] & 0x8000) ? 1 : 0;	// IN1
-			LED_6 = (LED_Level[1][level1] & 0x01) ? 1 : 0;	// IN2
-			LED_7 = (LED_Level[1][level1] & 0x02) ? 1 : 0;	// IN3
-			LED_8 = (LED_Level[1][level1] & 0x04) ? 1 : 0;  // IN4
-			LED_9 = (LED_Level[1][level1] & 0x08) ? 1 : 0;  // IN5
-			LED_10 = (LED_Level[1][level1] & 0x10) ? 1 : 0;	// IN6
-			LED_11 = (LED_Level[1][level1] & 0x20) ? 1 : 0;	// IN7		
-			LED_12 = flagLED_uart2_tx ? 0 : 1;	// RS485_TX MAIN
-			LED_13 = flagLED_uart2_rx ? 0 : 1;	// RS485_RX MAIN
-			LED_14 = led_heart;		
-			
+			if(Modbus.mini_type == MINI_NEW_TINY || Modbus.mini_type == MINI_TINY_ARM)
+			{
+				LED_1 = (LED_Level[0][level1] & 0x01) ? 1 : 0;// DO1
+				LED_2 = (LED_Level[0][level1] & 0x02) ? 1 : 0;  // DO2
+				LED_3 = (LED_Level[0][level1] & 0x04) ? 1 : 0;  // DO3
+				LED_4 = (LED_Level[0][level1] & 0x4000) ? 1 : 0;  // IN0
+				LED_5 = (LED_Level[0][level1] & 0x8000) ? 1 : 0;	// IN1
+				LED_6 = (LED_Level[1][level1] & 0x01) ? 1 : 0;	// IN2
+				LED_7 = (LED_Level[1][level1] & 0x02) ? 1 : 0;	// IN3
+				LED_8 = (LED_Level[1][level1] & 0x04) ? 1 : 0;  // IN4
+				LED_9 = (LED_Level[1][level1] & 0x08) ? 1 : 0;  // IN5
+				LED_10 = (LED_Level[1][level1] & 0x10) ? 1 : 0;	// IN6
+				LED_11 = (LED_Level[1][level1] & 0x20) ? 1 : 0;	// IN7		
+				LED_12 = flagLED_uart2_tx ? 0 : 1;	// RS485_TX MAIN
+				LED_13 = flagLED_uart2_rx ? 0 : 1;	// RS485_RX MAIN
+				LED_14 = led_heart;		
+			}
+			else  // 11I
+			{
+				LED_1 = (LED_Level[0][level1] & 0x0800) ? 1 : 0;// IN1
+				LED_2 = (LED_Level[0][level1] & 0x1000) ? 1 : 0;  // IN2
+				LED_3 = (LED_Level[0][level1] & 0x2000) ? 1 : 0;  // IN3
+				LED_4 = (LED_Level[0][level1] & 0x4000) ? 1 : 0;  // IN4
+				LED_5 = (LED_Level[0][level1] & 0x8000) ? 1 : 0;	// IN5
+				LED_6 = (LED_Level[1][level1] & 0x01) ? 1 : 0;	// IN6
+				LED_7 = (LED_Level[1][level1] & 0x02) ? 1 : 0;	// IN7
+				LED_8 = (LED_Level[1][level1] & 0x04) ? 1 : 0;  // IN8
+				LED_9 = (LED_Level[1][level1] & 0x08) ? 1 : 0;  // IN9
+				LED_10 = (LED_Level[1][level1] & 0x10) ? 1 : 0;	// IN10
+				LED_11 = (LED_Level[1][level1] & 0x20) ? 1 : 0;	// IN11		
+				LED_12 = flagLED_uart2_tx ? 0 : 1;	// RS485_TX MAIN
+				LED_13 = flagLED_uart2_rx ? 0 : 1;	// RS485_RX MAIN
+				LED_14 = led_heart;		
+			}
 			
 			if(level1 < 5)  // 6 level
 			{  				
@@ -551,20 +631,40 @@ void scan_led(void)
 			LED_LATCH_2 = 1;		
 			LED_LATCH_1 = 0;
 
-			LED_1 = (LED_Level[0][level2] & 0x08) ? 1 : 0;	// DO4
-			LED_2 = (LED_Level[0][level2] & 0x10) ? 1 : 0;	// DO5
-			LED_3 = (LED_Level[0][level2] & 0x20) ? 1 : 0;	// DO6
-			LED_4 = (LED_Level[0][level2] & 0x40) ? 1 : 0;	// DO7  ?
-			LED_5 = (LED_Level[0][level2] & 0x80) ? 1 : 0;	// DO8
-			LED_6 = (LED_Level[0][level2] & 0x100) ? 1 : 0;	// AO1
-			LED_7 = (LED_Level[0][level2] & 0x200) ? 1 : 0;  // AO2
-			LED_8 = (LED_Level[0][level2] & 0x400) ? 1 : 0;  // AO3  ?
-			LED_9 = (LED_Level[0][level2] & 0x800) ? 1 : 0;  // AO4
-			LED_10 = (LED_Level[0][level2] & 0x1000) ? 1 : 0;	// AO5
-			LED_11 = (LED_Level[0][level2] & 0x2000) ? 1 : 0;	// AO6
-			LED_12 = flagLED_uart0_tx ? 0 : 1;	// RS485_TX SUB
-			LED_13 = flagLED_uart0_rx ? 0 : 1;	// RS485_RX SUB
-			LED_14 = (flagLED_ether_rx || flagLED_ether_tx) ? 0 : 1;   // ETH TX & RX
+			if(Modbus.mini_type == MINI_NEW_TINY || Modbus.mini_type == MINI_TINY_ARM)
+			{
+				LED_1 = (LED_Level[0][level2] & 0x08) ? 1 : 0;	// DO4
+				LED_2 = (LED_Level[0][level2] & 0x10) ? 1 : 0;	// DO5
+				LED_3 = (LED_Level[0][level2] & 0x20) ? 1 : 0;	// DO6
+				LED_4 = (LED_Level[0][level2] & 0x40) ? 1 : 0;	// DO7  ?
+				LED_5 = (LED_Level[0][level2] & 0x80) ? 1 : 0;	// DO8
+				LED_6 = (LED_Level[0][level2] & 0x100) ? 1 : 0;	// AO1
+				LED_7 = (LED_Level[0][level2] & 0x200) ? 1 : 0;  // AO2
+				LED_8 = (LED_Level[0][level2] & 0x400) ? 1 : 0;  // AO3  ?
+				LED_9 = (LED_Level[0][level2] & 0x800) ? 1 : 0;  // AO4
+				LED_10 = (LED_Level[0][level2] & 0x1000) ? 1 : 0;	// AO5
+				LED_11 = (LED_Level[0][level2] & 0x2000) ? 1 : 0;	// AO6
+				LED_12 = flagLED_uart0_tx ? 0 : 1;	// RS485_TX SUB
+				LED_13 = flagLED_uart0_rx ? 0 : 1;	// RS485_RX SUB
+				LED_14 = (flagLED_ether_rx || flagLED_ether_tx) ? 0 : 1;   // ETH TX & RX
+			}
+			else  // 11I
+			{
+				LED_1 = (LED_Level[0][level2] & 0x01) ? 1 : 0;	// DO1
+				LED_2 = (LED_Level[0][level2] & 0x02) ? 1 : 0;	// DO2
+				LED_3 = (LED_Level[0][level2] & 0x04) ? 1 : 0;	// DO3
+				LED_4 = (LED_Level[0][level2] & 0x08) ? 1 : 0;	// DO4  ?
+				LED_5 = (LED_Level[0][level2] & 0x10) ? 1 : 0;	// DO5
+				LED_6 = (LED_Level[0][level2] & 0x20) ? 1 : 0;	// DO6
+				LED_7 = (LED_Level[0][level2] & 0x40) ? 1 : 0;  // AO1
+				LED_8 = (LED_Level[0][level2] & 0x80) ? 1 : 0;  // AO2  ?
+				LED_9 = (LED_Level[0][level2] & 0x100) ? 1 : 0;  // AO3
+				LED_10 = (LED_Level[0][level2] & 0x200) ? 1 : 0;	// AO4
+				LED_11 = (LED_Level[0][level2] & 0x400) ? 1 : 0;	// AO5
+				LED_12 = flagLED_uart0_tx ? 0 : 1;	// RS485_TX SUB
+				LED_13 = flagLED_uart0_rx ? 0 : 1;	// RS485_RX SUB
+				LED_14 = (flagLED_ether_rx || flagLED_ether_tx) ? 0 : 1;   // ETH TX & RX
+			}
 			if(level2 < 5)  // 6 level
 			{  				
 				level2++;
@@ -652,7 +752,8 @@ void Update_Led(void);
 void refresh_led_switch_Task(void) reentrant
 {	
 	portTickType xDelayPeriod = ( portTickType ) 1000 / portTICK_RATE_MS;
-	U8_T loop,i;
+	U8_T loop_1s,i;
+	U16_T loop_200ms;
 	Check_PT_sensor();
 	LED_IO_Init();
 	SWITCH_IO_Init();
@@ -665,16 +766,20 @@ void refresh_led_switch_Task(void) reentrant
 	
 	for(;;)
 	{		
-		vTaskDelay( 200 / portTICK_RATE_MS);	
-		Check_Pulse_Counter();
-		Update_Led();
-		inpust_scan();
+		vTaskDelay( 20 / portTICK_RATE_MS);			
+		inpust_scan();		
+		if(loop_200ms++ % 10 == 0)	
+		{
+			Check_Pulse_Counter();
+			Update_Led();
+			Count_LED_Buffer();
+			Check_switch_status();
+		}
 		
-		if(loop < 5)	loop++;
+		if(loop_1s < 5)	loop_1s++;
 		else
 			flag_ready_to_scan = 1;
-		Count_LED_Buffer();
-		Check_switch_status();
+		
 	}
 }
 

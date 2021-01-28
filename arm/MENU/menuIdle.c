@@ -135,28 +135,104 @@ void MenuIdle_display(void)
 			disp_null_icon(ICON_XDOTS, ICON_YDOTS, 0, THIRD_ICON_POS ,ICON_POS,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
 			disp_null_icon(ICON_XDOTS, ICON_YDOTS, 0, FOURTH_ICON_POS ,ICON_POS,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
 		}
-		
-		if(Modbus.mini_type == MINI_T10P)
+
+//		if(Setting_Info.reg.display_lcd.lcddisplay[0] == 0)
+//		{
+//			if(Modbus.mini_type == MINI_T10P)
+//			{
+//				if((inputs[HI_COMMON_CHANNEL].digital_analog == 1) && inputs[HI_COMMON_CHANNEL].range == R10K_40_250DegF) //如果range选的是10K type2 F 就显示 F
+//				{	
+//					Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[HI_COMMON_CHANNEL].value / 100, TOP_AREA_DISP_UNIT_F);
+//				}
+//				else
+//				{
+//					Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[HI_COMMON_CHANNEL].value / 100, TOP_AREA_DISP_UNIT_C);
+//				}
+//			}
+//			else
+//			{
+//				if((inputs[COMMON_CHANNEL].digital_analog == 1) && inputs[COMMON_CHANNEL].range == R10K_40_250DegF) //如果range选的是10K type2 F 就显示 F
+//				{	
+//					Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[COMMON_CHANNEL].value / 100, TOP_AREA_DISP_UNIT_F);
+//				}
+//				else
+//				{
+//					Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[COMMON_CHANNEL].value / 100, TOP_AREA_DISP_UNIT_C);
+//				}
+//			}
+//		}
+//		else
 		{
-			if((inputs[HI_COMMON_CHANNEL].digital_analog == 1) && inputs[HI_COMMON_CHANNEL].range == R10K_40_250DegF) //如果range选的是10K type2 F 就显示 F
-			{	Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[HI_COMMON_CHANNEL].value / 100, TOP_AREA_DISP_UNIT_F);
-				
-			}
-			else
+			char type,num;
+			//if(Setting_Info.reg.display_lcd.lcddisplay[0] == 1) // modbus
 			{
-					Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[HI_COMMON_CHANNEL].value / 100, TOP_AREA_DISP_UNIT_C);
-			}
-		}
-		else
-		{
-			if((inputs[COMMON_CHANNEL].digital_analog == 1) && inputs[COMMON_CHANNEL].range == R10K_40_250DegF) //如果range选的是10K type2 F 就显示 F
-			{	Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[COMMON_CHANNEL].value / 100, TOP_AREA_DISP_UNIT_F);
+				type = Setting_Info.reg.display_lcd.lcd_mod_reg.npoint.point_type;
+				num = Setting_Info.reg.display_lcd.lcd_mod_reg.npoint.number - 1;
 				
+				if(type == IN)
+				{
+					if(inputs[num].digital_analog == 1)
+					{
+						if(inputs[num].range == R10K_40_250DegF)
+							Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[num].value / 100, TOP_AREA_DISP_UNIT_F);
+						else if(inputs[num].range == R10K_40_120DegC)
+							Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[num].value / 100, TOP_AREA_DISP_UNIT_C);
+						else if(inputs[num].range == 27)  // humidity
+							Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[num].value / 100, TOP_AREA_DISP_UNIT_RH);
+						else 
+							Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[num].value / 1000, TOP_AREA_DISP_UNIT_NONE);
+					}
+					else
+						Top_area_display(0X80+TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[num].control, TOP_AREA_DISP_UNIT_NONE);
+//					else
+//					{// uint is not 
+//						// tbd: add more
+//						
+//					}
+				}
+				if(type == VAR)
+				{
+					if(vars[num].digital_analog == 1)
+					{
+						if(vars[num].range == degF) //如果range选的是10K type2 F 就显示 F
+						{	
+							Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, vars[num].value / 100, TOP_AREA_DISP_UNIT_F);
+						}
+						else	if(vars[num].range == degC) //如果range选的是10K type2 F 就显示 F
+						{
+							Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, vars[num].value / 100, TOP_AREA_DISP_UNIT_C);
+						}
+						else	if(vars[num].range == KPa) //如果range选的是10K type2 F 就显示 F
+						{
+							Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, vars[num].value / 1000, TOP_AREA_DISP_UNIT_kPa);
+						}
+						else	if(vars[num].range == Pa) //如果range选的是10K type2 F 就显示 F
+						{
+							Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, vars[num].value / 1000, TOP_AREA_DISP_UNIT_Pa);
+						}
+						else	if(vars[num].range == RH)
+						{
+							Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, vars[num].value / 1000, TOP_AREA_DISP_UNIT_RH);
+						}
+						else
+							Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, vars[num].value / 1000, TOP_AREA_DISP_UNIT_NONE);
+					}
+					else
+					{						
+						Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, vars[num].control, TOP_AREA_DISP_UNIT_NONE);
+					}
+//					else
+//					{// uint is not 
+//						// tbd: add more
+//						
+//					}
+				}
+				// ..... tbd: add more type
 			}
-			else
-			{
-					Top_area_display(TOP_AREA_DISP_ITEM_TEMPERATURE, inputs[COMMON_CHANNEL].value / 100, TOP_AREA_DISP_UNIT_C);
-			}
+// 			if(Setting_Info.reg.display_lcd.lcddisplay[0] == 1) // bacnet
+//			{
+//			}
+			
 		}
 		
 		if(count_left_key > 5) 
@@ -207,6 +283,26 @@ void MenuIdle_display(void)
 
 
 extern uint8_t item_to_adjust;
+uint8_t check_msv_data_len(uint8_t index)
+{
+	char j;
+	char len;
+	len = 0;
+
+	for(j = 0; j < STR_MSV_MULTIPLE_COUNT;j++)
+		if(msv_data[index][j].status != 0)
+		{
+			len++;
+		}
+		else
+		{
+			return len;
+		}
+	
+	return len;
+}
+
+
 void MenuIdle_keycope(uint16 key_value)
 {
     uint8 i;
@@ -217,14 +313,15 @@ void MenuIdle_keycope(uint16 key_value)
 			break;
 		case KEY_UP_MASK:
 			count_left_key = 0;
-			
 			if((disp_index >= 1) && (disp_index <= 3))
 			{
 				if ((vars[disp_index - 1].range >= 101) && (vars[disp_index - 1].range <= 103))  // 101 102 103 	MSV range
 				{
-					if (vars[disp_index - 1].range == 101)  //判断range 是不是多态，是的话 调整多态的值;
+//					if (vars[disp_index - 1].range == 101)  //判断range 是不是多态，是的话 调整多态的值;
 					{
-						for (i = 0; i < 8; i++)
+						char len;
+						len = check_msv_data_len(disp_index - 1);
+						for (i = 0; i < len; i++)
 						{
 							if (vars[disp_index - 1].value / 1000 == msv_data[disp_index - 1][i].msv_value)
 							{
@@ -242,13 +339,13 @@ void MenuIdle_keycope(uint16 key_value)
 							}
 						}
 					}
-					else
-					{
-						if(vars[disp_index - 1].value < STR_MSV_MULTIPLE_COUNT * 1000)
-							vars[disp_index - 1].value = vars[disp_index - 1].value + 1000;
-						else
-							vars[disp_index - 1].value = 0;
-					}
+//					else
+//					{
+//						if(vars[disp_index - 1].value < STR_MSV_MULTIPLE_COUNT * 1000)
+//							vars[disp_index - 1].value = vars[disp_index - 1].value + 1000;
+//						else
+//							vars[disp_index - 1].value = 0;
+//					}
 				}
 				else
 				{
@@ -272,9 +369,12 @@ void MenuIdle_keycope(uint16 key_value)
 			{
 				if ((vars[disp_index - 1].range >= 101) && (vars[disp_index - 1].range <= 103))  // 101 102 103 	MSV range
 				{
-					if (vars[disp_index - 1].range == 101)  //判断range 是不是多态，是的话 调整多态的值;
+					//if(vars[disp_index - 1].range == 101)  //判断range 是不是多态，是的话 调整多态的值;
 					{
-							for (i = 0; i < 8; i++)
+						// check the lenght of msv_data
+						char len;
+						len = check_msv_data_len(disp_index - 1);
+							for (i = 0; i < len; i++)
 							{
 									if (vars[disp_index - 1].value / 1000 == msv_data[disp_index - 1][i].msv_value)
 									{
@@ -292,13 +392,13 @@ void MenuIdle_keycope(uint16 key_value)
 									}
 							}
 					}
-					else
-					{
-						if(vars[disp_index - 1].value > 1000)
-							vars[disp_index - 1].value = vars[disp_index - 1].value - 1000;
-						else
-							vars[disp_index - 1].value = STR_MSV_MULTIPLE_COUNT * 1000;
-					}
+//					else
+//					{
+//						if(vars[disp_index - 1].value > 1000)
+//							vars[disp_index - 1].value = vars[disp_index - 1].value - 1000;
+//						else
+//							vars[disp_index - 1].value = STR_MSV_MULTIPLE_COUNT * 1000;
+//					}
 				}
 				else
 				{

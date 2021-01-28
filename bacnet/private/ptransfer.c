@@ -664,7 +664,7 @@ void Handler_Complex_Ack(
 14 00 5e 00 00 0a 00 
 00 9d 00 00 00 01 00 00 00 4d 00 00 00 10 00 09 00 03 00 00 
 2f
-*/				Test[14]++;
+*/		
 					if(apdu[12] == READ_BACNET_TO_MDOBUS)	
 					{
 						uint8_t len;
@@ -946,7 +946,6 @@ int GetRemotePoint(uint8_t object_type,uint32_t object_instance,uint8_t panel,ui
 //	U8_T invokeid_mstp;
 	invokeid_bip = -1;
 	deviceid = Get_device_id_by_panel(panel,sub_id,protocal);
-	Test[24] = deviceid;
 	if(deviceid > 0)
 	{	
 		if(protocal == BAC_MSTP)
@@ -1889,6 +1888,7 @@ void handler_private_transfer(
 						//Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);
 						Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);
 						RTC_Get();
+						Test[10]++;
 #endif
 
 
@@ -2114,8 +2114,11 @@ void handler_private_transfer(
 				break;
 			case READTIME_COMMAND:
 				// if daylight_saving_time
-			{ 
-				Rtc2.NEW.timestamp = swap_double(get_current_time());
+				{ 
+//				if(Rtc.Clk.year % 5 == 0)
+					Rtc2.NEW.timestamp = swap_double(get_current_time());
+//				else
+//					Rtc2.NEW.timestamp = swap_double(get_current_time()) - 86400;
 				Rtc2.NEW.time_zone = timezone;
 				Rtc2.NEW.daylight_saving_time = Daylight_Saving_Time;
 				ptr = (uint8_t *)(Rtc2.all);
@@ -2193,16 +2196,17 @@ void handler_private_transfer(
 //				break;
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 			case GET_PANEL_INFO:   // other commad
-				Initial_Panel_Info();	
+				Sync_Panel_Info();	
 				Panel_Info.reg.protocal = protocal;
 				ptr = (uint8_t *)(Panel_Info.all);	
 				break;
 #endif
 			case READ_SETTING:	
-				Initial_Panel_Info();
+				Sync_Panel_Info(); 
 #if ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI
 				//check_SD_PnP();
 #endif
+				
 			  ptr = (uint8_t *)(Setting_Info.all);
 				break;
 			case READVARUNIT_T3000:

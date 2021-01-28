@@ -141,7 +141,7 @@ void UART_Init(U8_T port)
 	}
 	else if(port == PORT_ZIGBEE)
 	{	
-		if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) 
+		if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I)
 			|| (Modbus.mini_type == MINI_NANO) )  // new arm tiny, dont have zigbee port
 				return;
 		switch(uart1_baudrate)

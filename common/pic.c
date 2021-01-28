@@ -178,7 +178,7 @@ void PIC_initial_data(void)
 
 void PIC_refresh(void)
 {
-	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM)||
+ 	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_11I) ||
 		(Modbus.mini_type == MINI_NANO))
 		return;
 	if((Modbus.mini_type == MINI_TINY) && (Modbus.hardRev >= STM_TINY_REV)) 

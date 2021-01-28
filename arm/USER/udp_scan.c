@@ -166,7 +166,6 @@ void private_scan(void)
 			// for MODBUS device
 				for(i = 0;i < sub_no;i++)
 				{	 
-					//Test[14 + i] = scan_db[i].sn;
 					if((scan_db[i].product_model >= CUSTOMER_PRODUCT) || (current_online[scan_db[i].id / 8] & (1 << (scan_db[i].id % 8))))	  	 // in database but not on_line
 					{
 						if(scan_db[i].product_model != PRODUCT_MINI_BIG)

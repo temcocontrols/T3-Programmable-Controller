@@ -167,6 +167,8 @@ void Update_Output_Task(void)
 // PC.2 -> AO_FB3 ADC123_IN12
 // PC.3 -> AO_FB4 ADC123_IN13
 
+
+
 #define TB_REALY1	PCout(6)
 #define TB_REALY2	PCout(7)
 #define TB_REALY3	PBout(8)
@@ -174,7 +176,7 @@ void Update_Output_Task(void)
 #define TB_REALY5	PAout(0)
 #define TB_REALY6	PAout(1)
 #define TB_REALY7	PFout(7)
-#define TB_REALY8	PCout(3)
+#define TB_REALY8	PCout(3)  // -> TB11 RELAY5
 
 void Choose_AO(u8 i)
 {
@@ -478,7 +480,66 @@ void Output_IO_Init(void)
 		TIM_Cmd(TIM3, ENABLE);
 		TIM_Cmd(TIM5, ENABLE);
 	}
+	else if(Modbus.mini_type == MINI_TINY_11I)
+	{
+		RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3 | RCC_APB1Periph_TIM5, ENABLE);
+		RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD, ENABLE);
+		
+		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7 | GPIO_Pin_3;  //REALY 1 - RELAY 2 REALY5
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOC,&GPIO_InitStructure);
+		GPIO_ResetBits(GPIOC, GPIO_Pin_6 | GPIO_Pin_7 | GPIO_Pin_3);
+		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_8;  //REALY 3 - RELAY 4
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOB,&GPIO_InitStructure);
+		GPIO_ResetBits(GPIOB, GPIO_Pin_6 | GPIO_Pin_8);
+		
+		GPIO_InitStructure.GPIO_Pin = /*GPIO_Pin_0 |*/ GPIO_Pin_1 ;  // REALY 5 - RELAY 6
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOA, &GPIO_InitStructure);
+		GPIO_ResetBits(GPIOA, /*GPIO_Pin_0 |*/ GPIO_Pin_1);
 
+		
+		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2 | GPIO_Pin_3 | GPIO_Pin_6;		// AO 1,2 AO5
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;  						
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOA, &GPIO_InitStructure);										
+
+		GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1;		// AO 3,4
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;  						
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init(GPIOB, &GPIO_InitStructure);		
+	
+		TIM_TimeBaseStructure.TIM_Period = 1000;
+		TIM_TimeBaseStructure.TIM_Prescaler = 0;
+		TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+		TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+//		TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
+		TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);
+		TIM_TimeBaseInit(TIM5, &TIM_TimeBaseStructure);
+		
+		TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM2;
+		TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
+		TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_Low;
+		
+		TIM_OC3Init(TIM5, &TIM_OCInitStructure);  // AO1 PA2 	TIM5_CH3
+		TIM_OC4Init(TIM5, &TIM_OCInitStructure);  // AO2 PA3 	TIM5_CH4
+		TIM_OC3Init(TIM3, &TIM_OCInitStructure);  // AO3 PB0	TIM3_CH3 	
+		TIM_OC4Init(TIM3, &TIM_OCInitStructure);  // AO4 PB1	TIM3_CH4	
+		TIM_OC1Init(TIM3, &TIM_OCInitStructure);  // AO5 PA6 	TIM3_CH1
+		
+		TIM_OC3PreloadConfig(TIM5, TIM_OCPreload_Enable);
+		TIM_OC4PreloadConfig(TIM5, TIM_OCPreload_Enable);
+		TIM_OC3PreloadConfig(TIM3, TIM_OCPreload_Enable);
+		TIM_OC4PreloadConfig(TIM3, TIM_OCPreload_Enable);
+		TIM_OC1PreloadConfig(TIM3, TIM_OCPreload_Enable);
+		
+		TIM_Cmd(TIM3, ENABLE);
+		TIM_Cmd(TIM5, ENABLE);
+	}
 }
 	
 #endif
@@ -1123,7 +1184,7 @@ void Calucation_PWM_IO(U8_T refresh_index)
 #endif
 	
 #if ARM_MINI
-	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+	else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) )
 	{
 //		if(outputs[refresh_index + 8].switch_status == SW_AUTO)
 //		{
@@ -1184,6 +1245,55 @@ void Calucation_PWM_IO(U8_T refresh_index)
 			TIM_SetCompare1(TIM3, duty_Cycle1);	
 		else if(refresh_index == 5)
 			TIM_SetCompare2(TIM3, duty_Cycle1);
+	}
+	else if(Modbus.mini_type == MINI_TINY_11I )
+	{ // 6DO5AO
+			if(outputs[refresh_index + 6].digital_analog == 0) // digital
+			{
+				if(output_raw[refresh_index + 6] >= 512)
+					adc1 = Modbus.start_adc[10];
+				else
+					adc1 = 0;
+			}
+			else // analog
+			{
+				adc1 = output_raw[refresh_index + 6];
+				
+				if(flag_output == ADJUST_AUTO)
+				{					
+				 adc1 = Auto_Calibration_AO(refresh_index,AO_auto[refresh_index + 6]);
+				 AO_auto[refresh_index + 6] = adc1;
+				}
+				else
+				{
+					adc1 = conver_ADC(adc1);
+				}
+			}
+
+
+		
+		if(refresh_index == 0) 
+		{
+			if(test_adc_flag == 1)	
+				adc1 = test_adc;
+			test_adc = adc1;
+		}
+		
+		duty_Cycle1 = adc1;
+		if(duty_Cycle1 > Modbus.start_adc[10]) duty_Cycle1 = Modbus.start_adc[10];
+		temp1 = (U32_T)255 * (1000 - duty_Cycle1) / 1000;
+		temp1 = temp1 * 256 + ccap_low;		
+		
+		if(refresh_index == 0)
+			TIM_SetCompare3(TIM5, duty_Cycle1);	
+		else if(refresh_index == 1)
+			TIM_SetCompare4(TIM5, duty_Cycle1);
+		else if(refresh_index == 2)
+			TIM_SetCompare3(TIM3, duty_Cycle1);
+		else if(refresh_index == 3)
+			TIM_SetCompare4(TIM3, duty_Cycle1);
+		else if(refresh_index == 4)
+			TIM_SetCompare1(TIM3, duty_Cycle1);	
 	}
 #endif
 #if ASIX_MINI 
@@ -1299,7 +1409,7 @@ void Refresh_Output(void)
 		// 1. this task has higher priority than task dealing with commuinciton with top board(this requirment is only for LB, SPI bus is share in LB)
 		// 2. this task has lower priorty than programm task.( TIME funcition care about timing, and reading SD takes long time,
 		//	so have to set lower pri then programming)
-		check_trendlog_1s();
+		check_trendlog_1s(20);
 		
 		// wait reading switch_status
 #if (ARM_MINI || ASIX_MINI)
@@ -1311,8 +1421,7 @@ void Refresh_Output(void)
 				temp1.word = relay_value_auto;
 				
 				for(i = 0;i < 12;i++)
-				{			
-						
+				{							
 						if(outputs[i].digital_analog == 0)  // digital
 						{
 							if(output_raw[i] >= 512)						
@@ -1640,7 +1749,7 @@ void Refresh_Output(void)
 			}
 	#endif 
 	#if ARM_MINI
-			else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM))
+			else if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) )
 			{
 				
 				for(i = 0;i < 8;i++)
@@ -1714,7 +1823,7 @@ void Refresh_Output(void)
 				{
 					flag_DO_changed = 1;
 					DO_change_count = 0;
-					
+					Test[10]++;
 					relay_value.word = temp1.word;
 					if(relay_value.byte[0] & 0x01) 					TB_REALY1 = 1;				else					TB_REALY1 = 0;
 					if(relay_value.byte[0] & 0x02) 					TB_REALY2 = 1;				else					TB_REALY2 = 0;
@@ -1736,7 +1845,7 @@ void Refresh_Output(void)
 				{
 					DO_change_count++;
 					if(DO_change_count > 200)  // keep stable for 500ms second,send command to pic again
-					{
+					{Test[11]++;
 						flag_DO_changed = 0;
 						DO_change_count = 0;
 					
@@ -1759,7 +1868,78 @@ void Refresh_Output(void)
 					AnalogOutput_refresh_index = 0;	
 				
 			}	
+			else if(Modbus.mini_type == MINI_TINY_11I)
+			{// 5AO6DO				
+				for(i = 0;i < 6;i++)
+				{		
+					if(outputs[i].digital_analog == 0)  // digital
+					{
+						if(output_raw[i] >= 512)						
+								temp1.word |= (0x01 << i);
+						else
+							temp1.word &= ~(BIT0 << i);
+					}	
+					else  // analog  , PWM mode
+					{
+						if(pwm_count[i] < (U32_T)outputs[i].pwm_period * 20)
+						{
+							pwm_count[i]++;
+						}
+						else
+							pwm_count[i] = 0;
+						
+						if(pwm_count[i] < (U32_T)outputs[i].pwm_period * 20 * output_raw[i] / 1023)
+						{
+							temp1.word |= (0x01 << i);
+						}
+						else 
+						{
+							temp1.word &= ~(BIT0 << i); 
+						}
+					}
+				}
 			
+				
+				if(temp1.word != relay_value.word)
+				{
+					flag_DO_changed = 1;
+					DO_change_count = 0;
+					
+					relay_value.word = temp1.word;
+					if(relay_value.byte[0] & 0x01) 					TB_REALY1 = 1;				else					TB_REALY1 = 0;
+					if(relay_value.byte[0] & 0x02) 					TB_REALY2 = 1;				else					TB_REALY2 = 0;
+					if(relay_value.byte[0] & 0x04) 					TB_REALY3 = 1;				else					TB_REALY3 = 0;
+					if(relay_value.byte[0] & 0x08) 					TB_REALY4 = 1;				else					TB_REALY4 = 0;
+					if(relay_value.byte[0] & 0x10) 					TB_REALY8 = 1;				else					TB_REALY8 = 0;
+					if(relay_value.byte[0] & 0x20) 					TB_REALY6 = 1;				else					TB_REALY6 = 0;
+						
+				}
+				
+				if(flag_DO_changed) 
+				{
+					DO_change_count++;
+					if(DO_change_count > 200)  // keep stable for 500ms second,send command to pic again
+					{
+						flag_DO_changed = 0;
+						DO_change_count = 0;
+					
+						if(relay_value.byte[0] & 0x01) 					TB_REALY1 = 1;				else					TB_REALY1 = 0;
+						if(relay_value.byte[0] & 0x02) 					TB_REALY2 = 1;				else					TB_REALY2 = 0;
+						if(relay_value.byte[0] & 0x04) 					TB_REALY3 = 1;				else					TB_REALY3 = 0;
+						if(relay_value.byte[0] & 0x08) 					TB_REALY4 = 1;				else					TB_REALY4 = 0;
+						if(relay_value.byte[0] & 0x10) 					TB_REALY8 = 1;				else					TB_REALY8 = 0;
+						if(relay_value.byte[0] & 0x20) 					TB_REALY6 = 1;				else					TB_REALY6 = 0;						
+					}
+				}
+				
+				Calucation_PWM_IO(AnalogOutput_refresh_index);	
+								
+				if(AnalogOutput_refresh_index < 5)	  
+					AnalogOutput_refresh_index++;
+				else 	
+					AnalogOutput_refresh_index = 0;	
+				
+			}	
 	#endif
 			
 	}

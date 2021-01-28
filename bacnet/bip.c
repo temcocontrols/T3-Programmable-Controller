@@ -591,17 +591,12 @@ int bip_send_pdu_client(
 		{
 			uip_ipaddr_t addr;
 			if(bip_send_client_conn != NULL) 
-			{		Test[15]++;
+			{	
 				uip_udp_remove(bip_send_client_conn);
 			}
 			Send_bip_count = MAX_RETRY_SEND_BIP;
 			uip_ipaddr(addr,Send_bip_address[0],Send_bip_address[1],Send_bip_address[2],Send_bip_address[3]);	
 			bip_send_client_conn = uip_udp_new(&addr, HTONS(Send_bip_address[4] * 256 + Send_bip_address[5])); // des port
-//			Test[10] = Send_bip_address[0];
-//			Test[11] = Send_bip_address[1];
-//			Test[12] = Send_bip_address[2];
-//			Test[13] = Send_bip_address[3];
-//			Test[14] = Send_bip_address[4] * 256 + Send_bip_address[5];
 			
 			if(bip_send_client_conn != NULL) 
 			{

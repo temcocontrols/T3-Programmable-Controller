@@ -1562,7 +1562,7 @@ void Refresh_scroll(void)
 {
 	uint8 i,j;
 	uint8 mode;
-	
+	memset(&scroll_ram[0][0],0,MAX_SCOROLL);
 	//if(lcd_rotate_max > 9)
 		lcd_rotate_max = 1;
 	//lcd_rotate_index = 0;
@@ -1570,33 +1570,31 @@ void Refresh_scroll(void)
 	{
 		if(SSID_Info.IP_Wifi_Status <= 1)
 		{
-			for(i = 0;i < lcd_rotate_max;i++)
-			{
-				scroll_ram[i][0] = 'T';//;
-				scroll_ram[i][1] = 'i';//
-				scroll_ram[i][2] = 'm';
-				scroll_ram[i][3] = 'e';//
-				scroll_ram[i][4] = ' ';//
-				
-				scroll_ram[i][5] = Rtc.Clk.hour / 10 + 0x30; 
-				scroll_ram[i][6] = Rtc.Clk.hour % 10 + 0x30;
-				scroll_ram[i][7] = ':';
-				scroll_ram[i][8] = Rtc.Clk.min / 10 + 0x30;
-				scroll_ram[i][9] = Rtc.Clk.min % 10 + 0x30;
-				scroll_ram[i][10] = ' ';
-				scroll_ram[i][11] = ' ';
-				scroll_ram[i][12] = ' ';
-				scroll_ram[i][13] = ' ';
-				scroll_ram[i][14] = ' ';
-			}
+			j = 0;
+			scroll_ram[0][j++] = '2';
+			scroll_ram[0][j++] = '0';
+			scroll_ram[0][j++] =  Rtc.Clk.year / 10 + '0';
+			scroll_ram[0][j++] =  Rtc.Clk.year % 10 + '0';
+			scroll_ram[0][j++] = '-';
+			scroll_ram[0][j++] =  Rtc.Clk.mon / 10 + '0';
+			scroll_ram[0][j++] =  Rtc.Clk.mon % 10 + '0';
+			scroll_ram[0][j++] = '-';
+			scroll_ram[0][j++] =  Rtc.Clk.day / 10 + '0';
+			scroll_ram[0][j++] =  Rtc.Clk.day % 10 + '0';
+			scroll_ram[0][j++] = ' ';
+			scroll_ram[0][j++] =  Rtc.Clk.hour / 10 + '0';
+			scroll_ram[0][j++] =  Rtc.Clk.hour % 10 + '0';
+			scroll_ram[0][j++] = ':';
+			scroll_ram[0][j++] =  Rtc.Clk.min / 10 + '0';
+			scroll_ram[0][j++] =  Rtc.Clk.min % 10 + '0';
+			scroll_ram[0][j++] = ':';
+			scroll_ram[0][j++] =  Rtc.Clk.sec / 10 + '0';
+			scroll_ram[0][j++] =  Rtc.Clk.sec % 10 + '0';
+			scroll_ram[0][j++] = ' ';
 		}
-//		else if(SSID_Info.IP_Wifi_Status == 1)
-//		{
-//			memcpy(&scroll_ram[0][0],"no wifi module ",MAX_SCOROLL);
-//		}
 		else if(SSID_Info.IP_Wifi_Status == 2)
-		{
-			sprintf(&scroll_ram[0][0], "%d.%d.%d.%d ",(uint8)SSID_Info.ip_addr[0],(uint8)SSID_Info.ip_addr[1],(uint8)SSID_Info.ip_addr[2], (uint8)SSID_Info.ip_addr[3]);
+		{			
+			sprintf(&scroll_ram[0][0],"%d.%d.%d.%d ",(uint8)SSID_Info.ip_addr[0],(uint8)SSID_Info.ip_addr[1],(uint8)SSID_Info.ip_addr[2], (uint8)SSID_Info.ip_addr[3]);
 		}
 		else if(SSID_Info.IP_Wifi_Status == 3)
 		{
@@ -1611,293 +1609,7 @@ void Refresh_scroll(void)
 			memcpy(&scroll_ram[0][0],"wifi configure ",MAX_SCOROLL);
 		}
 	}
-	
-	
-//	if(lcd_rotate_max > 9)
-//		lcd_rotate_max = 9;
-//	if(lcd_rotate_max > 0)
-//	{
-//		for(i = 0;i < lcd_rotate_max;i++)
-//		{
-//			switch(disp_item_queue(i))
-//			{
-//				case 3:
-//				for(j=0;j<8;j++)
-//				{
-//					if(Disp_AI1(j) == 0)
-//						scroll_ram[i][j] = ' ';
-//					else
-//						scroll_ram[i][j] = Disp_AI1(j);
-//				}
-//				scroll_ram[i][8] = ':';
-//				Set_input_scroll(mul_analog_input[0] , 0,i);
 
-//				break;
-//				
-//				case 4:
-//				for(j=0;j<8;j++)
-//				{
-//					if(Disp_AI2(j) == 0)
-//						scroll_ram[i][j] = ' ';
-//					else
-//						scroll_ram[i][j] = Disp_AI2(j);
-//				}
-//				scroll_ram[i][8] = ':';
-//					Set_input_scroll(mul_analog_input[1] , 0,i);
-
-//				break;
-
-//				case 5:
-//				for(j=0;j<8;j++)
-//				{
-//					if(Disp_AI3(j) == 0)
-//						scroll_ram[i][j] = ' ';
-//					else
-//						scroll_ram[i][j] = Disp_AI3(j);
-//				}
-//				scroll_ram[i][8] = ':';
-//					Set_input_scroll(mul_analog_input[2] , 0,i);
-//				break;	
-
-//				case 6:
-//				for(j=0;j<8;j++)
-//				{
-//					if(Disp_AI4(j) == 0)
-//						scroll_ram[i][j] = ' ';
-//					else
-//						scroll_ram[i][j] = Disp_AI4(j);
-//				}
-//				scroll_ram[i][8] = ':';
-//					Set_input_scroll(mul_analog_input[3] , 0,i);
-//				break;	
-
-//				case 7:
-//				for(j=0;j<8;j++)
-//				{
-//					if(Disp_AI5(j) == 0)
-//						scroll_ram[i][j] = ' ';
-//					else
-//						scroll_ram[i][j] = Disp_AI5(j);
-//				}
-//				scroll_ram[i][8] = ':';
-//					Set_input_scroll(mul_analog_input[4] , 0,i);
-//				break;	
-
-//				case 8:
-//				for(j=0;j<8;j++)
-//				{
-//					if(Disp_AI6(j) == 0)
-//						scroll_ram[i][j] = ' ';
-//					else
-//						scroll_ram[i][j] = Disp_AI6(j);
-//				}
-//				scroll_ram[i][8] = ':';
-//					Set_input_scroll(mul_analog_input[5] , 0,i);
-//				break;	
-
-//				case 9:
-//				for(j=0;j<8;j++)
-//				{
-//					if(Disp_AI7(j) == 0)
-//						scroll_ram[i][j] = ' ';
-//					else
-//						scroll_ram[i][j] = Disp_AI7(j);
-//				}
-//				scroll_ram[i][8] = ':';
-//					Set_input_scroll(mul_analog_input[6] , 0,i);
-//				break;	
-
-//				case 10:
-//				for(j=0;j<8;j++)
-//				{
-//					if(Disp_AI8(j) == 0)
-//						scroll_ram[i][j] = ' ';
-//					else
-//						scroll_ram[i][j] = Disp_AI8(j);
-//				}
-//				scroll_ram[i][8] = ':';
-//					Set_input_scroll(mul_analog_input[7] , 0,i);
-//				break;	
-
-//				case 11://heat/cool stage
-//					mode = get_current_mode();
-//					scroll_ram[i][0] = 'S';
-//					scroll_ram[i][1] = 't';
-//					scroll_ram[i][2] = 'a';
-//					scroll_ram[i][3] = 'g';
-//					scroll_ram[i][4] = 'e';
-//					scroll_ram[i][5] = ':';
-//				
-//				  mode = get_cureent_stage();						
-//					for(j=0;j<7;j++)
-//						scroll_ram[i][6+j] = MODESTAGE[mode][j]; 
-//				
-//					scroll_ram[i][13] = ' ';
-//					scroll_ram[i][14] = ' ';
-//				break;	
-
-//				case 12://user message
-//					for(j=0;j<14;j++)
-//					{
-//						if(User_Info(j) == 0)
-//							scroll_ram[i][j] = ' ';
-//						else
-//							scroll_ram[i][j] = User_Info(j);
-//					}; 
-//					scroll_ram[i][14] = ' ';
-//				break;
-
-//				case 13: //date
-//					scroll_ram[i][0] = clock_month[Rtc.Clk.mon - 1].name[0];
-//					scroll_ram[i][1] = clock_month[Rtc.Clk.mon - 1].name[1];
-//					scroll_ram[i][2] = clock_month[Rtc.Clk.mon - 1].name[2];
-//					scroll_ram[i][3] = ' ';//
-//					scroll_ram[i][4] = (Rtc.Clk.day / 10) + 0x30; 
-//					scroll_ram[i][5] = (Rtc.Clk.day % 10) + 0x30;
-//					scroll_ram[i][6] = ',';
-//					scroll_ram[i][7] = (Rtc.Clk.year / 1000)+ 0x30;	
-//					scroll_ram[i][8] = (Rtc.Clk.year % 1000) / 100 + 0x30;
-//					scroll_ram[i][9] = (Rtc.Clk.year % 100) / 10 + 0x30;
-//					scroll_ram[i][10] = (Rtc.Clk.year % 10) + 0x30;
-//					scroll_ram[i][11] = ' ';
-//					scroll_ram[i][12] = ' ';
-//					scroll_ram[i][13] = ' ';
-//					scroll_ram[i][14] = ' ';
-//				break;	
-
-//				case 14: //time
-//					scroll_ram[i][0] = 'T';//;
-//					scroll_ram[i][1] = 'i';//
-//					scroll_ram[i][2] = 'm';
-//					scroll_ram[i][3] = 'e';//
-//					scroll_ram[i][4] = ' ';//
-////				if(update_flag == 3)
-////				{
-////					scroll_ram[i][5] = 'E'; 
-////					scroll_ram[i][6] = 'r';
-////					scroll_ram[i][7] = 'r';
-////					scroll_ram[i][8] = 'o';
-////					scroll_ram[i][9] = 'r';
-////					scroll_ram[i][10] = ' ';
-////					scroll_ram[i][11] = ' ';
-////					scroll_ram[i][12] = ' ';
-////					scroll_ram[i][13] = ' ';
-////					scroll_ram[i][14] = ' ';				
-////				}
-////				else
-////				{
-////					scroll_ram[i][5] = calendar.hour/10 + 0x30; 
-////					scroll_ram[i][6] = calendar.hour%10 + 0x30;
-////					scroll_ram[i][7] = ':';
-////					scroll_ram[i][8] = calendar.min/10 + 0x30;
-////					scroll_ram[i][9] = calendar.min%10 + 0x30;
-////					scroll_ram[i][10] = ' ';
-////					scroll_ram[i][11] = ' ';
-////					scroll_ram[i][12] = ' ';
-////					scroll_ram[i][13] = ' ';
-////					scroll_ram[i][14] = ' ';
-////				}
-//				break;
-
-////				case 15: //co2
-////					scroll_ram[i][0] = 'C';//;
-////					scroll_ram[i][1] = 'O';//
-////					scroll_ram[i][2] = '2';
-////					scroll_ram[i][3] = ':';//
-////					if(co2_data >= 1000)
-////						scroll_ram[i][4] = co2_data/1000 + 0x30;//
-////					else
-////						scroll_ram[i][4] = ' ';//
-////					scroll_ram[i][5] = (co2_data%1000)/100 + 0x30; 
-////					scroll_ram[i][6] = (co2_data%100)/10 + 0x30; 
-////					scroll_ram[i][7] = co2_data%10 + 0x30; 
-////					scroll_ram[i][8] = 'p';
-////					scroll_ram[i][9] = 'p';
-////					scroll_ram[i][10] = 'm';
-////					scroll_ram[i][11] = ' ';
-////					scroll_ram[i][12] = ' ';
-////					scroll_ram[i][13] = ' ';
-////					scroll_ram[i][14] = ' ';
-////				break;
-
-////				case 16: //hum
-////					scroll_ram[i][0] = 'H';//;
-////					scroll_ram[i][1] = 'u';//
-////					scroll_ram[i][2] = 'm';
-////					scroll_ram[i][3] = 'i';//
-////					scroll_ram[i][4] = 'd';//
-////					scroll_ram[i][5] = 'i';//;//(co2_data%1000)/100 + 0x30; 
-////					scroll_ram[i][6] = 't';//(co2_data%100)/10 + 0x30; 
-////					scroll_ram[i][7] = 'y';//co2_data%10 + 0x30; 
-////					scroll_ram[i][8] = ':';
-////					if(humidity >= 1000)
-////					{
-////						scroll_ram[i][9] = '1';
-////						scroll_ram[i][10] = '0';
-////						scroll_ram[i][11] = '0';
-////						scroll_ram[i][12] = '%';
-////						scroll_ram[i][13] = ' ';					
-////					}
-////					else
-////					{
-////						scroll_ram[i][9] = humidity/100 + 0x30;
-////						scroll_ram[i][10] = (humidity%100)/10 + 0x30;
-////						scroll_ram[i][11] = '.';
-////						scroll_ram[i][12] = humidity%10 + 0x30;
-////						scroll_ram[i][13] = '%';					
-////					}
-////					scroll_ram[i][14] = ' ';
-////				break;
-//					
-////				case 17://outside temperature
-////					scroll_ram[i][0] = 'O';
-////					scroll_ram[i][1] = 'u';
-////					scroll_ram[i][2] = 't';
-////					scroll_ram[i][3] = 'T';
-////					scroll_ram[i][4] = 'e';
-////					scroll_ram[i][5] = 'm';
-////					scroll_ram[i][6] = ':';
-////					if(outside_tem < 0)
-////					{
-////						scroll_ram[i][7] = '-';
-////						scroll_ram[i][8] = -outside_tem/100 + 0x30;						
-////						scroll_ram[i][9] = (-outside_tem%100)/10 + 0x30;
-////						scroll_ram[i][10] = '.';	
-////						scroll_ram[i][11] = -outside_tem%10 + 0x30;
-////						scroll_ram[i][12] = ' ';
-////						scroll_ram[i][13] = ' ';						
-////					}
-////					else
-////					{
-////						if(outside_tem >= 1000)
-////						{
-////							scroll_ram[i][7] = outside_tem/1000 + 0x30;
-////							scroll_ram[i][8] = (outside_tem%1000)/100 + 0x30;
-////							scroll_ram[i][9] = (outside_tem%100)/10 + 0x30;
-////							scroll_ram[i][10] = ' ';
-////							scroll_ram[i][11] = ' ';
-////							scroll_ram[i][12] = ' ';
-////							scroll_ram[i][13] = ' ';
-////						}
-////						else
-////						{
-////							scroll_ram[i][7] = outside_tem/100 + 0x30;
-////							scroll_ram[i][8] = (outside_tem%100)/10 + 0x30;
-////							scroll_ram[i][9] = '.';
-////							scroll_ram[i][10] = outside_tem%10 + 0x30;		
-////							scroll_ram[i][11] = ' ';
-////							scroll_ram[i][12] = ' ';
-////							scroll_ram[i][13] = ' ';							
-////						}					
-////					}
-////					scroll_ram[i][14] = ' ';					
-////				break;						
-//					
-//				default:
-//				break;
-//			}
-//		}
-//	}
 }
 
 void display_scroll(void)
@@ -1942,13 +1654,7 @@ void display_scroll(void)
 		disp_str(FORM15X30, 30,TIME_POS,scroll_buf,TSTAT8_CH_COLOR,TSTAT8_MENU_COLOR2); 
 	}
 }
-//	else
-//	{
-//		memcpy(scroll_buf,"wifi connect",14);
-//		//scroll_buf[10] = '\0'; 
-//		disp_str(FORM15X30, 0,TIME_POS,scroll_buf,TSTAT8_CH_COLOR,TSTAT8_MENU_COLOR2); 
 
-//	}
 	
 }
 
@@ -1990,84 +1696,173 @@ void display_dec(uint8 blink)
 
 void Top_area_display(uint8 item, int16 value, uint8 unit)
 {
-int16 value_buf;
-switch(item)
+	int16 value_buf;
+	
+	switch(item)
 	{
 	case TOP_AREA_DISP_ITEM_TEMPERATURE:
-		
-		if(value >=0)
+		if(unit == TOP_AREA_DISP_UNIT_C || unit == TOP_AREA_DISP_UNIT_F || TOP_AREA_DISP_UNIT_RH)
 		{
-			value_buf = value;
-			disp_str(FORM15X30, 6,  32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
-			if(value >= 1000)
+			if(value >=0)
 			{
-				value_buf /= 10;
-				if((value_buf >= 100))
-					disp_ch(0,FIRST_CH_POS,THERM_METER_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				else 
-					disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				disp_ch(0,THIRD_CH_POS,THERM_METER_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);			
-			}
-			if(value<1000 )
-			{
-//				disp_null_icon(30, 96, 0, THERM_METER_XPOS,THERM_METER_POS,TSTAT8_MENU_COLOR, TSTAT8_MENU_COLOR);
-				//disp_ch(0,0,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				if((value >= 100))
-					disp_ch(0,FIRST_CH_POS,THERM_METER_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				else 
-					disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				disp_ch(0,THIRD_CH_POS,THERM_METER_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-			}
-			else if(value <100)
-			{
-				disp_ch(0,FIRST_CH_POS,THERM_METER_POS,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				disp_ch(0,THIRD_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				value_buf = value;
+				disp_str(FORM15X30, 6,  32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
+				if(value >= 1000)
+				{
+					value_buf /= 10;
+					if((value_buf >= 100))
+						disp_ch(0,FIRST_CH_POS,THERM_METER_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					else 
+						disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,THIRD_CH_POS,THERM_METER_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);			
+				}
+				if(value<1000 )
+				{
+	//				disp_null_icon(30, 96, 0, THERM_METER_XPOS,THERM_METER_POS,TSTAT8_MENU_COLOR, TSTAT8_MENU_COLOR);
+					//disp_ch(0,0,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					if((value >= 100))
+						disp_ch(0,FIRST_CH_POS,THERM_METER_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					else 
+						disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,THIRD_CH_POS,THERM_METER_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				}
+				else if(value <100)
+				{
+					disp_ch(0,FIRST_CH_POS,THERM_METER_POS,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,THIRD_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					
 				
-			
+				}
+			}
+			else//nagtive value
+			{
+				value_buf = -value;
+				disp_str(FORM15X30, 6,  32,  "-",SCH_COLOR,TSTAT8_BACK_COLOR);
+				//disp_null_icon(0, 8, 0, THERM_METER_XPOS+2,53,TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				if(value_buf >= 100)
+				{
+				//disp_ch(0,0,THERM_METER_POS,'-',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				
+				disp_ch(0,FIRST_CH_POS,THERM_METER_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+				disp_ch(0,THIRD_CH_POS,THERM_METER_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				}
+				else if(value_buf < 100)
+				{
+				//disp_ch(0,0,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				//disp_str(FORM15X30, FIRST_CH_POS,  25,  ' ',SCH_COLOR,TSTAT8_BACK_COLOR);
+				//disp_str(FORM15X30,FIRST_CH_POS,THERM_METER_POS,'-',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+				disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+				disp_ch(0,THIRD_CH_POS,THERM_METER_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);			
+				}
 			}
 		}
-		else//nagtive value
+		else
 		{
-			value_buf = -value;
-			disp_str(FORM15X30, 6,  32,  "-",SCH_COLOR,TSTAT8_BACK_COLOR);
-			//disp_null_icon(0, 8, 0, THERM_METER_XPOS+2,53,TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-			if(value_buf >= 100)
-			{
-			//disp_ch(0,0,THERM_METER_POS,'-',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 			
-			disp_ch(0,FIRST_CH_POS,THERM_METER_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-			disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-			disp_ch(0,THIRD_CH_POS,THERM_METER_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-			}
-			else if(value_buf < 100)
+			if(value > 999) value = 999;
+			disp_str(FORM15X30, 6,  32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
+			if(value >= 100)
 			{
-			//disp_ch(0,0,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-			//disp_str(FORM15X30, FIRST_CH_POS,  25,  ' ',SCH_COLOR,TSTAT8_BACK_COLOR);
-			//disp_str(FORM15X30,FIRST_CH_POS,THERM_METER_POS,'-',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-			disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-			disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-			disp_ch(0,THIRD_CH_POS,THERM_METER_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);			
+				disp_ch(0,FIRST_CH_POS,THERM_METER_POS,0x30+value/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_ch(0,THIRD_CH_POS-16,THERM_METER_POS,0x30+value%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			}
+			else if(value > 10)
+			{
+				disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_ch(0,THIRD_CH_POS-16,THERM_METER_POS,0x30+value%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			}
+			else if(value >= 0)
+			{
+				disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_ch(0,SECOND_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_ch(0,THIRD_CH_POS-16,THERM_METER_POS,0x30+value%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			}
+			else
+			{
+				value_buf = -value;
+				disp_str(FORM15X30, 6,  32,  "-",SCH_COLOR,TSTAT8_BACK_COLOR);
+				if(value_buf >= 100)
+				{
+				disp_ch(0,FIRST_CH_POS,THERM_METER_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+				disp_ch(0,THIRD_CH_POS-16,THERM_METER_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				}
+				else if(value_buf > 10)
+				{
+				//disp_ch(0,0,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				//disp_str(FORM15X30, FIRST_CH_POS,  25,  ' ',SCH_COLOR,TSTAT8_BACK_COLOR);
+				//disp_str(FORM15X30,FIRST_CH_POS,THERM_METER_POS,'-',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+				disp_ch(0,SECOND_CH_POS,THERM_METER_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+				disp_ch(0,THIRD_CH_POS-16,THERM_METER_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);			
+				}
+				else 
+				{
+					disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,SECOND_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,THIRD_CH_POS-16,THERM_METER_POS,0x30 + value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				}
 			}
 		}
+		break;
+	default:
 	break; 
 	
 	}
-	if(value>1000)
-		display_dec(0);
-	else
-		display_dec(1);
+
 	
 //	if(icon.unit == 1)
 //	{
 //		if(EEP_DEGCorF == 0)
 
     if(unit == TOP_AREA_DISP_UNIT_C)
-		disp_str(FORM15X30, UNIT_POS,56,"C",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-    else
+		{	
+			if(value>1000)
+				display_dec(0);
+			else
+				display_dec(1);
+				disp_str(FORM15X30, UNIT_POS,56,"C",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+		}
+    else if(unit == TOP_AREA_DISP_UNIT_F)
+		{	
+			if(value>1000)
+				display_dec(0);
+			else
+				display_dec(1);
         disp_str(FORM15X30, UNIT_POS, 56, "F", TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+		}
+		else if(unit == TOP_AREA_DISP_UNIT_RH)
+		{
+			display_dec(1);
+      disp_str(FORM15X30, UNIT_POS - 23, 56, "%R", TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+		}
+		else if(unit == TOP_AREA_DISP_UNIT_PPM)
+		{display_dec(0);
+        disp_str(FORM15X30, UNIT_POS - 23, 56, "pM", TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+		}
+		else if(unit == TOP_AREA_DISP_UNIT_PERCENT)
+		{display_dec(0);
+        disp_str(FORM15X30, UNIT_POS, 56, "%", TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+		}
+		else if(unit == TOP_AREA_DISP_UNIT_Pa)
+		{display_dec(0);
+        disp_str(FORM15X30, UNIT_POS - 23, 56, "kP", TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+		}
+		else if(unit == TOP_AREA_DISP_UNIT_Pa)
+		{display_dec(0);
+        disp_str(FORM15X30, UNIT_POS - 23, 56, "Pa", TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+		}		
+		else if(unit == TOP_AREA_DISP_UNIT_NONE)
+		{display_dec(0);
+        disp_str(FORM15X30, UNIT_POS - 16, 56, "  ", TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+		}
 //		else
 //			disp_str(FORM15X30, UNIT_POS,56,"F",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 //		icon.unit = 0;
