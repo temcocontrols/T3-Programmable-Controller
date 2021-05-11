@@ -338,13 +338,6 @@ void vTimer2ISR( void ) interrupt 10
 		{
 			uart2_timeout = uart2_timeout - SWTIMER_INTERVAL;
 		}
-
-#if USB_DEVICE
-		if(USB_timeout)
-		{
-			USB_timeout = USB_timeout - SWTIMER_INTERVAL;
-		}
-#endif
 	
 		
 	

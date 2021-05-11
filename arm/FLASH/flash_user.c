@@ -49,7 +49,7 @@ STR_flag_flash 	far bac_flash;
 #define BASE_MSV_DATA					0x8078800  	// lenght is  3x8x23  0x228, 552
 #define BASE_OUT_RELINQUISH	  0x8078a28   // length is 4*MAX_OUTS  0x100  256
 #define BASE_DIS_CONFIG			  0x8078b28  // length is 7
-
+#define BASE_VENDOR_INFO			0x8078b30		// Length is 40
 
 
 
@@ -257,7 +257,7 @@ void Flash_Write_Mass(void)
 		} 
 		
 		if(write_page_en[loop] == 1)
-		{
+		{__disable_irq();
 			STMFLASH_Unlock();
 			if(loop == 15)  // store code
 			{
@@ -272,6 +272,7 @@ void Flash_Write_Mass(void)
 				}
 			}
 			STMFLASH_Lock();			
+			__enable_irq();
 			write_page_en[loop] = 0 ;	
 		}	
 		
@@ -456,18 +457,20 @@ void Flash_Store_Code(void)
 void Flash_Write_Other_Page2(void)
 {
     if (write_page_en[25] == 1)
-    {
+    {__disable_irq();
         STMFLASH_Unlock();
 				STMFLASH_ErasePage(FLASH_OTHER_ADDR2);
 				iap_write_appbin(BASE_MSV_DATA, (u8 *)(msv_data), MAX_MSV * STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
 				iap_write_appbin(BASE_OUT_RELINQUISH, (u8 *)(output_relinquish), 4 * MAX_OUTS);
-			
+				iap_write_appbin(BASE_VENDOR_INFO,(void *)(&bacnet_vendor_name),20);
+				iap_write_appbin(BASE_VENDOR_INFO + 20,(void *)(&bacnet_vendor_product),20);
 #if ARM_TSTAT_WIFI
 			iap_write_appbin(BASE_DIS_CONFIG,Modbus.display_lcd.lcddisplay,sizeof(lcdconfig));
 #endif				
 				write_page_en[25] = 0;
 
 			STMFLASH_Lock();
+			__enable_irq();
     }
 }
 
@@ -478,7 +481,7 @@ void Flash_Write_Other(void)
 
  // name  20
 	if(write_page_en[24] == 1)
-	{
+	{__disable_irq();
 		STMFLASH_Unlock();
 		
 			STMFLASH_ErasePage(FLASH_OTHER_ADDR);
@@ -510,6 +513,7 @@ void Flash_Write_Other(void)
 
 		
 		STMFLASH_Lock();
+		__enable_irq();
 	}
 
 }
@@ -655,6 +659,9 @@ void Flash_Read_Other(void)
 			output_relinquish[loop] = 0;
 		}
 	}
+	
+	STMFLASH_MUL_Read(BASE_VENDOR_INFO,(void *)(&bacnet_vendor_name),20);
+	STMFLASH_MUL_Read(BASE_VENDOR_INFO + 20,(void *)(&bacnet_vendor_product),20);
 }
 
 

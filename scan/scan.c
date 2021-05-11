@@ -837,7 +837,7 @@ void clear_scan_db(void)
 	// clear mstp devide
 	memset(remote_panel_db,0,sizeof(STR_REMOTE_PANEL_DB) * MAX_REMOTE_PANEL_NUMBER);
 	remote_panel_num = 0;
-	
+	Test[17]++;
 
 }
 
@@ -2121,7 +2121,7 @@ uint8_t start_scan_network_count;
 U16_T scan_network_bacnet_count = 0;
 U8_T flag_send_get_panel_number;
 extern xSemaphoreHandle sem_send_bip_flag;
-
+extern uint32 multicast_addr;	
 #if COV
 void Handler_COV_Task(void)	reentrant
 {
@@ -2133,9 +2133,9 @@ void Handler_COV_Task(void)	reentrant
 		{
 			handler_cov_task(BAC_IP_CLIENT2);		
 		}	
-		else
+		//else
 		{
-			delay_ms(100);
+			delay_ms(1000);
 		}
 	}
 }
@@ -2165,7 +2165,6 @@ void Scan_network_bacnet_Task(void)
 		vTaskDelay( 500 / portTICK_RATE_MS);
 		task_test.count[3]++;
 		current_task = 3;
-//		Test[31] = Master_Scan_Network_Count;
 #if 1
 		Master_Scan_Network_Count++;
 		if(Master_Scan_Network_Count >= 180)
@@ -2186,15 +2185,27 @@ void Scan_network_bacnet_Task(void)
 			if(flag_start_scan_network == 1) 
 			{// if no network points, do not scan scan command
 				if((start_scan_network_count++ < 2))
-				{					
+				{		
+// 两个广播地址二选一	
+					static char tempindex = 0;
 					Send_bip_count = MAX_RETRY_SEND_BIP;
 					Send_bip_Flag = 1;
 					count_send_bip = 0;
-					Set_broadcast_bip_address();
+					
+					if(tempindex++ % 2 == 0) // broadcast
+					{				
+						Set_broadcast_bip_address(multicast_addr);
+						bip_set_broadcast_addr(multicast_addr);
+					}
+					else 
+					{			
+						Set_broadcast_bip_address(0xffffffff);
+						bip_set_broadcast_addr(0xffffffff);								
+					}
 #if ARM_CM5				
 					if(run_time > 10)  // do not 
 #endif					
-					Send_WhoIs(-1,-1,BAC_IP_CLIENT);
+						Send_WhoIs(-1,-1,BAC_IP_CLIENT);
 				}
 				else
 				{
@@ -2220,7 +2231,6 @@ void Scan_network_bacnet_Task(void)
 					count_send_bip = 0;
 					Get_address_by_instacne(remote_panel_db[i].device_id,Send_bip_address);	
 					Send_bip_count = MAX_RETRY_SEND_BIP;
-					Test[20]++;
 					temcovar_panel_invoke	= Send_Read_Property_Request(remote_panel_db[i].device_id,
 					PROPRIETARY_BACNET_OBJECT_TYPE,1,/* panel number is proprietary 1*/
 					PROP_PRESENT_VALUE,0,BAC_IP_CLIENT);
@@ -2734,7 +2744,7 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 			delay_time = size0 / 5 + 20;
 		}
 		else  // private command > 100 write
-		{
+		{Test[30]++;
 			size0 = 16;  // 回复的长度是16
 			delay_time = 100;
 		}		
@@ -2774,7 +2784,6 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 	{
 		memcpy(tmp_sendbuf,buf,len - 2);
 		crc_check = crc16(tmp_sendbuf, len - 2);
-
 		tmp_sendbuf[len - 2] = HIGH_BYTE(crc_check);
 		tmp_sendbuf[len - 1] = LOW_BYTE(crc_check);
 
@@ -2866,7 +2875,7 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 				memcpy(tmp_sendbuf,header,6);
 				
 				if(buf[1] == TEMCO_MODBUS)
-				{
+				{Test[32]++;
 					memcpy(&tmp_sendbuf[6],subnet_response_buf,length);	
 #if (ASIX_MINI || ASIX_CM5)
 					TCPIP_TcpSend(TcpSocket_ME, tmp_sendbuf, size0 + 6, TCPIP_SEND_NOT_FINAL); 

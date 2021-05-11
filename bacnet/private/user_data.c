@@ -16,7 +16,8 @@
 #define DEFAULT_FILTER 5
 
 extern U8_T far SD_exist;
-
+uint16_t 	start_day;
+uint16_t	end_day;
 #if (ARM_MINI || ARM_CM5 )
 extern uint8_t flag_start_scan_network;
 extern uint8_t start_scan_network_count;
@@ -813,7 +814,7 @@ void init_panel(void)
 	Write_Special.reg.clear_health_rx_tx = 0;
 	
 	memcpy(update_dyndns_time.all,0,sizeof(UN_Time));
-	
+	Test[18]++;
 	memset(remote_panel_db,0,sizeof(STR_REMOTE_PANEL_DB) * MAX_REMOTE_PANEL_NUMBER);
 	remote_panel_num = 0;
 	
@@ -971,8 +972,12 @@ void Sync_Panel_Info(void)
 	
 
 	
-	Setting_Info.reg.tcp_type = Modbus.tcp_type;
-	Setting_Info.reg.mini_type = Modbus.mini_type;
+	if(cpu_type == 1)
+		Setting_Info.reg.mini_type = 0x80 + Modbus.mini_type;
+	else if(cpu_type == 2)
+		Setting_Info.reg.mini_type = 0x40 + Modbus.mini_type;
+	else
+		Setting_Info.reg.mini_type = Modbus.mini_type;
 
 	Setting_Info.reg.en_username = Modbus.en_username;
 	Setting_Info.reg.cus_unit = Modbus.cus_unit;
@@ -1055,7 +1060,7 @@ void Sync_Panel_Info(void)
 //	Setting_Info.reg.network_ID[2] = Modbus.network_ID[2];
 	
 	Setting_Info.reg.zigbee_module_id = Modbus.zigbee_module_id;
-#if ( ARM_MINI || ARM_TSTAT_WIFI)   //Tstat10 也需要此项
+#if( ARM_MINI || ARM_TSTAT_WIFI)   //Tstat10 也需要此项
 	Setting_Info.reg.MAX_MASTER = MAX_MASTER;
 #endif
 	
@@ -1064,6 +1069,12 @@ void Sync_Panel_Info(void)
 	memcpy(&Test[5],Setting_Info.reg.display_lcd.lcddisplay,sizeof(lcdconfig));
 #endif
 
+#if ARM_MINI		
+	Setting_Info.reg.start_month = Modbus.start_month;
+	Setting_Info.reg.start_day = Modbus.start_day;
+	Setting_Info.reg.end_month = Modbus.end_month;
+	Setting_Info.reg.end_day = Modbus.end_day;
+#endif
 }
 
 
@@ -1158,7 +1169,7 @@ U32_T get_current_time(void)
 #if (ASIX_MINI || ASIX_CM5)
 	if(Daylight_Saving_Time)  // timezone : +8 ---> 800
 	{	// 每年的四月中旬到9月中旬
-		if((Rtc.Clk.day_of_year >= 105) && (Rtc.Clk.day_of_year <= 260))
+		if((Rtc.Clk.day_of_year >= start_day) && (Rtc.Clk.day_of_year <= end_day))
 		{
 			return time_since_1970 + timestart - (S16_T)timezone * 36 - 3600;
 		}
@@ -1173,7 +1184,7 @@ U32_T get_current_time(void)
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	if(Daylight_Saving_Time)  // timezone : +8 ---> 800
 	{
-		if((Rtc.Clk.day_of_year >= 105) && (Rtc.Clk.day_of_year <= 260))
+		if((Rtc.Clk.day_of_year >= start_day) && (Rtc.Clk.day_of_year <= end_day))
 		{
 			return RTC_GetCounter() - (S16_T)timezone * 36 - 3600;
 		}
@@ -1314,7 +1325,7 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 
 			remote_panel_db[remote_panel_num].remote_iam_buf_len = pdu_len;
 			if(protocal == BAC_IP)
-			{	
+			{	Test[31]++;
 				remote_panel_db[remote_panel_num].panel = panel;					
 				if(src->len == 1)  //  sub device,mstp device
 				{
@@ -1329,10 +1340,11 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 				
 			}
 			else // BAC_MSTP
-			{
+			{ 
 				remote_panel_db[remote_panel_num].panel = panel_number;//Modbus.network_ID[2];
 				remote_panel_db[remote_panel_num].sub_id = panel;
 				remote_panel_db[remote_panel_num].product_model = 0;
+				
 			}
 			
 			if(protocal == BAC_IP && src->len == 0 && temcoproduct == 1)
@@ -1347,6 +1359,7 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 				}
 				
 			}
+			
 			remote_panel_db[remote_panel_num].retry_reading_panel = 0;
 			remote_panel_num++;
 			Test[30] = remote_panel_num;	

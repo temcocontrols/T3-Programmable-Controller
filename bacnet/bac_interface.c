@@ -21,9 +21,9 @@ char get_current_mstp_port(void);
 
 #if BAC_COMMON 
 
-char* bacnet_vendor_name = BACNET_VENDOR_TEMCO;
-char* bacnet_vendor_product = BACNET_PRODUCT_TEMCO;
-U8_T far Bacnet_Vendor_ID;
+char bacnet_vendor_name[20] = BACNET_VENDOR_TEMCO;
+char bacnet_vendor_product[20] = BACNET_PRODUCT_TEMCO;
+U16_T far Bacnet_Vendor_ID;
 // MSTP
 void Set_TXEN(uint8_t dir)
 {	
@@ -251,8 +251,8 @@ char get_range(uint8_t type,uint8_t num)
 			else if(vars[io_index].range == Volts) 			return UNITS_VOLTS;
 			else if(vars[io_index].range == KV) 			return UNITS_KILOVOLTS;
 
-			else if(vars[io_index].range == Amps) 			return UNITS_MILLIAMPERES;
-			else if(vars[io_index].range == ma) 			return UNITS_AMPERES;
+			else if(vars[io_index].range == Amps) 			return UNITS_AMPERES;
+			else if(vars[io_index].range == ma) 			return UNITS_MILLIAMPERES;
 			
 			else if(vars[io_index].range == Sec) 			return UNITS_SECONDS;
 			else if(vars[io_index].range == Min) 			return UNITS_MINUTES;
@@ -1586,95 +1586,105 @@ void write_annual_date(uint8_t index,BACNET_DATE date)
 U16_T Get_Vendor_ID(void)
 {
 	switch(Bacnet_Vendor_ID)
-	{
+	{// 保留0 1 2 255 65535 这几个特殊id，兼容老的做法
 		case 1: //netixcontrols
-			bacnet_vendor_name = BACNET_VENDOR_NETIX;
-		bacnet_vendor_product = BACNET_PRODUCT_NETIX;
-			return BACNET_VENDOR_ID_NETIX;
+		case BACNET_VENDOR_ID_NETIX:
+			memcpy(bacnet_vendor_name,BACNET_VENDOR_NETIX,20);
+			memcpy(bacnet_vendor_product,BACNET_PRODUCT_NETIX,20);
+//				bacnet_vendor_name = BACNET_VENDOR_NETIX;
+//				bacnet_vendor_product = BACNET_PRODUCT_NETIX;
+				return BACNET_VENDOR_ID_NETIX;
+		
 		case 2: // jet controls
-			bacnet_vendor_name = BACNET_VENDOR_JET;
-		bacnet_vendor_product = BACNET_PRODUCT_JET;
-			return BACNET_VENDOR_ID_JET;
-		case 3:
-			bacnet_vendor_name = BACNET_VENDOR_NEWRON;
-			bacnet_vendor_product = BACNET_PRODUCT_NEWRON;
-			return BACNET_VENDOR_ID_NEWRON;
-		default: // temco controls
-			bacnet_vendor_name = BACNET_VENDOR_TEMCO;
-			bacnet_vendor_product = BACNET_PRODUCT_TEMCO;
-			return BACNET_VENDOR_ID_TEMCO;  
-	}
+		case BACNET_VENDOR_ID_JET:
+//				bacnet_vendor_name = BACNET_VENDOR_JET;
+//				bacnet_vendor_product = BACNET_PRODUCT_JET;
+		memcpy(bacnet_vendor_name,BACNET_VENDOR_JET,20);
+		memcpy(bacnet_vendor_product,BACNET_PRODUCT_JET,20);
+				return BACNET_VENDOR_ID_JET;
+		case 3: // NEWRON
+		case BACNET_VENDOR_ID_NEWRON:
+//				bacnet_vendor_name = BACNET_VENDOR_JET;
+//				bacnet_vendor_product = BACNET_PRODUCT_JET;
+		memcpy(bacnet_vendor_name,BACNET_VENDOR_NEWRON,20);
+		memcpy(bacnet_vendor_product,BACNET_PRODUCT_NEWRON,20);
+		return BACNET_VENDOR_ID_JET;
+		
+		case BACNET_VENDOR_ID_TEMCO:
+		case 255:
+		case 65535:
+		case 0:
+//			bacnet_vendor_name = BACNET_VENDOR_TEMCO;
+//			bacnet_vendor_product = BACNET_PRODUCT_TEMCO;
+		memcpy(bacnet_vendor_name,BACNET_VENDOR_TEMCO,20);
+		memcpy(bacnet_vendor_product,BACNET_PRODUCT_TEMCO,20);
+			return BACNET_VENDOR_ID_TEMCO;
+		
+		default:
+//			bacnet_vendor_name = BACNET_VENDOR_TEMCO;
+//			bacnet_vendor_product = BACNET_PRODUCT_TEMCO;
+			return Bacnet_Vendor_ID;
+	 }
 }
 
 
 
 const char*  Get_Vendor_Name(void)
 {
-//	switch(Bacnet_Vendor_ID)
-//	{
-//		case 1: //netixcontrols
-//			return BACNET_VENDOR_NETIX;
-//		case 2: // jet controls
-//			return BACNET_VENDOR_JET;
-//		default: // temco controls
-//			return BACNET_VENDOR_TEMCO;  
-//	}
 	return bacnet_vendor_name;
 }
 
 const char*  Get_Vendor_Product(void)
 {
-//	switch(Bacnet_Vendor_ID)
-//	{
-//		case 1: //netixcontrols
-//			return BACNET_VENDOR_NETIX;
-//		case 2: // jet controls
-//			return BACNET_VENDOR_JET;
-//		default: // temco controls
-//			return BACNET_VENDOR_TEMCO;  
-//	}
+
 	return bacnet_vendor_product;
 }
 
 // T3-IO里面有加下面的函数，让客户自己编辑，T3-Controller还没有加
-//void Set_Vendor_Name(char* name)
-//{
-//	write_page_en[EN_OTHER] = 1;
-//	memcpy(bacnet_vendor_name,name,20);
-////	Flash_Write_Mass();
-//}
+void Set_Vendor_Name(char* name)
+{
+#if ARM_MINI	
+	write_page_en[25] = 1;
+#endif
+	memcpy(bacnet_vendor_name,name,20);
+	Flash_Write_Mass();
+}
 
-//void Set_Vendor_Product(char* product)
-//{
-//	write_page_en[EN_OTHER] = 1;
-//	memcpy(bacnet_vendor_product,product,20);
-////	Flash_Write_Mass();
-//}
+void Set_Vendor_Product(char* product)
+{
+#if ARM_MINI	
+	write_page_en[25] = 1;
+#endif
+	memcpy(bacnet_vendor_product,product,20);
+	Flash_Write_Mass();
+}
 
-//void Set_Vendor_ID(uint16_t vendor_id)
-//{
-////	if(vendor_id == 1)
-////	{
-////		//Bacnet_Vendor_ID = BACNET_VENDOR_ID_NETIX;
-////	}
-////	if(vendor_id == 2)
-////	{
-////		//Bacnet_Vendor_ID = 
-////	}
-//	AT24CXX_WriteOneByte(EEP_BAC_VENDOR_ID_LO ,vendor_id);
-//	AT24CXX_WriteOneByte(EEP_BAC_VENDOR_ID_HI ,vendor_id >> 8);
-//	if((vendor_id == 0) || (vendor_id == 255) || (vendor_id == 65535) // temco
-//		|| (vendor_id == 1)  // netIX
-//		|| (vendor_id == 2))  // JET
+void Set_Vendor_ID(uint16_t vendor_id)
+{
+//	if(vendor_id == 1)
+//	{
+//		//Bacnet_Vendor_ID = BACNET_VENDOR_ID_NETIX;
+//	}
+//	if(vendor_id == 2)
 //	{
 //		//Bacnet_Vendor_ID = 
-//		
-//		return;
 //	}
-//	else
-//		Bacnet_Vendor_ID = vendor_id;
-//	
-//}
+#if ARM_MINI	
+	AT24CXX_WriteOneByte(EEP_BAC_VENDOR_ID_LO ,vendor_id);
+	AT24CXX_WriteOneByte(EEP_BAC_VENDOR_ID_HI ,vendor_id >> 8);
+#endif
+	if((vendor_id == 0) || (vendor_id == 255) || (vendor_id == 65535) // temco
+		|| (vendor_id == 1)  // netIX
+		|| (vendor_id == 2))  // JET
+	{
+		//Bacnet_Vendor_ID = 
+		
+		return;
+	}
+	else
+		Bacnet_Vendor_ID = vendor_id;
+	
+}
 
 void Set_Daylight_Saving_Status(bool status)
 {
@@ -1755,7 +1765,7 @@ void Send_TimeSync_Broadcast(uint8_t protocal)
 		Send_bip_Flag = 1;	
 		count_send_bip = 0;
 		Send_bip_count = MAX_RETRY_SEND_BIP;	
-		Set_broadcast_bip_address();	
+//		Set_broadcast_bip_address(0xffffffff);	
 		Send_TimeSync(&bdate,&btime,protocal);
 	}
 	else if(protocal == BAC_MSTP)
@@ -2345,12 +2355,12 @@ void Store_Instance_To_Eeprom(uint32_t Instance)
 }
 
 // tbd:
-void Set_Vendor_ID(uint16_t vendor_id)
-{}
-void Set_Vendor_Name(char* name)
-{}
-void Set_Vendor_Product(char* product)
-{}
+//void Set_Vendor_ID(uint16_t vendor_id)
+//{}
+//void Set_Vendor_Name(char* name)
+//{}
+//void Set_Vendor_Product(char* product)
+//{}
 
 
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
@@ -2377,6 +2387,63 @@ void Store_MASTER_To_Eeprom(uint8_t master)
 	E2prom_Write_Byte(EEP_MAX_MASTER,master);
 }
 
+#if ARM_CM5
+// 2021/02/23 CM5 编译不能通过，不得不添加ruxia函数
+uint32_t get_rpm(uint8_t point)
+{
+	return 0;
+}
+char * itoa( int value, char *string, int radix )
+{
+	int     i, d;
+	int     flag = 0;
+	char    *ptr = string;
+
+	/* This implementation only works for decimal numbers. */
+	if (radix != 10)
+	{
+		*ptr = 0;
+		return string;
+	}
+
+	if (!value)
+	{
+		*ptr++ = 0x30;
+		*ptr = 0;
+		return string;
+	}
+
+	/* if this is a negative value insert the minus sign. */
+	if (value < 0)
+	{
+		*ptr++ = '-';
+
+		/* Make the value positive. */
+		value *= -1;
+		
+	}
+
+	for (i = 10000; i > 0; i /= 10)
+	{
+		d = value / i;
+
+		if (d || flag)
+		{
+			*ptr++ = (char)(d + 0x30);
+			value -= (d * i);
+			flag = 1;
+		}
+	}
+
+	/* Null terminate the string. */
+	*ptr = 0;
+
+	return string;
+
+} /* NCL_Itoa */
+
+#endif
+
 #if BAC_PROPRIETARY
 char* Get_temcovars_string_from_buf(uint8_t number)
 {
@@ -2387,6 +2454,7 @@ char* Get_temcovars_string_from_buf(uint8_t number)
 		memset(str,'\0',20);
 		type = Setting_Info.reg.display_lcd.lcd_mod_reg.npoint.point_type;
 		num = Setting_Info.reg.display_lcd.lcd_mod_reg.npoint.number;
+		
 		if(type == IN)
 		{
 			memcpy(&str,"IN",2);
@@ -2484,7 +2552,7 @@ void Send_UserList_Broadcast(U8_T start,U8_T end)
 	Send_bip_Flag = 1;	
 	count_send_bip = 0;
 	Send_bip_count = MAX_RETRY_SEND_BIP;	
-	Set_broadcast_bip_address();
+//	Set_broadcast_bip_address(0xffffffff);
 	bip_get_broadcast_address(&dest);
 	Send_ConfirmedPrivateTransfer(&dest,&private_data,BAC_IP_CLIENT);
 	

@@ -120,6 +120,7 @@ extern uint32_t run_time;
 
 void scan_led(void);
 extern uint16_t far Test[50];
+
 void TIM6_IRQHandler(void)//1ms
 {
 	static uint16_t count_1s = 0;
@@ -142,12 +143,11 @@ void TIM6_IRQHandler(void)//1ms
 		uip_timer++;		//uip计时器增加1
 	}
 	
-	
 	miliseclast = miliseclast + SWTIMER_INTERVAL;  // 1ms
 
 	if(count_1s < 1000 / SWTIMER_INTERVAL)
 	{
-#if ARM_MINI
+#if COV
 		handler_cov_timer_seconds(1);
 #endif
 		count_1s++;

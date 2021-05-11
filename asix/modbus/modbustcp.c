@@ -270,11 +270,7 @@ void MODBUSTCP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
 			vTaskSuspend(Handle_SampleDI);
 #endif
 			
-#if ASIX_MINI	
-//#if (USB_HOST || USB_DEVICE)
-//			if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_SMALL))
-//			 vTaskSuspend(xHandleUSB); 
-//#endif
+#if ASIX_MINI
 			if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_TINY))
 			 vTaskSuspend(xHandler_SPI);
 #endif
@@ -307,10 +303,6 @@ void MODBUSTCP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
 
 #if ASIX_MINI	
 
-//#if (USB_HOST || USB_DEVICE)
-//		if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_SMALL))
-//			vTaskResume(xHandleUSB); 
-//#endif		
 		if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_TINY))
 			vTaskResume(xHandler_SPI);
 #endif			

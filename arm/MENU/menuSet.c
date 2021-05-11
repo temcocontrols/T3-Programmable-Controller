@@ -123,7 +123,7 @@ void Save_Parmeter(item_to_adjust)
         {
             Recievebuf_Initialize(0);
             dlmstp_init(NULL);
-        }
+        }Test[9] = 15;
         Count_com_config();
         E2prom_Write_Byte(EEP_COM0_CONFIG, Modbus.com_config[0]);
 

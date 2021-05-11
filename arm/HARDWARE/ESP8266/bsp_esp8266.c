@@ -806,6 +806,94 @@ uint8_t ESP8266_Set_MAC(uint8_t * pStamac)
 	return ret;
 }
 
+char Get_SSID_RSSI(void)
+{
+	char uc;
+	char * pCh;
+	char i;
+	
+	char pos;
+	char datlen;
+	uint8_t rssi[3];
+
+//AT+CWJAP_CUR? 
+	//+CWJAP_CUR:"TEMCO_TEST_2.4G","40:a5:ef:5d:32:ca",13,-52
+	ESP8266_Cmd ( "AT+CWJAP_CUR?", "OK", 0, 500 );	
+	pos = 0;
+	datlen = 0;
+	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "+CWJAP_CUR:" );
+	
+	if ( pCh )
+		pCh += 12;
+	else{
+		// 因为发送错导致无法收到“busy s...“ 要排除这种错位
+		pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "busy" );
+		if ( pCh ) {
+			return 2;}
+		else {
+			return 0;}
+	}
+	
+	for ( uc = 0; uc < 60; uc ++ )
+	{
+		if(*( pCh + uc) == '"')
+		{
+			pCh += uc+1;
+			datlen = 0;
+			break;
+		}
+		else
+		{
+			SSID_Info.name[datlen++]=* ( pCh + uc);
+		}
+	}
+
+// 接着找SSID	
+	if ( pCh )
+		pCh += 21;
+	else{
+		return 0;}
+	
+	for ( uc = 0; uc < 5; uc ++ )
+	{
+		if(*( pCh + uc) == ',')
+		{
+			pCh += uc+1;
+			datlen = 0;
+			break;
+		}
+	}
+	
+	// ,后面是信号强度
+	pos = 0;
+	datlen = 0;
+	for ( uc = 0; uc < 5; uc ++ )
+	{
+		if(*( pCh + uc) == '\0')
+		{
+			break;
+		}
+		if(*( pCh + uc) == '-')
+		{
+			datlen = 0;
+		}
+		else
+		{
+			if((* ( pCh + uc) >= '0') && (* ( pCh + uc) <= '9'))
+				rssi[datlen++] = * ( pCh + uc) - '0';
+		}
+	}
+	
+	if(datlen == 1)
+		SSID_Info.rssi = rssi[0];
+	else if(datlen == 2)
+		SSID_Info.rssi = rssi[0] * 10 + rssi[1];
+	else if(datlen == 3)
+		SSID_Info.rssi = rssi[0] * 100 + rssi[1] * 10 + rssi[2];	
+	
+	return 1;
+}
+
 /*
  * 函数名：ESP8266_Inquire_ApIp
  * 描述  ：获取 F-ESP8266 的 AP IP
@@ -815,7 +903,7 @@ uint8_t ESP8266_Set_MAC(uint8_t * pStamac)
  *         1，获取成功
  * 调用  ：被外部调用
  */
-uint8_t ESP8266_Inquire_ApIp (/* uint8_t * pStamac,*/ uint8_t * pStaIp,uint8_t ucArrayLength )
+uint8_t ESP8266_Inquire_ApIp (uint8_t * pStamac, uint8_t * pStaIp,uint8_t ucArrayLength )
 {
 	char uc;
 	
@@ -825,7 +913,7 @@ uint8_t ESP8266_Inquire_ApIp (/* uint8_t * pStamac,*/ uint8_t * pStaIp,uint8_t u
 	char pos;
 	char datlen;
 	uint8_t ip[4];
-//	uint8_t mac[6];
+	uint8_t mac[6];
 	
   ESP8266_Cmd ( "AT+CIFSR", "OK", 0, 500 );
 	
@@ -859,7 +947,9 @@ uint8_t ESP8266_Inquire_ApIp (/* uint8_t * pStamac,*/ uint8_t * pStaIp,uint8_t u
 				break;
 			
 			ip[datlen++] = * ( pCh + uc) - '0';
-		}			
+		}		
+
+		
 	}
 	
 	if(datlen == 1)
@@ -869,78 +959,55 @@ uint8_t ESP8266_Inquire_ApIp (/* uint8_t * pStamac,*/ uint8_t * pStaIp,uint8_t u
 	else if(datlen == 3)
 		pStaIp[pos] = ip[0] * 100 + ip[1] * 10 + ip[2];
 	
+// GET MAC address
+	ESP8266_Cmd ( "AT+CIPSTAMAC?", "OK", 0, 500 );	
+	pos = 0;
+	datlen = 0;
+	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "+CIPSTAMAC:\"" );
+	
+//	AT+CIPSTAMAC?
 
-//// GET MAC address
-//	ESP8266_Cmd ( "AT+CIPSTAMAC?", "OK", 0, 500 );	
-//	pos = 0;
-//	datlen = 0;
-//	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "+CIPSTAMAC:\"" );
-//	
-////	AT+CIPSTAMAC?
+//+CIPSTAMAC:"ec:fa:bc:40:e0:f0"
 
-////+CIPSTAMAC:"ec:fa:bc:40:e0:f0"
-
-////OK
-//	if( pCh )
-//		pCh += 11;
-//	
-//	else
-//		return 0;
-//	
-//	for ( uc = 0; uc < ucArrayLength; uc ++ )
-//	{
-//		if(*( pCh + uc) == ':')
-//		{
-//			if(datlen == 2)
-//				pStamac[pos] = mac[0] * 16 + mac[1];
-//			pos++;
-//			datlen = 0;
-//		}
-//		else
-//		{
-//			if((pos == 5) && (* ( pCh + uc) == '\"'))
-//				break;
-//			
-//			if((* ( pCh + uc) >= '0') && (* ( pCh + uc) <= '9'))
-//				mac[datlen++] = * ( pCh + uc) - '0';
-//			else if((* ( pCh + uc) >= 'a') && (* ( pCh + uc) <= 'f'))
-//				mac[datlen++] = * ( pCh + uc) - 'a' + 10;
-//		}	
-//		
-//	}
-//	
-//	if(datlen == 2)
-//		pStamac[pos] = mac[0] * 16 + mac[1];
-
-  // GET SSID and password
-    ESP8266_Cmd("AT+CWJAP_CUR?", "OK", 0, 500);
-    pos = 0;
-    datlen = 0;
-    pCh = strstr(strEsp8266_Fram_Record.Data_RX_BUF, "+CWJAP_CUR:");
-
-    if (pCh)
-        pCh += 12;
-    else
-        return 0;
-
-    for (uc = 0; uc < ucArrayLength; uc++)
-    {
-        if (*(pCh + uc) == '"')
-        {
-            pCh += uc + 1;
-            datlen = 0;
-            break;
-        }
-        else
-        {
-            SSID_Info.name[datlen++] = *(pCh + uc);
-        }
-    }
-
+//OK
+	if ( pCh )
+		pCh += 11;
+	
+	else
+		return 0;
+	
+	for ( uc = 0; uc < ucArrayLength; uc ++ )
+	{
+		if(*( pCh + uc) == ':')
+		{
+			if(datlen == 2)
+				pStamac[pos] = mac[0] * 16 + mac[1];
+			
+			pos++;
+			datlen = 0;
+		}
+		else
+		{
+			if((pos == 5) && (* ( pCh + uc) == '\"'))
+				break;
+			
+			if((* ( pCh + uc) >= '0') && (* ( pCh + uc) <= '9'))
+				mac[datlen++] = * ( pCh + uc) - '0';
+			else if((* ( pCh + uc) >= 'a') && (* ( pCh + uc) <= 'f'))
+				mac[datlen++] = * ( pCh + uc) - 'a' + 10;
+		}	
+		
+	}
+	
+	if(datlen == 2)
+		pStamac[pos] = mac[0] * 16 + mac[1];	
+	
+	// GET SSID and password
+	Get_SSID_RSSI();
+	
 	return 1;
 	
 }
-
 
 //AT+CIPSTA_CUR?
 //AT+CIPSTA_CUR?  查询指令 Station IP
@@ -967,19 +1034,18 @@ uint8_t ESP8266_CIPSTA_CUR(char type)
 	uint8_t temp[4];
 	uint8_t Ip[4],gateway[4],netmask[4];
 	
-	ESP8266_Cmd ( "AT+CIPSTA_CUR?", "OK", 0, 500 );
-	
+	ESP8266_Cmd ( "AT+CIPSTA_CUR?", "OK", 0, 1000 );
 	pos = 0;
 	datlen = 0;
-	
+	temp[0] = temp[1] = temp[2] = 0;
 	// 获得IP
 	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, ":ip:\"" );
-	
 	if ( pCh )
 		pCh += 5;	
 	else
+	{
 		return 0;
-	
+	}
 	for ( uc = 0; uc < 40; uc ++ )
 	{
 		if(*( pCh + uc) == '.')
@@ -996,13 +1062,18 @@ uint8_t ESP8266_CIPSTA_CUR(char type)
 		}
 		else
 		{
-			if((pos == 3) && (* ( pCh + uc) == '\"'))
+			if((pos >= 3) && (* ( pCh + uc) == '\"'))
 				break;
-			
-			temp[datlen++] = * ( pCh + uc) - '0';
+			if(datlen > 2)
+			{
+				return 0;
+			}
+				
+			temp[datlen++] = * ( pCh + uc) - '0';			
 		}			
 	}
-	
+	// 161
+	// 计算最后一个字节pos == 3
 	if(datlen == 1)
 		Ip[pos] = temp[0];
 	else if(datlen == 2)
@@ -1025,18 +1096,22 @@ uint8_t ESP8266_CIPSTA_CUR(char type)
 			return 2;
 		}
 	}
+	
 	// 获得gateway
 	
 	pos = 0;
 	datlen = 0;
+	temp[0] = temp[1] = temp[2] = 0;
 	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, ":gateway:\"" );
 	
 	if ( pCh )
 		pCh += 10;	
 	else
+	{
 		return 0;
+	}
 	
-	for ( uc = 0; uc < 40; uc ++ )
+	for( uc = 0; uc < 40; uc ++ )
 	{
 		if(*( pCh + uc) == '.')
 		{
@@ -1052,10 +1127,13 @@ uint8_t ESP8266_CIPSTA_CUR(char type)
 		}
 		else
 		{
-			if((pos == 3) && (* ( pCh + uc) == '\"'))
+			if((pos >= 3) && (* ( pCh + uc) == '\"'))
 				break;
-			
-			temp[datlen++] = * ( pCh + uc) - '0';
+			if(datlen > 2)
+			{
+				return 0;
+			}
+				temp[datlen++] = * ( pCh + uc) - '0';
 		}			
 	}
 	
@@ -1073,25 +1151,28 @@ uint8_t ESP8266_CIPSTA_CUR(char type)
 	else
 	{
 		if((gateway[0] != SSID_Info.getway[0]) || 
-			(gateway[1] != SSID_Info.getway[1])  ||
+			(gateway[1] != SSID_Info.getway[1]) ||
 			(gateway[2] != SSID_Info.getway[2]) ||
-			(gateway[3] != SSID_Info.getway[3]) )
+			(gateway[3] != SSID_Info.getway[3]))
 		{
-			memcpy(&SSID_Info.getway[0],gateway,4);
+			memcpy(&SSID_Info.getway[0],gateway,4);	
 			return 2;
 		}
 	}
 	
 	// 获得netmask
-	
+
 	pos = 0;
 	datlen = 0;
+	temp[0] = temp[1] = temp[2] = 0;
 	pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, ":netmask:\"" );
 	
 	if ( pCh )
 		pCh += 10;	
 	else
+	{
 		return 0;
+	}
 	
 	for ( uc = 0; uc < 40; uc ++ )
 	{
@@ -1109,9 +1190,12 @@ uint8_t ESP8266_CIPSTA_CUR(char type)
 		}
 		else
 		{
-			if((pos == 3) && (* ( pCh + uc) == '\"'))
+			if((pos >= 3) && (* ( pCh + uc) == '\"'))
 				break;
-			
+			if(datlen > 2)
+			{
+				return 0;
+			}
 			temp[datlen++] = * ( pCh + uc) - '0';
 		}			
 	}
@@ -1138,7 +1222,6 @@ uint8_t ESP8266_CIPSTA_CUR(char type)
 			return 2;
 		}
 	}
-	
 	return 1;
 }
 

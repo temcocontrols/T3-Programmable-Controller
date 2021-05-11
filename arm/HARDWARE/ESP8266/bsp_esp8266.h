@@ -144,7 +144,7 @@ bool                     ESP8266_StartOrShutServer           ( FunctionalState e
 uint8_t                  ESP8266_Get_LinkStatus              ( void );
 uint8_t                  ESP8266_Get_IdLinkStatus            ( void );
 //uint8_t                  ESP8266_Inquire_ApIp                ( uint8_t * pApIp, uint8_t ucArrayLength );
-uint8_t ESP8266_Inquire_ApIp ( /*uint8_t * pApIp,*/ uint8_t * pStaIp,uint8_t ucArrayLength );
+uint8_t ESP8266_Inquire_ApIp (uint8_t * pStamac, uint8_t * pStaIp,uint8_t ucArrayLength );
 bool                     ESP8266_UnvarnishSend               ( void );
 void                     ESP8266_ExitUnvarnishSend           ( void );
 bool                     ESP8266_SendString                  ( FunctionalState enumEnUnvarnishTx, uint8_t * pStr, u32 ulStrLength, ENUM_ID_NO_TypeDef ucId );

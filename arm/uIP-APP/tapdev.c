@@ -51,7 +51,7 @@
 void uip_polling(void);
 //MAC地址,必须唯一
 //const u8 mymac[6]={0x04, 0x02, 0x35, 0x0F, 0x00, 0x01};	//MAC地址
-																				  
+extern uint32 multicast_addr;																				  
 //配置网卡硬件，并设置MAC地址 
 //返回值：0，正常；1，失败；
 u8 tapdev_init(void)
@@ -64,8 +64,7 @@ u8 tapdev_init(void)
 		
 	res = ENC28J60_Init((u8*)Modbus.mac_addr);	//初始化ENC28J60					  
 	//把IP地址和MAC地址写入缓存区
-	
-	for (i = 0; i < 6; i++)
+	for(i = 0; i < 6; i++)
 	{
 		uip_ethaddr.addr[i] = Modbus.mac_addr[i];
 	}
@@ -95,8 +94,9 @@ u8 tapdev_init(void)
 	temp[3] |= (255 - Modbus.subnet[3]);
 	
 	uip_ipaddr(uip_hostaddr_submask,temp[0], temp[1],temp[2] ,temp[3]);
-	
-		delay_ms(1);
+	multicast_addr = temp[3] + (U16_T)(temp[2] << 8) \
+		+ ((U32_T)temp[1] << 16) + ((U32_T)temp[0] << 24);
+	delay_ms(1);
 		
 	}
 	else  // DHCP

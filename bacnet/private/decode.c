@@ -1374,11 +1374,11 @@ S32_T veval_exp(U8_T *local)
 				push(swap_double(value));
             	break;
 		case DOY:
-				value = (Rtc.Clk.day_of_year + 1) * 1000L;
+				value = (Rtc.Clk.day_of_year) * 1000L;
 				push(swap_double(value));
             	break;
 		case MOY:
-				value = (Rtc.Clk.mon+1)*1000L;
+				value = (Rtc.Clk.mon)*1000L;
 				push(swap_double(value));
             	break;
 /*
@@ -1428,7 +1428,10 @@ S32_T veval_exp(U8_T *local)
 		case TIME:		// hour * 100 + (60 * min + sec) / 36
 //						if(Daylight_Saving_Time)  // timezone : +8 ---> 800
 //						{
-//							value =  3600000L * Rtc.Clk.hour + 60000L * Rtc.Clk.min + 1000L * Rtc.Clk.sec;// - (S16_T)timezone * 36000 - 3600000;
+//							if((Rtc.Clk.day_of_year >= 105) && (Rtc.Clk.day_of_year <= 260))
+//								value =  3600000L * Rtc.Clk.hour + 60000L * Rtc.Clk.min + 1000L * Rtc.Clk.sec + 3600000;
+//							else
+//								value =  3600000L * Rtc.Clk.hour + 60000L * Rtc.Clk.min + 1000L * Rtc.Clk.sec;
 //						}
 //						else
 							value =  3600000L * Rtc.Clk.hour + 60000L * Rtc.Clk.min + 1000L * Rtc.Clk.sec;// - (S16_T)timezone * 36000;

@@ -13,7 +13,8 @@ typedef struct
 	uint16 modbus_port;
 	uint16 bacnet_port;
 	uint8 rev;
-	uint8 reserved[2];
+	uint8 rssi;
+	uint8 reserved;
 	
 	char name[64];
 	char password[32];

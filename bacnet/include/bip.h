@@ -113,6 +113,9 @@ extern "C" {
     /* use network byte order for setting */
     void bip_set_broadcast_addr(
         uint32_t net_address);
+		
+		uint32_t get_multicast_addr(
+    void);
     /* returns network byte order */
     uint32_t bip_get_broadcast_addr(
         void);

@@ -147,7 +147,7 @@ void STMFLASH_Write(u32 WriteAddr, u16 *pBuffer, u16 NumToWrite)
 	u32 offaddr;	//去掉0X08000000后的地址
 	if(WriteAddr < STM32_FLASH_BASE || (WriteAddr >= (STM32_FLASH_BASE + 1024 * STM32_FLASH_SIZE)))
 		return;		//非法地址
-	
+	__disable_irq();
 	STMFLASH_Unlock();							//解锁
 	offaddr = WriteAddr - STM32_FLASH_BASE;		//实际偏移地址.
 	secpos = offaddr / STM_SECTOR_SIZE;			//扇区地址  0~127 for STM32F103RBT6
@@ -198,6 +198,7 @@ void STMFLASH_Write(u32 WriteAddr, u16 *pBuffer, u16 NumToWrite)
 	};
 	
 	STMFLASH_Lock();	//上锁
+	__enable_irq();
 }
 #endif
 

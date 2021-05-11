@@ -40,7 +40,7 @@
 #include "uip-fw.h"
 #include "uip_arch.h"
 
-
+#if 0
 
 #define BUF ((struct uip_tcpip_hdr *)&uip_buf[UIP_LLH_LEN])
 
@@ -134,3 +134,4 @@ uip_split_output(void)
      
 }
 /*-----------------------------------------------------------------------------*/
+#endif

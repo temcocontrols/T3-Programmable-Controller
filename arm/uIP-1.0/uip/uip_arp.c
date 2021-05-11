@@ -363,7 +363,8 @@ uip_arp_out(void)
      packet with an ARP request for the IP address. */
 
   /* First check if destination is a local broadcast. */
-  if(uip_ipaddr_cmp(IPBUF->destipaddr, broadcast_ipaddr)) {
+  if(uip_ipaddr_cmp(IPBUF->destipaddr, broadcast_ipaddr)
+		|| uip_ipaddr_cmp(IPBUF->destipaddr, uip_hostaddr_submask)) {
     memcpy(IPBUF->ethhdr.dest.addr, broadcast_ethaddr.addr, 6);
   } else {
     /* Check if the destination address is on the local network. */

@@ -3,11 +3,11 @@
 
 #include "types.h"
 
-#define SW_REV	5403
+#define SW_REV	6005//5404
 
 #define ARM_MINI 1
 #define ARM_CM5  0
-#define ARM_TSTAT_WIFI 0//1
+#define ARM_TSTAT_WIFI 0
 
 #define ASIX_MINI 0
 #define ASIX_CM5  0
@@ -16,21 +16,8 @@
 
 #define HANDLE_REBOOT_FLAG 0  // 如果要编译为1 就是编译给客户一个特殊的 开机关闭 prg 的版本 解决客户编写有问题的 一直重启;
                               //正常情况下这个值请保持为 0   ;
-//#define ARM 1
-//#define ASIX 0
 
-//#if (ASIX_MINI || ASIX_CM5)
-
-//#define MINI 1
-//#define	CM5	0
-
-//#else
-
-//#define MINI 1
-//#define TSTAT8 0
-
-//#endif
-
+extern U8_T cpu_type;
 
 #define BIG_MAX_AIS 32
 #define BIG_MAX_DOS 12
@@ -161,7 +148,7 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 #define SD_BUS_TYPE 0
 #define SPI_BUS_TYPE 1
 
-#define REBOOT_PER_WEEK 0//1
+#define REBOOT_PER_WEEK 1
 #define SD_BUS SPI_BUS_TYPE
 
 #define far
@@ -179,7 +166,7 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 
 
 #define MSTP 1  // < 1k
-#define ALARM_SYNC  0// 1 // ~ 2k
+#define ALARM_SYNC  1 // ~ 2k
 #define TIME_SYNC 1 // >1k
 
 #endif
@@ -198,8 +185,8 @@ void uart_send_string(unsigned char *p, unsigned int length,unsigned char port);
 #define NETWORK_MODBUS 	1
 //#define ETHERNET_DEBUG  1  //网络端口的调试信息 往 192.168.0.38    端口1115打印数据;
 #define ARM_UART_DEBUG 0
-//#define DEBUG_EN  UART0_TXEN_BIG 
-#define DEBUG_EN  UART0_TXEN_TINY  //Tiny 引脚不一样用这个
+#define DEBUG_EN  UART0_TXEN_BIG 
+//#define DEBUG_EN  UART0_TXEN_TINY  //Tiny 引脚不一样用这个
 
 #define PING  0
 

@@ -3,7 +3,7 @@
 #include "bsp_esp8266.h"
 
 void Sync_with_NTP_by_Wifi(void);
-
+char Get_SSID_RSSI(void);
 #if ARM_MINI
 #include "tcpip.h"
 #endif
@@ -382,7 +382,7 @@ void connect_AP(void)
 }
 
 extern uint8_t flag_send_ntp_by_wifi;
-
+uint8 count_reboot_wifi = 0;
 uint8_t bacnet_wifi_buf[600];
 uint16_t bacnet_wifi_len;
 uint8_t modbus_wifi_buf[500];
@@ -521,7 +521,14 @@ void WIFI_task(void) reentrant//one second base software timer
 		IWDG_ReloadCounter();
 		if(ATret != 2)  // not response OK
 			continue;
-		if(SSID_Info.IP_Wifi_Status != WIFI_NORMAL)//go into smart config mode
+		if(count_reboot_wifi > 20)
+		{
+			count_reboot_wifi = 0;
+			ESP8266_Rst();
+		}
+		
+		if((SSID_Info.IP_Wifi_Status != WIFI_NORMAL) && (SSID_Info.IP_Wifi_Status != WIFI_NO_WIFI ))//go into smart config mode
+			//go into smart config mode
 		{
 			if(SSID_Info.IP_Auto_Manual == 0)
 			{
@@ -550,6 +557,7 @@ void WIFI_task(void) reentrant//one second base software timer
 					if(count >= 200)
 					{
 						connect_AP();	
+						count_reboot_wifi++;
 						continue;
 					}
 
@@ -562,16 +570,17 @@ void WIFI_task(void) reentrant//one second base software timer
 					Flash_Write_Mass();
 					ESP8266_Cmd( "AT+CWSTOPSMART", "OK", 0, 500 );
 					delay_ms(100);
-					//SoftReset();
+					connect_AP();
 					
 			}
 			delay_ms(200) ;
 		}
 		else
 		{
+			count_reboot_wifi = 0;
 			if(!get_ip)
 			{
-				if(ESP8266_Inquire_ApIp(/*SSID_Info.mac_addr,*/SSID_Info.ip_addr,40))
+				if(ESP8266_Inquire_ApIp(SSID_Info.mac_addr,SSID_Info.ip_addr,40))
 				{
 					if(SSID_Info.ip_addr[0] == 0 && SSID_Info.ip_addr[1] == 0
 						&& SSID_Info.ip_addr[2] == 0 && SSID_Info.ip_addr[3] == 0)
@@ -616,7 +625,7 @@ void WIFI_task(void) reentrant//one second base software timer
 				ucID = cStr[7] - '0';
 				packet_len = check_packet(cStr,packet);
 				if(packet_len > 0)
-				{			
+				{		
 					if(ucID >= 2 && ucID <= 4)  // modbus TCP 502
 					{
 						// tbd: add more for dns
@@ -743,7 +752,6 @@ void WIFI_task(void) reentrant//one second base software timer
 					{ 
 						u8 n;
 						u8 i;
-
 						if(packet[0] == 0x64)
 						{		
 							state = 1;
@@ -903,13 +911,35 @@ void WIFI_task(void) reentrant//one second base software timer
 								}								
 							}
 						}
-					}	
+					}			
+				}
+				if(count_checkip % 100 == 0)
+				{
+					static u8 count_normal = 0;
+					IWDG_ReloadCounter();
+					delay_ms(1000);
+					if(Get_SSID_RSSI() == 0)
+					{
+						count_normal++;
+					}
+					else
+					{
+						SSID_Info.IP_Wifi_Status = WIFI_NORMAL;
+						count_normal = 0;
+					}
 					
+					if(count_normal > 3)
+					{
+						SSID_Info.IP_Wifi_Status = WIFI_NO_WIFI;
+						get_ip = 0;
+						count_normal = 0;
+					}
 				}
 				
 				if(count_checkip++ > 300)
 				{
 					count_checkip = 0;
+					IWDG_ReloadCounter();
 					if(ESP8266_CIPSTA_CUR(1) == 2)
 						get_ip = 0;
 				}
@@ -1020,7 +1050,6 @@ void Sync_with_NTP_by_Wifi(void)
 		{
 			Buf[i] = 0;
 		}						
-		Test[25]++;
 		ESP8266_SendString ( DISABLE, (uint8_t *)&Buf, len,UCID_NTP);
 	}
 }

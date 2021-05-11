@@ -35,19 +35,19 @@ char get_current_mstp_port(void);
 
 void udp_scan_init(void)
 {
+	u32 tempaddr;
 	struct uip_udp_conn *conn;
 	uip_ipaddr_t addr;
 	
 	// udp server
 	uip_listen(HTONS(UDP_SCAN_LPORT));
-	
-	uip_ipaddr_copy(addr, 0xffffffff);
+	tempaddr = 0xffffffff;
+	uip_ipaddr_copy(&addr,&tempaddr);
 	conn = uip_udp_new(&addr, HTONS(UDP_SCAN_LPORT)); // des port
 	if(conn != NULL) 
 	{ 
 		uip_udp_bind(conn,HTONS(UDP_SCAN_LPORT));  // src port					
 	}
-	//uip_udp_bind(&uip_udp_conns[0], HTONS(UDP_SCAN_LPORT));
 	
 }
 
@@ -240,9 +240,8 @@ void private_scan(void)
 				
 	// for MSTP device		
 				for(i = 0;i < remote_panel_num;i++)
-				{	 
-					
-					if(remote_panel_db[i].protocal == BAC_MSTP)
+				{ 					
+					if((remote_panel_db[i].protocal == BAC_MSTP) && (remote_panel_db[i].sn != 0))
 					{
 //						BACNET_ADDRESS dest = { 0 };
 //						uint16 max_apdu = 0;
@@ -254,20 +253,11 @@ void private_scan(void)
 //						if(status > 0)
 						{
 							char temp_name[20];
-							if(remote_panel_db[i].sn != 0)
-							{
-//								Scan_Infor.own_sn[0] = (U16_T)remote_panel_db[i].device_id;
-//								Scan_Infor.own_sn[1] = (U16_T)(remote_panel_db[i].device_id >> 8);
-//								Scan_Infor.own_sn[2] = (U16_T)(remote_panel_db[i].device_id >> 16);
-//								Scan_Infor.own_sn[3] = (U16_T)(remote_panel_db[i].device_id >> 24);
-//							}
-//							else
-//							{
-								Scan_Infor.own_sn[0] = (U16_T)remote_panel_db[i].sn;
-								Scan_Infor.own_sn[1] = (U16_T)(remote_panel_db[i].sn >> 8);
-								Scan_Infor.own_sn[2] = (U16_T)(remote_panel_db[i].sn >> 16);
-								Scan_Infor.own_sn[3] = (U16_T)(remote_panel_db[i].sn >> 24);
-							}
+
+							Scan_Infor.own_sn[0] = (U16_T)remote_panel_db[i].sn;
+							Scan_Infor.own_sn[1] = (U16_T)(remote_panel_db[i].sn >> 8);
+							Scan_Infor.own_sn[2] = (U16_T)(remote_panel_db[i].sn >> 16);
+							Scan_Infor.own_sn[3] = (U16_T)(remote_panel_db[i].sn >> 24);
 							
 							
 							Scan_Infor.product = remote_panel_db[i].product_model;

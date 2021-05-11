@@ -1,0 +1,101 @@
+<html>
+<body>
+<pre>
+<h1>µVision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: µVision V5.14.0.0
+Copyright (C) 2015 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: Fance Du, Temco, LIC=Q7GJJ-UIS0M-22KL4-FI5XZ-ZMP3I-JK95K
+ 
+Tool Versions:
+Toolchain:       MDK-ARM Professional  Version: 5.14.0.0
+Toolchain Path:  C:\Keil_v5\ARM\ARMCC\Bin
+C Compiler:      Armcc.exe V5.05 update 1 (build 106)
+Assembler:       Armasm.exe V5.05 update 1 (build 106)
+Linker/Locator:  ArmLink.exe V5.05 update 1 (build 106)
+Library Manager: ArmAr.exe V5.05 update 1 (build 106)
+Hex Converter:   FromElf.exe V5.05 update 1 (build 106)
+CPU DLL:         SARMCM3.DLL V5.14.0.0
+Dialog DLL:      DCM.DLL V1.13.1.0
+Target DLL:      Segger\JL2CM3.dll V2.99.13.0
+Dialog DLL:      TCM.DLL V1.14.4.0
+ 
+<h2>Project:</h2>
+C:\Work\FirmwareWork\T3BB\arm\USER\Tstat10_wifi.uvprojx
+Project File Date:  06/11/2020
+
+<h2>Output:</h2>
+Build target 'STM32F103'
+compiling wifi.c...
+..\USER\remote_connect.h(28): warning:  #375-D: declaration requires a typedef name
+  };
+..\USER\remote_connect.h(34): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\bacnet\include\bvlc.h(56): warning:  #1295-D: Deprecated declaration dlenv_init - give arg types
+  void dlenv_init();
+..\..\common\define.h(623): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\common\define.h(1052): warning:  #1-D: last line of file ends without a newline
+  #endif
+wifi.h(37): warning:  #375-D: declaration requires a typedef name
+  };
+wifi.h(77): warning:  #1295-D: Deprecated declaration dma_init_uart4 - give arg types
+  void dma_init_uart4();
+wifi.c(121): warning:  #223-D: function "tcp_printf_str" declared implicitly
+                tcp_printf_str(strEsp8266_Fram_Record .Data_RX_BUF);
+wifi.c(108): warning:  #177-D: variable "i" was declared but never referenced
+        int i = 0;
+wifi.c(151): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+        pos = strstr(str, "+IPD");
+wifi.c(344): warning:  #177-D: variable "testip" was declared but never referenced
+        uint8 testip[4];
+wifi.c(552): warning:  #188-D: enumerated type mixed with another type
+                                while ((!ESP8266_Link_UDP("255.255.255.255",SSID_Info.bacnet_port,SSID_Info.bacnet_port,2,UCID_BACNET)) && (count++ < 5))
+wifi.c(555): warning:  #188-D: enumerated type mixed with another type
+                                while ((!ESP8266_Link_UDP("255.255.255.255",1234,1234,2,UCID_SCAN)) && (count++ < 5))
+wifi.c(599): warning:  #188-D: enumerated type mixed with another type
+                                      ESP8266_SendString(DISABLE, (uint8_t *)&modbus_wifi_buf, modbus_wifi_len, cStr[7] - '0');
+wifi.c(665): warning:  #188-D: enumerated type mixed with another type
+                                      ESP8266_SendString(DISABLE, (uint8_t *)&modbus_wifi_buf, modbus_wifi_len, cStr[7] - '0');
+wifi.c(697): warning:  #188-D: enumerated type mixed with another type
+                                              ESP8266_SendString(DISABLE, (uint8_t *)&bacnet_wifi_buf, bacnet_wifi_len, cStr[7] - '0');
+wifi.c(740): warning:  #188-D: enumerated type mixed with another type
+                                      ESP8266_SendString(DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD), cStr[7] - '0');
+wifi.c(768): warning:  #188-D: enumerated type mixed with another type
+                                                  ESP8266_SendString(DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD), cStr[7] - '0');
+wifi.c(803): warning:  #188-D: enumerated type mixed with another type
+                                          ESP8266_SendString(DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD), cStr[7] - '0');
+wifi.c(861): warning:  #188-D: enumerated type mixed with another type
+                                                  ESP8266_SendString(DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD), cStr[7] - '0');
+wifi.c(399): warning:  #177-D: variable "ip" was declared but never referenced
+        uint8_t ip[4];
+wifi.c(405): warning:  #177-D: variable "ip1" was declared but never referenced
+        uint8_t ip1[4];
+wifi.c(406): warning:  #177-D: variable "ip2" was declared but never referenced
+        uint8_t ip2[4];
+wifi.c(407): warning:  #177-D: variable "i" was declared but never referenced
+        uint8_t i;
+wifi.c(408): warning:  #177-D: variable "status" was declared but never referenced
+        uint8 status;
+wifi.c(903): warning:  #223-D: function "watchdog_init" declared implicitly
+        watchdog_init();        
+wifi.c(905): warning:  #167-D: argument of type "void (*)(void)" is incompatible with parameter of type "TaskFunction_t"
+        sTaskCreate( WIFI_task, "WIFI_task", WifiSTACK_SIZE, NULL, uxPriority, &Wifi_Handler );
+wifi.c(958): warning:  #940-D: missing return statement at end of non-void function "Send_Uart_Data"
+  }
+wifi.c(78): warning:  #177-D: function "ESP8266_GPIO_Config" was declared but never referenced
+  static void ESP8266_GPIO_Config ( void )
+wifi.c: 29 warnings, 0 errors
+linking...
+Program Size: Code=178660 RO-data=60536 RW-data=1756 ZI-data=426836  
+FromELF: creating hex file...
+"..\OBJ\Tstat10_arm_revxx.axf" - 0 Error(s), 29 Warning(s).
+
+<h2>Collection of Component include folders:</h2>
+  C:\Work\FirmwareWork\T3BB\arm\USER\RTE
+  C:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.3.0
+
+<h2>Collection of Component Files used:</h2>
+</pre>
+</body>
+</html>

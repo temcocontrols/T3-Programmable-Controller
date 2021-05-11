@@ -739,7 +739,7 @@ void Bacnet_Control(void) reentrant
 			Ethernet_Debug_Task();
 		#endif
 
-#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+#if (ARM_MINI || ARM_TSTAT_WIFI)
 	Check_spd_count_led();
 #endif
 		
@@ -819,7 +819,7 @@ void Bacnet_Control(void) reentrant
 				pid_controller( i );
 			}
 			count_10s = 0;
-#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
+#if (ARM_MINI || ARM_TSTAT_WIFI)
 			Store_Pulse_Counter(0);
 			calculate_RPM();
 #endif			

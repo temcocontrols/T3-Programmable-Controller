@@ -103,7 +103,7 @@ DRESULT disk_read (
 	}
 	
    //处理返回值，将SPI_SD_driver.c的返回值转成ff.c的返回值
-	Test[25] = res;
+//	Test[25] = res;
     if(res == 0x00)
 			return RES_OK;	 
     else

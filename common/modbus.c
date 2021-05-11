@@ -1236,6 +1236,7 @@ void modubs_main_uart_int_hander()
 						 (U16_T)((uart0_data_buffer[13] & 0x01)	<< 8)	+ uart0_data_buffer[12];
 						uart0_rece_size = 16 + size * (uart0_data_buffer[11] - uart0_data_buffer[10] + 1);
 						max_buf[0] = uart0_rece_size;
+						uart0_serial_receive_timeout_count = 100;
 					}
 				}
 			}
@@ -1454,6 +1455,7 @@ void modubs_main_uart_int_hander()
 						
 						uart2_rece_size = 16 + size * (uart2_data_buffer[11] - uart2_data_buffer[10] + 1);
 						max_buf[2] = uart2_rece_size;
+						uart2_serial_receive_timeout_count = 100;
 					}
 				}
 			}
@@ -2733,6 +2735,11 @@ void responseCmd(U8_T type,U8_T* pData)
 						sendbuf[HeadLen + 3 + loop * 2 + 1] = (u8)(ex_moudle.flag >> 16);
 					}
 		#endif
+					else if(StartAdd + loop == MODBUS_CPU_TYPE)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = 0;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = cpu_type;
+					}
 					else if(StartAdd + loop == MODBUS_EN_USER)
 					{
 						sendbuf[HeadLen + 3 + loop * 2] = 0;
@@ -2943,7 +2950,7 @@ void responseCmd(U8_T type,U8_T* pData)
 					}
 					else if(StartAdd + loop == Modbus_Bacnet_Vendor_ID)
 					{
-						sendbuf[HeadLen + 3 + loop * 2] = 0;	
+						sendbuf[HeadLen + 3 + loop * 2] = Bacnet_Vendor_ID >> 8;	
 						sendbuf[HeadLen + 3 + loop * 2 + 1] = Bacnet_Vendor_ID; 	
 					}
 					else if(StartAdd + loop == Modbus_Fix_Com_Config)
@@ -3673,15 +3680,22 @@ void responseCmd(U8_T type,U8_T* pData)
 					
 					else if(StartAdd + loop >= MODBUS_TIMER_ADDRESS && StartAdd + loop < MODBUS_TIMER_ADDRESS + 8)
 					{	 
-//						if(StartAdd + loop - MODBUS_TIMER_ADDRESS == 7)
-//						{ // day of year
-//							sendbuf[HeadLen + 3 + loop * 2] = Rtc.Clk.day_of_year;
-//						sendbuf[HeadLen + 3 + loop * 2 + 1] =  Rtc.Clk.day_of_year >> 8;
-//						}
-//						else
+						if(StartAdd + loop - MODBUS_TIMER_ADDRESS == 7)
+						{ // day of year
+							sendbuf[HeadLen + 3 + loop * 2] = Rtc.Clk.day_of_year >> 8;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] =  Rtc.Clk.day_of_year;
+						}
+						else if(StartAdd + loop - MODBUS_TIMER_ADDRESS == 2)  // hour
+						{
+							sendbuf[HeadLen + 3 + loop * 2] = 0;
+							sendbuf[HeadLen + 3 + loop * 2 + 1] =  Rtc.Clk.hour;
+				
+						}
+						else
 						{
 							sendbuf[HeadLen + 3 + loop * 2] = Rtc.all[StartAdd + loop - MODBUS_TIMER_ADDRESS] >> 8;
 							sendbuf[HeadLen + 3 + loop * 2 + 1] =  Rtc.all[StartAdd + loop - MODBUS_TIMER_ADDRESS];
+							
 						}
 					}					
 					else if(StartAdd + loop >= MODBUS_SD_BLOCK_A1 && StartAdd + loop <= MODBUS_SD_BLOCK_A12)
@@ -3787,17 +3801,6 @@ void responseCmd(U8_T type,U8_T* pData)
 					uart_send_string(sendbuf, RegNum * 2 + 5,Modbus.main_port);
 
 			}
-#if (ASIX_MINI || ASIX_CM5)
-#if USB_DEVICE
-			else
-			{
-				memcpy(UpBuf,sendbuf,RegNum * 2 + 5); 
-				UpIndex = 0;
-				UpCtr = RegNum * 2 + 5;
-				ENDP2_NEED_UP_FLAG = 1;	
-			}
-#endif
-#endif
 		}		
 #if ARM_TSTAT_WIFI || ARM_MINI
 		else if(type == WIFI) // wifi
@@ -4306,26 +4309,6 @@ void responseCmd(U8_T type,U8_T* pData)
 			Modbus.cus_unit = pData[HeadLen + 5];
 			E2prom_Write_Byte(EEP_CUS_UNIT,Modbus.cus_unit);
 		} */
-#if 0//ASIX
-		else if(StartAdd == MODBUS_USB_MODE)
-		{
-			Modbus.usb_mode = pData[HeadLen + 5];
-			E2prom_Write_Byte(EEP_USB_MODE,Modbus.usb_mode);
-			if(Modbus.usb_mode == 0)
-			{
-#if USB_DEVICE
-				USB_device_Initial();
-#endif
-			}
-			else if(Modbus.usb_mode == 1)
-			{
-#if USB_HOST
-				USB_HOST_initial();
-#endif
-			}
-		}
-#endif
-
 #if !(ARM_TSTAT_WIFI )
 		else if(StartAdd == MODBUS_EN_DYNDNS)
 		{
@@ -4369,8 +4352,6 @@ void responseCmd(U8_T type,U8_T* pData)
 		else if(StartAdd == MODBUS_SCAN_SUB_PORT)
 		{
 			scan_port = pData[HeadLen + 5];
-//			Test[20]++;
-//			Test[30] = scan_port;
 		}
 		else if(StartAdd == MODBUS_SCAN_SUB_BAUT)
 		{
@@ -4464,8 +4445,9 @@ void responseCmd(U8_T type,U8_T* pData)
 		}
 		else if(StartAdd == Modbus_Bacnet_Vendor_ID)
 		{
-			Bacnet_Vendor_ID = pData[HeadLen + 5];
-			E2prom_Write_Byte(EEP_BAC_VENDOR_ID,pData[HeadLen + 5]);
+			Bacnet_Vendor_ID = pData[HeadLen + 5] + 256 * pData[HeadLen + 4];
+			Set_Vendor_ID(Bacnet_Vendor_ID);
+			//E2prom_Write_Byte(EEP_BAC_VENDOR_ID,pData[HeadLen + 5]);
 		}
 		else if(StartAdd == Modbus_Fix_Com_Config)
 		{
@@ -4593,8 +4575,14 @@ void responseCmd(U8_T type,U8_T* pData)
 		{
 			Modbus.display_lcd.lcddisplay[StartAdd - MODBUS_LCD_CONFIG_FIRST] = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
 			memcpy(Setting_Info.reg.display_lcd.lcddisplay,Modbus.display_lcd.lcddisplay,sizeof(lcdconfig));
-
+			// clear first screen
+			disp_str(FORM15X30, 6,  32, " ",SCH_COLOR,TSTAT8_BACK_COLOR);
+			disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			disp_ch(0,SECOND_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			disp_ch(0,THIRD_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			disp_ch(0,UNIT_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 			// save it to flash memory
+			Test[33]++;
 			write_page_en[25] = 1;	
 			Flash_Write_Mass();
 		}
@@ -5355,17 +5343,6 @@ void responseCmd(U8_T type,U8_T* pData)
 				uart_init_send_com(Modbus.main_port);
 				uart_send_string(temp_buf, 8,Modbus.main_port);				
 			}
-#if (ASIX_MINI || ASIX_CM5)
-#if USB_DEVICE
-			else
-			{
-				 memcpy(UpBuf,sendbuf,8); 
-				 UpIndex = 0;
-				 ENDP2_NEED_UP_FLAG = 1;
-				 UpCtr = 8;			
-			}
-#endif
-#endif
 		}
 #if (ARM_MINI || ARM_TSTAT_WIFI)
 		else if(type == WIFI)// wifi
@@ -5858,24 +5835,7 @@ void responseCmd(U8_T type,U8_T* pData)
 //#endif			
 
 			}
-#if (ASIX_MINI || ASIX_CM5)
-#if USB_DEVICE
-			else
-			{
-				if((pData[HeadLen + 1] == CHECKONLINE)) // 0x19 UART0
-				{
-					if((Modbus.address <= pData[HeadLen + 2]) && 
-					(Modbus.address >= pData[HeadLen + 3]))
-					{
-						memcpy(UpBuf,temp_buf,9); 
-						UpIndex = 0;
-						ENDP2_NEED_UP_FLAG = 1;
-						UpCtr = 9;
-					}
-				}						
-			}
-#endif
-#endif
+
 		}
 		else
 		{
@@ -5911,13 +5871,11 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 		{
 			ptr->reg.panel_name[19] = 0;
 			memcpy(panelname,ptr->reg.panel_name,20);
-			Set_Object_Name(panelname);
-			
+			Set_Object_Name(panelname);		
 		}		
 	
 		if(Modbus.en_time_sync_with_pc != ptr->reg.en_time_sync_with_pc)
-		{
-			
+		{			
 			flag_Update_Sntp = 0;
 			Update_Sntp_Retry = 0;
 			count_sntp = 0;
@@ -5926,7 +5884,6 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			Modbus.en_time_sync_with_pc = ptr->reg.en_time_sync_with_pc;	
 			E2prom_Write_Byte(EEP_EN_TIME_SYNC_PC,Modbus.en_time_sync_with_pc);
 		}
-
 		
 		if(timezone != swap_word(ptr->reg.time_zone))
 		{ 
@@ -6100,30 +6057,7 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 			Modbus.cus_unit = ptr->reg.cus_unit;
 			E2prom_Write_Byte(EEP_USER_NAME,Modbus.cus_unit);
 		}
-#if (ASIX_MINI || ASIX_CM5)
-#if (USB_HOST || USB_DEVICE)
-		if(Modbus.usb_mode != ptr->reg.usb_mode)
-		{
-			Modbus.usb_mode = ptr->reg.usb_mode;
-			E2prom_Write_Byte(EEP_USB_MODE,Modbus.usb_mode);
-		#if USB_DEVICE
-			if(Modbus.usb_mode == 0)
-			{
-				USB_device_Initial();
-			}
-		#endif
-			
-		#if  USB_HOST
-
-			if(Modbus.usb_mode == 1)
-			{
-				USB_HOST_initial();
-			}
-		#endif
-		}
-#endif
-#endif
-		
+	
 		if(Modbus.address != ptr->reg.modbus_id)
 		{ 
 			if(ptr->reg.modbus_id > 0 && ptr->reg.modbus_id < 255)
@@ -6380,9 +6314,43 @@ void dealwith_write_setting(Str_Setting_Info * ptr)
 		if(memcmp(Modbus.display_lcd.lcddisplay,ptr->reg.display_lcd.lcddisplay,sizeof(lcdconfig)))
 		{
 			memcpy(Modbus.display_lcd.lcddisplay,ptr->reg.display_lcd.lcddisplay,sizeof(lcdconfig));
+			// clear first screen
+			disp_str(FORM15X30, 6,  32, "     ",SCH_COLOR,TSTAT8_BACK_COLOR);
+			disp_ch(0,FIRST_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			disp_ch(0,SECOND_CH_POS,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			disp_ch(0,THIRD_CH_POS - 16,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			disp_ch(0,THIRD_CH_POS - 16 + 48,THERM_METER_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			// save it to flash memory
 			write_page_en[25] = 1;	
 			Flash_Write_Mass();
 		}
+#endif
+		
+#if ARM_MINI	
+			if(Modbus.start_month != ptr->reg.start_month)
+			{
+				Modbus.start_month = ptr->reg.start_month;
+				E2prom_Write_Byte(EEP_DLS_START_MON, ptr->reg.start_month);
+				Calculate_DSL_Time();
+			}
+			if(Modbus.start_day != ptr->reg.start_day)
+			{
+				Modbus.start_day = ptr->reg.start_day;
+				E2prom_Write_Byte(EEP_DLS_START_DAY, ptr->reg.start_day);
+				Calculate_DSL_Time();
+			}
+			if(Modbus.end_month != ptr->reg.end_month)
+			{
+				Modbus.end_month = ptr->reg.end_month;
+				E2prom_Write_Byte(EEP_DLS_END_MON, ptr->reg.end_month);
+				Calculate_DSL_Time();
+			}
+			if(Modbus.end_day != ptr->reg.end_day)
+			{
+				Modbus.end_day = ptr->reg.end_day;
+				E2prom_Write_Byte(EEP_DLS_END_DAY, ptr->reg.end_day);
+				Calculate_DSL_Time();
+			}
 #endif
 	 }
 }
@@ -6681,11 +6649,11 @@ void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type)
 	{
 		SSID_Info.modbus_port = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
 	}
-	else if(StartAdd == MODBUS_WIFI_WRITE_MAC)
-	{
-		if(pData[HeadLen + 5] == 0)
-			E2prom_Write_Byte(EEP_WRITE_WIFI_MAC,0);
-	}
+//	else if(StartAdd == MODBUS_WIFI_WRITE_MAC)
+//	{
+//		if(pData[HeadLen + 5] == 0)
+//			E2prom_Write_Byte(EEP_WRITE_WIFI_MAC,0);
+//	}
 	else if(StartAdd >= MODBUS_WIFI_SSID_START && StartAdd <= MODBUS_WIFI_SSID_END)
 	{
 		if((StartAdd - MODBUS_WIFI_SSID_START) % 32 == 0)
@@ -6771,16 +6739,20 @@ U16_T read_wifi_data_by_block(U16_T addr)
 	{
 		return SSID_Info.bacnet_port;
 	}
+	else if(addr == MODBUS_WIFI_RSSI)
+	{
+		return SSID_Info.rssi;
+	}
 	else if(addr == MODBUS_WIFI_REV)
 	{
 		return SSID_Info.rev;
 	}
-	else if(addr == MODBUS_WIFI_WRITE_MAC)
-	{
-		uint8_t temp;
-		E2prom_Read_Byte(EEP_WRITE_WIFI_MAC,&temp);
-		return temp;
-	}
+//	else if(addr == MODBUS_WIFI_WRITE_MAC)
+//	{
+//		uint8_t temp;
+//		E2prom_Read_Byte(EEP_WRITE_WIFI_MAC,&temp);
+//		return temp;
+//	}
 	else if(addr >= MODBUS_WIFI_SSID_START && addr <= MODBUS_WIFI_SSID_END)
 	{
 		block = (U16_T *)&SSID_Info.name;
@@ -6913,6 +6885,8 @@ void QuickSoftReset(void)
 	E2prom_Write_Byte(EEP_RUNNING_TIME3, (U8_T)((run_time + run_time_last) >> 16));
 	E2prom_Write_Byte(EEP_RUNNING_TIME4, (U8_T)((run_time + run_time_last) >> 24));
 	AT24CXX_WriteOneByte(EEP_APP2BOOT_TYPE, 0x55);
+	
+	AT24CXX_WriteOneByte(EEP_ETR_REBOOT, ++Test[49]);
 #endif
 	SoftReset();
 }

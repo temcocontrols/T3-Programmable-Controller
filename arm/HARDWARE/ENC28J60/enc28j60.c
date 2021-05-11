@@ -463,7 +463,6 @@ void ENC28J60_Packet_Send(u32 len, u8* packet)
 #endif
 	}
 	// 改全双工 -> 半双工
-	
 
 //	if((ENC28J60_Read(EIR)&EIR_TXERIF))
 //		ENC28J60_Write_Op(ENC28J60_BIT_FIELD_CLR,ECON1,ECON1_TXRST); 
@@ -496,9 +495,9 @@ u32 ENC28J60_Packet_Receive(u32 maxlen, u8* packet)
 	if (len > maxlen - 1)
 	{Test[16]++;
 		// hardware error		
-	#if (ARM_MINI || ARM_CM5)
+#if (ARM_MINI || ARM_CM5)
 		tcpip_intial();
-	#endif
+#endif
 		len = maxlen - 1;
 		return 0;
 	}

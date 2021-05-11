@@ -208,7 +208,7 @@ u32 Rtc_Set(u16 syear, u8 smon, u8 sday, u8 hour, u8 min, u8 sec, u8 flag)
 
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR | RCC_APB1Periph_BKP, ENABLE);//使能PWR和BKP外设时钟  
 	PWR_BackupAccessCmd(ENABLE);	//使能RTC和后备寄存器访问 
-	if(flag == 0)	RTC_SetCounter(seccount);		//设置RTC计数器的值
+	if(flag == 0) {	RTC_SetCounter(seccount);	}	//设置RTC计数器的值
 	
 	RTC_WaitForLastTask();			//等待最近一次对RTC寄存器的写操作完成  	
 	return seccount;	    
@@ -216,12 +216,12 @@ u32 Rtc_Set(u16 syear, u8 smon, u8 sday, u8 hour, u8 min, u8 sec, u8 flag)
 
 void Get_Time_by_sec(u32 sec_time,UN_Time * rtc)
 {
-	u16 daycnt = 0;
+	static u16 daycnt = 0;
 	u32 temp = 0;
 	u16 temp1 = 0;
 	
  	temp = sec_time / 86400;		//得到天数(秒钟数对应的)
-
+	
 	if(daycnt != temp)				//超过一天了
 	{	  
 		daycnt = temp;
@@ -235,15 +235,16 @@ void Get_Time_by_sec(u32 sec_time,UN_Time * rtc)
 					temp -= 366;	//闰年的秒钟数
 				}
 				else 
-				{
-					temp1++;
+				{//??????????????????????
+					// 闰年的最后一天出错
+					//temp1++;
 					break;
 				}  
 			}
 			else
 			{
 				temp -= 365;		//平年
-			}				
+			}			
 			temp1++;  
 		}   
 		rtc->Clk.year = temp1 - 2000;	//得到年份
@@ -275,7 +276,6 @@ void Get_Time_by_sec(u32 sec_time,UN_Time * rtc)
 	rtc->Clk.min = (temp % 3600) / 60; 	//分钟	
 	rtc->Clk.sec = (temp % 3600) % 60; 	//秒钟
 	rtc->Clk.week = RTC_Get_Week(2000 + rtc->Clk.year, rtc->Clk.mon,rtc->Clk.day);	//获取星期   
-
 	Local_Date.year = rtc->Clk.year + 2000;
 	Local_Date.month = rtc->Clk.mon;
 	Local_Date.day = rtc->Clk.day;

@@ -268,17 +268,37 @@ void MenuIdle_display(void)
         //sprintf(test_char, "%d", SSID_Info.IP_Wifi_Status); //测试用，在屏幕左上角 显示 wifi状态的数值;
         //disp_str(FORM15X30, 0, 0, test_char, SCH_COLOR, TSTAT8_BACK_COLOR);
 
-        if (SSID_Info.IP_Wifi_Status == WIFI_NORMAL) //在屏幕右上角显示wifi的状态
-        {
-            disp_icon(26, 26, wificonnect, 210, 0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-        }
-         //  
-        else if (SSID_Info.IP_Wifi_Status == WIFI_NO_WIFI || SSID_Info.IP_Wifi_Status == WIFI_NONE)
-        {
-            disp_null_icon(26, 26, 0, 210, 0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-        }
-        else
-            disp_icon(26, 26, wifinocnnct, 210, 0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+//        if (SSID_Info.IP_Wifi_Status == WIFI_NORMAL) 
+//        {
+//            disp_icon(26, 26, wificonnect, 210, 0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+//        }
+//         //  
+//        else if (SSID_Info.IP_Wifi_Status == WIFI_NO_WIFI || SSID_Info.IP_Wifi_Status == WIFI_NONE)
+//        {
+//            disp_null_icon(26, 26, 0, 210, 0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+//        }
+//        else
+//            disp_icon(26, 26, wifinocnnct, 210, 0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				
+			if(SSID_Info.IP_Wifi_Status == WIFI_NORMAL)//在屏幕右上角显示wifi的状态
+			{
+				if(SSID_Info.rssi < 70)		
+						disp_icon(26, 26, wifi_4, 210,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				else if(SSID_Info.rssi < 80)							
+					disp_icon(26, 26, wifi_3, 210,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				else if(SSID_Info.rssi < 90)							
+					disp_icon(26, 26, wifi_2, 210,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				else							
+					disp_icon(26, 26, wifi_1, 210,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+			}
+			else	if((SSID_Info.IP_Wifi_Status == WIFI_NO_CONNECT)
+				|| (SSID_Info.IP_Wifi_Status == WIFI_SSID_FAIL))
+					disp_icon(26, 26, wifi_0, 210,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				// if WIFI_NONE, do not show wifi flag
+			else //if((SSID_Info.IP_Wifi_Status == WIFI_NO_WIFI)
+				disp_icon(26, 26, wifi_none, 210,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+	
+				
 }
 
 

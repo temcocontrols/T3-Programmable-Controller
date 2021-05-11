@@ -1697,8 +1697,7 @@ S16_T get_net_point_value( Point_Net *p, S32_T *val_ptr , U8_T mode,U8_T flag)
 #if NETWORK_MODBUS	
 				if(check_point_type(&point) == 1)  // modbus points
 				{
-					network_points_list_modbus[index].instance = 0;
-					
+					network_points_list_modbus[index].instance = 0;				
 					
 					if(network_points_list_modbus[index].point_value != DEFUATL_REMOTE_NETWORK_VALUE)
 					{	

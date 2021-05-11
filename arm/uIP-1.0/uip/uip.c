@@ -127,7 +127,6 @@ static const uip_ipaddr_t all_zeroes_addr =
   {0x0000,0x0000};
 #endif /* UIP_CONF_IPV6 */
 
-
 #if UIP_FIXEDETHADDR
 const struct uip_eth_addr uip_ethaddr = {{UIP_ETHADDR0,
 					  UIP_ETHADDR1,
@@ -549,11 +548,9 @@ struct uip_udp_conn *
 uip_udp_new(uip_ipaddr_t *ripaddr, u16_t rport)
 {
   register struct uip_udp_conn *conn;
-  
   /* Find an unused local port. */
  again:
   ++lastport;
-
   if(lastport >= 32000) {
     lastport = 4096;
   }
@@ -562,7 +559,6 @@ uip_udp_new(uip_ipaddr_t *ripaddr, u16_t rport)
       goto again;
     }
   }
- 
 
   conn = 0;
   for(c = 0; c < UIP_UDP_CONNS; ++c) {
@@ -571,11 +567,9 @@ uip_udp_new(uip_ipaddr_t *ripaddr, u16_t rport)
       break;
     }
   }
-
   if(conn == 0) { 
     return 0;
   }
-	
 	
   conn->lport = HTONS(lastport);
   conn->rport = rport;
@@ -987,7 +981,7 @@ uip_process(u8_t flag)
     if(BUF->proto == UIP_PROTO_UDP &&
        (uip_ipaddr_cmp(BUF->destipaddr, all_ones_addr) || uip_ipaddr_cmp(BUF->destipaddr, uip_hostaddr_submask))
        /*
-	 uip_ipchksum() == 0xffff*/) {
+	 uip_ipchksum() == 0xffff*/) { 
       goto udp_input;
     }
 #endif /* UIP_BROADCAST */
@@ -1167,6 +1161,7 @@ uip_process(u8_t flag)
   if(UDPBUF->udpchksum != 0 && uip_udpchksum() != 0xffff) {
     UIP_STAT(++uip_stat.udp.drop);
     UIP_STAT(++uip_stat.udp.chkerr);
+		
 //    UIP_LOG("udp: bad checksum.\r\n");
     goto drop;
   }
@@ -1212,7 +1207,6 @@ uip_process(u8_t flag)
 			uint8 ip[4];
 			uint8 temp[4];
 			uip_udp_conn->rport = UDPBUF->srcport;
-			
 			// added by chelsea, only compare whether same subnet
 			uip_ipaddr_copy(&ip, BUF->srcipaddr);	
 			memcpy(&temp,&uip_netmask,4);
@@ -1246,6 +1240,15 @@ uip_process(u8_t flag)
     }
 		else
 		{
+//			if(uip_ipaddr_cmp(BUF->destipaddr, uip_hostaddr_submask)) 
+//			{
+//				if((uip_udp_conn->rport == HTONS(UDP_BACNET_LPORT)) && \
+//					(uip_udp_conn->lport == HTONS(UDP_BIP_SEND_LPORT)))
+//				{
+//					uip_ipaddr_copy(uip_udp_conn->ripaddr, BUF->srcipaddr);
+//					goto udp_found;// added by chelsea
+//				}
+//			}
 			if(uip_udp_conn->rport != 0) 
 			{
 
@@ -1260,7 +1263,6 @@ uip_process(u8_t flag)
   uip_flags = UIP_NEWDATA;
   uip_sappdata = uip_appdata = &uip_buf[UIP_LLH_LEN + UIP_IPUDPH_LEN];
   uip_slen = 0;
-	
 	
   UIP_UDP_APPCALL();
  udp_send:
@@ -2031,7 +2033,7 @@ uip_send(const void *data, int len)
 		while((uip_slen != 0) && (count++ < 500)) 
 			delay_ms(1);
 		
-		if(count >= 501)	{Test[26]++;return;}
+		if(count >= 501)	{return;}
     uip_slen = len;
     if(data != uip_sappdata) {
       memcpy(uip_sappdata, (data), uip_slen);

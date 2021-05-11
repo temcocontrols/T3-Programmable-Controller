@@ -134,7 +134,7 @@ void bip_Init(void);
 void UDP_bacnet_APP(void);
 void UDP_SCAN_APP(void);
 void tcp_server_appcall(struct uip_conn * conn);
-void Set_broadcast_bip_address(void);
+void Set_broadcast_bip_address(uint32_t net_address);
 // UDP SERVER TIMESERVER
 #if (ARM_MINI || ARM_CM5)
 void tcpip_intial(void);

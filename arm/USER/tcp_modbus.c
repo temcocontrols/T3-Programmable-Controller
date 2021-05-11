@@ -70,7 +70,7 @@ void tcp_server_appcall(struct uip_conn * conn)
 			// transfer data to sub ,TCP TO RS485
 			U8_T header[6];	
 			U8_T i;
-			
+			Test[27]++;
 			if((tcp_server_databuf[UIP_HEAD] == 0x00) || 
 			((tcp_server_databuf[UIP_HEAD + 1] != READ_VARIABLES) 
 			&& (tcp_server_databuf[UIP_HEAD + 1] != WRITE_VARIABLES) 
@@ -123,7 +123,7 @@ void tcp_server_appcall(struct uip_conn * conn)
 			}		
 
 
-			
+			Test[28]++;
 			if(Modbus.mini_type == MINI_VAV)	
 				Modbus.sub_port = 0;			
 			
@@ -154,7 +154,7 @@ void tcp_server_appcall(struct uip_conn * conn)
 			send_flag = 1;
 			tcp_server_sendlen = 0;
 			Set_transaction_ID(header, ((U16_T)tcp_server_databuf[0] << 8) | tcp_server_databuf[1], 2 * tcp_server_databuf[UIP_HEAD + 5] + 3);
-			
+			Test[29]++;
 			Response_TCPIP_To_SUB(tcp_server_databuf + UIP_HEAD,uip_len - UIP_HEAD,Modbus.sub_port,header);
 //			memcpy(tcp_server_sendbuf,tcp_server_databuf,2 * tcp_server_databuf[UIP_HEAD + 5] + 3);
 //      tcp_server_sendlen = 2 * tcp_server_databuf[UIP_HEAD + 5] + 3;

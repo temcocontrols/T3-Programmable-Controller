@@ -20,6 +20,8 @@ void Bacnet_Initial_Data(void);
 
 extern U16_T PT1K_para;
 
+
+U8_T cpu_type;
 U8_T current_task;
 STR_Task_Test far task_test;
 
@@ -38,7 +40,7 @@ xTaskHandle far xHandleLCD_task;
 xTaskHandle far xHandleLedRefresh;
 
 extern  uint8_t SendBuff[SENDBUFF_SIZE];  //用于DMA 串口发送
-xQueueHandle xLCDQueue;
+//xQueueHandle xLCDQueue;
 xLCDMessage xMessage;
 
 uint16 count_refresh_all = 0;
@@ -113,7 +115,9 @@ void check_flash_changed(void)
 	
 	if(ChangeFlash == 2)	// write into flash now
 	{	
+#if (ARM_MINI || ARM_TSTAT_WIFI)
 		Store_Pulse_Counter(1);
+#endif
 		ChangeFlash = 0;	
 		Flash_Write_Mass();	
 #if (ASIX_MINI || ASIX_CM5)
@@ -221,7 +225,9 @@ void Read_ALL_Data(void)
 		Modbus.tcp_type = 0;
 		E2prom_Write_Byte(EEP_TCP_TYPE, 0);	
 	}
-
+#if ARM_MINI	
+	E2prom_Read_Byte(EEP_CPU_TYPE,&cpu_type);
+#endif
 	E2prom_Read_Byte(EEP_MINI_TYPE,&Modbus.mini_type);
 	if(Modbus.mini_type == 0xff && Modbus.mini_type == 0x00)
 	{
@@ -856,7 +862,11 @@ void Read_ALL_Data(void)
 	}
 	update_sntp_last_time = temp[0] + (U16_T)(temp[1] << 8) + ((U32_T)temp[2] << 16) + ((U32_T)temp[3] << 24);
 
-	E2prom_Read_Byte(EEP_BAC_VENDOR_ID,&Bacnet_Vendor_ID);
+#if ARM_MINI	
+	E2prom_Read_Byte(EEP_BAC_VENDOR_ID_LO,&temp[0]);
+	E2prom_Read_Byte(EEP_BAC_VENDOR_ID_HI,&temp[1]);
+	Bacnet_Vendor_ID = temp[0] + temp[1] * 256;
+#endif	
 	
 	E2prom_Read_Byte(EEP_VCC_ADC_LO,&temp[0]);
 	E2prom_Read_Byte(EEP_VCC_ADC_HI,&temp[1]);
@@ -915,6 +925,7 @@ void Read_ALL_Data(void)
     
 #endif
 	
+	
 	E2prom_Read_Byte(EEP_VRESION_HI,&temp[0]);
 	E2prom_Read_Byte(EEP_VERSION_LO,&temp[1]);
 
@@ -923,6 +934,32 @@ void Read_ALL_Data(void)
 		E2prom_Write_Byte(EEP_VRESION_HI,SW_REV / 100);
 		E2prom_Write_Byte(EEP_VERSION_LO,SW_REV % 100);
 	}
+#if ARM_MINI	
+	E2prom_Read_Byte(EEP_DLS_START_MON,&Modbus.start_month);
+	if(Modbus.start_month == 0xff || Modbus.start_month == 0x00)
+	{
+		Modbus.start_month = 3;
+	}
+	E2prom_Read_Byte(EEP_DLS_START_DAY,&Modbus.start_day);
+	if(Modbus.start_day == 0xff || Modbus.start_day == 0x00)
+	{
+		Modbus.start_day = 14;
+	}
+	E2prom_Read_Byte(EEP_DLS_END_MON,&Modbus.end_month);
+	if(Modbus.end_month == 0xff || Modbus.start_month == 0x00)
+	{
+		Modbus.end_month = 11;
+	}
+	E2prom_Read_Byte(EEP_DLS_END_DAY,&Modbus.end_day);
+	if(Modbus.end_day == 0xff || Modbus.end_day == 0x00)
+	{
+		Modbus.end_day = 7;
+	}
+	Calculate_DSL_Time();
+#endif
+	
+	E2prom_Read_Byte(EEP_ETR_REBOOT,&temp[0]);
+	Test[49] = temp[0];
 }
 
 
@@ -1004,7 +1041,7 @@ void set_default_parameters(void)
 // erase all flash for user	
 	Bacnet_Initial_Data();	
 	
-
+	__disable_irq();
 	STMFLASH_Unlock();
 					
 	for(loop = 0;loop < 64;loop++)
@@ -1013,6 +1050,7 @@ void set_default_parameters(void)
 	}
 	
 	STMFLASH_Lock();
+	__enable_irq();
 
     for (loop = 0; loop < 26; loop++)
     {
@@ -1096,11 +1134,10 @@ void Inital_Bacnet_Server(void)
 	Device_Set_Object_Instance_Number(Instance);  
 
 	address_init();
-#if !(ARM_TSTAT_WIFI  )
+#if !(ARM_TSTAT_WIFI )
 	bip_set_broadcast_addr(0xffffffff);
 #endif
-//	Send_WhoIs(-1,-1,BAC_IP);
-//	Send_WhoIs_Init();
+
 	if(bbmd_en == 1)
 		bvlc_intial();
 #if  BAC_COMMON   
@@ -1188,8 +1225,6 @@ void Master_Node_task(void) reentrant
 	{
 		task_test.count[7]++; 
 		current_task = 7;
-			
-		
 		if(Modbus.com_config[0] == BACNET_MASTER || Modbus.com_config[0] == BACNET_SLAVE || Modbus.com_config[2] == BACNET_MASTER || Modbus.com_config[2] == BACNET_SLAVE)
 		{
 //			count_send_whois++;
@@ -1253,17 +1288,15 @@ void Master_Node_task(void) reentrant
 									&& remote_panel_db[j].sn == 0)
 								{
 									remote_panel_db[j].retry_reading_panel++;
-									flag_receive_rmbp = 0;	
-									
+									flag_receive_rmbp = 0;									
 									invoke = Send_private_scan(j);
 									remote_mstp_panel_index = j;
 									while((flag_receive_rmbp == 0) && count++ < 20)
-										delay_ms(200);
-									
+										delay_ms(200);									
 								}
 								if(remote_panel_db[j].retry_reading_panel > 5)
 								{
-									remote_panel_db[j].sn = remote_panel_db[i].device_id;
+									remote_panel_db[j].sn = remote_panel_db[j].device_id;
 									remote_panel_db[j].retry_reading_panel = 0;
 									remote_panel_db[j].product_model = 0;
 								}								
@@ -1370,7 +1403,7 @@ void Common_task(void) reentrant
 		if(task_test.count[0] == 0)  // if tcptask is not running, need watchdog in lower task
 			IWDG_ReloadCounter(); 
 #endif
-		
+		Test[10]++;
 		task_test.count[1]++;
 		current_task = 1;
 #if 0
@@ -1537,7 +1570,7 @@ void Monitor_Task_task(void) reentrant
 		Check_Whether_TCP_STUCK();
 		Check_TCP_UDP_Socket();
 #if REBOOT_PER_WEEK
-		if((Rtc.Clk.week == 0) && (Rtc.Clk.hour == 2) && (Rtc.Clk.min == 0) && (run_time > 3600))
+		if((Rtc.Clk.day == 0) && (Rtc.Clk.hour == 2) && (Rtc.Clk.min == 0) && (run_time > 3600))
 		{
 			QuickSoftReset();			
 		}
@@ -2019,7 +2052,8 @@ void main( void )
 	}
 	
 	AT24CXX_WriteOneByte(EEP_APP2BOOT_TYPE, 0);
-
+	
+	E2prom_Read_Byte(EEP_CPU_TYPE,&cpu_type);
 	E2prom_Read_Byte(EEP_MINI_TYPE,&Modbus.mini_type);
 #if (ARM_MINI || ASIX_MINI)
 	if((Modbus.mini_type == MINI_NEW_TINY) || (Modbus.mini_type == MINI_TINY_ARM) || (Modbus.mini_type == MINI_TINY_ARM)|| (Modbus.mini_type == MINI_TINY_11I) ||
@@ -2085,8 +2119,7 @@ void main( void )
 #endif
 
 
-	
-	xLCDQueue = xQueueCreate( 5, sizeof(xLCDMessage));
+//	xLCDQueue = xQueueCreate( 5, sizeof(xLCDMessage));
 	memset(&task_test,0,sizeof(STR_Task_Test));	
 #if (ASIX_MINI || ASIX_CM5)
 	IntFlashReadByte(0x6fff1,& set_para);
@@ -2107,9 +2140,7 @@ void main( void )
 	
 #endif
 	Bacnet_Initial_Data();
-
 	Read_ALL_Data();  
-
 #if !(ARM_TSTAT_WIFI)	
 	if((Modbus.mini_type <= MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))
 	{
@@ -2153,8 +2184,6 @@ void main( void )
 	}	
 #endif	
 	
-	
-
 	Comm_Tstat_Initial_Data();
 	init_scan_db();
 	Flash_Inital();	
@@ -2182,7 +2211,6 @@ void main( void )
   TIM6_Int_Init(100, 719);
 #endif
 	
-
 	SD_exist = 1;  // inexist
 	
 #if STORE_TO_SD	
@@ -2195,7 +2223,6 @@ void main( void )
 //	)
 		check_SD_exist();
 //#endif
-
 #if (ARM_MINI || ASIX_MINI)	
 	if(SD_exist == 2)	
 	{
@@ -2211,7 +2238,6 @@ void main( void )
 	
 #endif
 	initial_graphic_point();
-
  	monitor_init();
 
 #if (DEBUG_UART1)
@@ -2224,8 +2250,8 @@ void main( void )
 	sprintf(debug_str,"intial\r\n");
 	uart_send_string(debug_str,strlen(debug_str),UART_SUB1);
 	
-#endif		
-	Initial_Panel_Info();  // read panel name, must read flash first
+#endif	
+	Initial_Panel_Info(); // read panel name, must read flash first
 	Sync_Panel_Info();
 	initSerial();
 	current_online_ctr = 0;
@@ -2238,7 +2264,6 @@ void main( void )
 	DEBUG_EN = 1;
 	printf("APP intial ok\r\n");
 #endif
-
 #if (DEBUG_UART1)
 	uart_init_send_com(UART_SUB1);	// for test		
 	sprintf(debug_str," \r\n\ intial ok");
@@ -2253,15 +2278,12 @@ void main( void )
 	//vStartDisplayTasks(tskIDLE_PRIORITY + 4);
 	vStartMenuTask(tskIDLE_PRIORITY + 4);
 #endif	
-
 	sTaskCreate(Common_task,/* (const signed portCHAR * const)*/"Common_task",
 		COMMON_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, (xTaskHandle *)&xHandleCommon);
-
 
 	Inital_Bacnet_Server();
 	
 	vStartMainSerialTasks(tskIDLE_PRIORITY + 12);	 // main uart, rs485 or zigbee
-
 #if !(ARM_TSTAT_WIFI)
 	if((Modbus.mini_type <= MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))
 		Lcd_Show_String(4, 0, "step5: INITIAL OK", NORMAL, 21,0x0000,0xffff);	

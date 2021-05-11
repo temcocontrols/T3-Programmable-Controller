@@ -168,6 +168,11 @@ typedef struct
 	U8_T dead_master;
 	U8_T disable_tstat10_display;  // display icons and scrolling string
 	lcdconfig display_lcd;
+	U8_T start_month;
+	U8_T start_day;
+	U8_T end_month;
+	U8_T end_day;
+
 }STR_MODBUS;
 
 typedef struct
@@ -381,6 +386,7 @@ typedef enum{
 	EEP_OUTPUT_MODE,//EEP_NO_USED20,  // NO USED 33
 	EEP_REFRESH_FLASH,
   
+	EEP_CPU_TYPE = 38,
 	EEP_APP2BOOT_TYPE = 39,
 	
 	EEP_MAC = 40	,
@@ -454,7 +460,7 @@ typedef enum{
 	EEP_SNTP_TIME4,
 	
 
-	EEP_BAC_VENDOR_ID , // 175
+	EEP_BAC_VENDOR_ID_LO , // 175
 	EEP_VCC_ADC_LO,
 	EEP_VCC_ADC_HI,
 	EEP_FIX_COM_CONFIG,  // 178
@@ -510,6 +516,12 @@ typedef enum{
 	
 	EEP_WRITE_WIFI_MAC,
 	EEP_DISABLE_T10_DIS,
+	EEP_BAC_VENDOR_ID_HI,
+	
+	EEP_DLS_START_MON, // DAYLIGHT SAVING TIME START MONTH
+	EEP_DLS_START_DAY, // DAYLIGHT SAVING TIME START DAY
+	EEP_DLS_END_MON, // DAYLIGHT SAVING TIME END MONTH
+	EEP_DLS_END_DAY, // DAYLIGHT SAVING TIME END DAY
 	
 	MAX_EEP_CONSTRANGE = 255,
 }E_EEP;
@@ -902,7 +914,7 @@ typedef enum {
 	MODBUS_WIFI_BACNET_PORT,
 	MODBUS_WIFI_REV, // current is 2
 	MODBUS_WIIF_START_SMART,
-	MODBUS_WIFI_WRITE_MAC,
+	MODBUS_WIFI_RSSI,//
 	
 	MODBUS_WIFI_SSID_START = 2010,	// 2010 ~ 2041 user name 64 bytes
 	MODBUS_WIFI_SSID_END = 2041,	
@@ -1115,6 +1127,7 @@ typedef enum {
 	MODBUS_EX_MOUDLE_EN = 65000,
 	MODBUS_EX_MOUDLE_FLAG12 = 65001,
 	MODBUS_EX_MOUDLE_FLAG34 = 65002,
+	MODBUS_CPU_TYPE = 65010,
 	
 }E_MODBUS; 
 

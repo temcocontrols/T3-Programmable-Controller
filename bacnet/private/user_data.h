@@ -189,7 +189,10 @@ typedef	union
 // 	USART_StopBits_1_5  		3
 	
 	lcdconfig display_lcd;
-
+	U8_T start_month;
+	U8_T start_day;
+	U8_T end_month;
+	U8_T end_day;
 	}reg;
 }Str_Setting_Info;
 
@@ -306,6 +309,12 @@ extern U16_T MSTP_buffer_len;
 extern STR_MSTP_REV_HEADER far MSTP_Rec_Header;
 extern U8_T far MSTP_Rec_buffer[600];
 extern S8_T   just_load;
+
+extern const uint8_t mon_table[12];
+extern uint16_t 	start_day;
+extern uint16_t		end_day;
+void Calculate_DSL_Time(void);
+
 
 extern FRAME_ENTRY 								 SendFrame[MAX_SEND_FRAMES];
 extern STR_PTP  Ptp_para;

@@ -140,7 +140,7 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 	
 	i = 0;
 	tt->timestamp = timestamp;
-	
+	memcpy(&Test[25],&timestamp,4);
 	signhour = timezone / 100;
 	signmin = timezone % 100;
 	
@@ -160,7 +160,7 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 
 	if(Daylight_Saving_Time)
 	{
-		if((Rtc.Clk.day_of_year >= 105) && (Rtc.Clk.day_of_year <= 260))
+		if((Rtc.Clk.day_of_year >= start_day) && (Rtc.Clk.day_of_year <= end_day))
 		{
 			tt->timestamp += 3600;
 		}
@@ -184,7 +184,9 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 		tt->DD_r = tt->day_total-(tt->YY*365)-(tt->YY/4);
 		tt->DD_r++;
 		if(source == 0)
+		{
 			tt->DD_r++;	
+		}
 		while(tt->DD_r>0)
 		{
 			tt->DD = tt->DD_r;
@@ -193,11 +195,13 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 		}
 	}
 	else
-	{
+	{	
 		tt->DD_r = tt->day_total-(tt->YY*365)-(tt->YY/4);
 		if(source == 0)
+		{
 			tt->DD_r++;
-		if(tt->DD_r>365){
+		}
+		if(tt->DD_r > 365){
 			tt->DD_r = 1;
 			tt->YY++;
 		}
@@ -236,13 +240,66 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 }
 
 
+#if ASIX_MINI
+u8 Is_Leap_Year(u16 year)
+{			  
+	if(year % 4 == 0)				//必须能被4整除
+	{ 
+		if(year % 100 == 0) 
+		{ 
+			if(year % 400 == 0)		//如果以00结尾,还要能被400整除
+				return 1; 	   
+			else
+				return 0;   
+		}
+		else
+		{
+			return 1;   
+		}
+	}
+	else 
+	{
+		return 0;
+	}		
+}
+
+
+
+#endif
+
+void Calculate_DSL_Time(void)
+{
+		//计算夏令时的起始结束
+	char loop;
+	start_day = 0;
+	end_day = 0;
+	for ( loop = 0;loop < Modbus.start_month - 1; loop++)
+	{
+		start_day += mon_table[loop];
+	}
+	for ( loop = 0;loop < Modbus.end_month - 1; loop++)
+	{
+		end_day += mon_table[loop];
+	}
+	start_day += Modbus.start_day;
+	end_day += Modbus.end_day;
+	if(Is_Leap_Year(Rtc.Clk.year + 2000))
+	{
+		start_day++;
+		end_day++;
+	}
+	
+	Test[20] = start_day;
+	Test[21] = end_day;
+}
+
 void Sync_timestamp(S16_T newTZ,S16_T oldTZ,S8_T newDLS,S8_T oldDLS)
 {
 	U32_T current;
 
 	current = get_current_time();
 	current += (newTZ - oldTZ) * 36;
-	if((Rtc.Clk.day_of_year >= 105) && (Rtc.Clk.day_of_year <= 260))
+	if((Rtc.Clk.day_of_year >= start_day) && (Rtc.Clk.day_of_year <= end_day))
 		current += (newDLS - oldDLS) * 3600;
 	Get_RTC_by_timestamp(current,&t,&Rtc,1);
 #if (ARM_MINI || ARM_CM5)
@@ -280,8 +337,7 @@ void SNTPC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
 #endif
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 	Get_RTC_by_timestamp(my_honts_arm(psntpcpMsg->receive_time1),&t,&Rtc,0);	
-	flag_Updata_Clock = 1;//Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);
-	Test[27]++;
+	flag_Updata_Clock = 1;
 #endif
 	
 	sntpc_Conns.State = SNTP_STATE_GET_DONE;	

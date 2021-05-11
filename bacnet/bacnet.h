@@ -290,7 +290,7 @@ void Timer_Silence_Reset( void);
 
 #endif
 
-extern uint8_t far Bacnet_Vendor_ID;
+extern uint16_t far Bacnet_Vendor_ID;
 extern uint8_t TransmitPacket[MAX_PDU];
 extern uint8_t TransmitPacket_panel;
 extern uint8_t Send_Private_Flag;
@@ -388,8 +388,8 @@ uint8_t Send_Mstp(uint8_t flag,uint8_t *type);
 #define BACNET_VENDOR_ID_TEMCO 148
 #define BACNET_VENDOR_ID_NEWRON	1206
 	
-extern char* bacnet_vendor_name;
-extern char* bacnet_vendor_product;
+extern char bacnet_vendor_name[20];
+extern char bacnet_vendor_product[20];
 		
 extern uint8_t  AVS;
 extern uint8_t  AIS;

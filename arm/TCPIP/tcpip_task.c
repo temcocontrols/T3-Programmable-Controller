@@ -11,7 +11,7 @@ u16 tcp_port;
 U8_T far dyndns_enable;
 //U8_T far dyndns_provider;
 //U16_T far dyndns_update_time;
-
+uint32 multicast_addr;
 
 STR_SEND_BUF bip_bac_buf;
 STR_SEND_BUF bip_bac_buf2;
@@ -45,7 +45,7 @@ void tcpip_intial(void)
 	uip_ipaddr_t ipaddr;
 	
 	SPI2_Init();
-	
+	Test[11]++;
 //	ENC28J60_Reset();
 //	delay_ms(1000);
 	while(tapdev_init() && (count < 100))	//???ENC28J60??
@@ -53,6 +53,7 @@ void tcpip_intial(void)
 		count++;
 		delay_ms(50);
 	}
+	Test[12]++;
 	// <tcp_type == 2> means DCHP fail
 	if(Modbus.tcp_type == 0 || Modbus.tcp_type == 2)
 	{
@@ -259,10 +260,11 @@ void UDP_bip_send(void)
 	uint16_t pdu_len = 0;  
 	BACNET_ADDRESS far src; /* source address */
 	t1 = uip_timer;
+
 	if(t1 - t2 >= 100)
 	{
 		if(Send_bip_Flag)  // send
-		{
+		{		
 			uip_send(bip_bac_buf.buf,bip_bac_buf.len);	
 			Send_bip_Flag = 0;		
 			if(Send_bip_count > 0)
@@ -414,6 +416,8 @@ void udp_demo_appcall(void)
 //	char pos = -1;
 //	
 //	pos = -1;	
+
+	
 	if((uip_udp_conn->lport == HTONS(UDP_SCAN_LPORT)) && (uip_udp_conn->lport != 0))
 	{
 		//		pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
@@ -439,10 +443,13 @@ void udp_demo_appcall(void)
 			UDP_bip_send2();
 		}
 		else
+		{
 			UDP_bacnet_APP();
+		}
 		break;
 	case HTONS(UDP_BIP_SEND_LPORT):
 //		pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
+
 		UDP_bip_send();
 		break;
 	default: 
@@ -779,8 +786,9 @@ void dhcpc_configured(const struct dhcpc_state *s)
 	temp[3] |= (255 - Modbus.subnet[3]);
 	
 	uip_ipaddr(uip_hostaddr_submask,temp[0], temp[1],temp[2] ,temp[3]);
-	
 
+	multicast_addr = temp[3] + (U16_T)(temp[2] << 8) \
+		+ ((U32_T)temp[1] << 16) + ((U32_T)temp[0] << 24);
 	bip_Init();
 	udp_scan_init();
 //	flag_dhcp_configured = 1;

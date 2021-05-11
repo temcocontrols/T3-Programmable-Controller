@@ -2383,7 +2383,6 @@ void handler_private_transfer(
 	else  // Temco private modbus
 	{
 		U16_T crc_check;
-		Test[23]++;
 		// send data via temco private modbus
 		uart_init_send_com(protocal - 0xa0);
 		crc_check = crc16(temp, transfer_len + 14);

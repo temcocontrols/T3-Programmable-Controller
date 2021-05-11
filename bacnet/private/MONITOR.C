@@ -413,12 +413,12 @@ void sample_digital_points( char i,Str_monitor_point *mon_ptr/*, Mon_aux *aux_pt
 									write_mon_point_buf[i * 2 + 1][mon_block[i * 2 + 1].index].point.sub_id = ptr.pnet->sub_id;
 									write_mon_point_buf[i * 2 + 1][mon_block[i * 2 + 1].index].point.network_number = ptr.pnet->network_number;
 									write_mon_point_buf[i * 2 + 1][mon_block[i * 2 + 1].index].value = 0;//get_input_sample( ptr.pnet->number );
-		#if (ASIX_MINI || ASIX_CM5)
+#if (ASIX_MINI || ASIX_CM5)
 									write_mon_point_buf[i * 2 + 1][mon_block[i * 2 + 1].index].time = get_current_time();			
 									write_mon_point_buf[i * 2 + 1][mon_block[i * 2 + 1].index].mark = 0x0d0a;				
-		#endif
+#endif
 									
-		#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 									temp[0] = get_current_time();	
 									temp[1] = get_current_time() >> 8;	
 									temp[2] = get_current_time() >> 16;	
@@ -427,7 +427,7 @@ void sample_digital_points( char i,Str_monitor_point *mon_ptr/*, Mon_aux *aux_pt
 									write_mon_point_buf[i * 2 + 1][mon_block[i * 2 + 1].index].time = ((U32_T)temp[0] << 24) + ((U32_T)temp[1] << 16)\
 									+ ((U16_T)temp[2] << 8) + temp[3];
 									write_mon_point_buf[i * 2 + 1][mon_block[i * 2 + 1].index].mark = 0x0a0d;	
-		#endif
+#endif
 									mon_block[i * 2 + 1].index++;
 								}
 							}
@@ -547,7 +547,7 @@ U8_T ReadMonitor( Mon_Data *PTRtable)
 	ret = 1;
 //	reading_sd = 1;
 //	count_reading_sd = 0;
-	Test[25]++;
+//	Test[25]++;
 	ana_dig = PTRtable->sample_type;
 	if(ana_dig == 1)
 	{

@@ -244,14 +244,16 @@ void bip_Init(void)
 {
 	struct uip_udp_conn *conn;
 	uip_ipaddr_t addr;
+	u32 tempaddr;
+	
 	bip_set_socket(0);
 	bip_set_addr(0);
 	bip_set_port(UDP_BACNET_LPORT); 	
 	// udp server
 	uip_listen(HTONS(UDP_BACNET_LPORT));
-	
-	uip_ipaddr_copy(addr, 0xffffffff);
-	conn = uip_udp_new(&addr, HTONS(UDP_BACNET_LPORT)); // des port
+	tempaddr = 0xffffffff;
+	uip_ipaddr_copy(&addr,&tempaddr);
+	conn = uip_udp_new(&addr, HTONS(UDP_BACNET_LPORT)); 
 	if(conn != NULL) 
 	{ 
 		uip_udp_bind(conn,HTONS(UDP_BACNET_LPORT));  // src port					
@@ -375,14 +377,16 @@ void bip_set_broadcast_addr(
     BIP_Broadcast_Address.s_addr = net_address;
 }
 
+
+
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
-void Set_broadcast_bip_address(void)
+void Set_broadcast_bip_address(uint32_t net_address)
 {
 #if (ARM_MINI || ASIX_MINI || ARM_CM5)
-	Send_bip_address[0] = BIP_Broadcast_Address.s_addr >> 24;
-	Send_bip_address[1] = BIP_Broadcast_Address.s_addr >> 16;
-	Send_bip_address[2] = BIP_Broadcast_Address.s_addr >> 8;
-	Send_bip_address[3] = BIP_Broadcast_Address.s_addr;
+	Send_bip_address[0] = net_address/*BIP_Broadcast_Address.s_addr*/ >> 24;
+	Send_bip_address[1] = net_address/*BIP_Broadcast_Address.s_addr*/ >> 16;
+	Send_bip_address[2] = net_address/*BIP_Broadcast_Address.s_addr*/ >> 8;
+	Send_bip_address[3] = net_address/*BIP_Broadcast_Address.s_addr*/;
 	Send_bip_address[4] = BIP_Port >> 8;
 	Send_bip_address[5] = BIP_Port;
 #endif
@@ -436,7 +440,7 @@ void bip_send_mpdu(struct sockaddr_in *dest,
 	Send_bip_Flag = 1;
 	count_send_bip = 0;	
 	Send_bip_count = 5;	
-	Set_broadcast_bip_address();
+	Set_broadcast_bip_address(0xffffffff);
 #endif
 	bip_send_pdu(0,0,mtu,mtu_len,BAC_IP);
 }
@@ -492,7 +496,7 @@ int bip_send_pdu(
 				
         address.s_addr = BIP_Broadcast_Address.s_addr;
         port = BIP_Port;
-        mtu[1] = BVLC_ORIGINAL_BROADCAST_NPDU;
+				mtu[1] = BVLC_ORIGINAL_BROADCAST_NPDU;
     } else if (dest->mac_len == 6) {
         bip_decode_bip_address(dest, &address, &port);
         mtu[1] = BVLC_ORIGINAL_UNICAST_NPDU;
@@ -568,8 +572,8 @@ int bip_send_pdu_client(
         /* broadcast */
 				
         address.s_addr = BIP_Broadcast_Address.s_addr;
-        port = BIP_Port;
-        mtu1[1] = BVLC_ORIGINAL_BROADCAST_NPDU;
+        port = BIP_Port;				
+				mtu1[1] = BVLC_ORIGINAL_BROADCAST_NPDU;
     } else if (dest->mac_len == 6) {
         bip_decode_bip_address(dest, &address, &port);
         mtu1[1] = BVLC_ORIGINAL_UNICAST_NPDU;
@@ -597,11 +601,10 @@ int bip_send_pdu_client(
 			Send_bip_count = MAX_RETRY_SEND_BIP;
 			uip_ipaddr(addr,Send_bip_address[0],Send_bip_address[1],Send_bip_address[2],Send_bip_address[3]);	
 			bip_send_client_conn = uip_udp_new(&addr, HTONS(Send_bip_address[4] * 256 + Send_bip_address[5])); // des port
-			
 			if(bip_send_client_conn != NULL) 
 			{
 				// network points
-					uip_udp_bind(bip_send_client_conn,HTONS(UDP_BIP_SEND_LPORT));  // src port	
+					uip_udp_bind(bip_send_client_conn,HTONS(UDP_BIP_SEND_LPORT));  // src port
 			}
 			memcpy(bip_bac_buf.buf,&mtu1, mtu_len);			
 			bip_bac_buf.len = mtu_len;

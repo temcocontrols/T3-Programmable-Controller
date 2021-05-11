@@ -55,12 +55,13 @@ void NMI_Handler(void)
   * @param  None
   * @retval None
   */
+extern u16 Test[50];
 void HardFault_Handler(void)
 {
   /* Go to infinite loop when Hard Fault exception occurs */
   while (1)
   {
-		printf("hard fault");
+		printf("hard fault %u %u %u",Test[10],Test[11],Test[12]);
   }
 }
 
