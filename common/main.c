@@ -174,7 +174,7 @@ void Read_ALL_Data(void)
 	}
 
 	Instance = temp[0] + (U16_T)(temp[1] << 8) + ((U32_T)temp[2] << 16) + ((U32_T)temp[3] << 24);
-	if(Instance == 0xffffffff || Instance > 0x3ffffff)
+	if(Instance == 0xffffffff || Instance > 0x3fffff)
 	{
 		Instance =  Modbus.serialNum[0] + (U16_T)(Modbus.serialNum[1] << 8) + ((U32_T)Modbus.serialNum[2] << 16) + ((U32_T)Modbus.serialNum[3] << 24);
 	}

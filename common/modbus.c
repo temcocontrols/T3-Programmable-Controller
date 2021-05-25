@@ -954,6 +954,7 @@ void set_subnet_parameters(U8_T io, U16_T length,U8_T port)
 		uart1_rece_count = 0;
 		memset(uart1_data_buffer,0,subnet_rec_package_size);
 	}
+	
 }
   
 
@@ -2263,8 +2264,10 @@ void main_dealwithData(void)
 				{
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 					if(main_data_buffer[1] == TEMCO_MODBUS)	// temco private modbus
-					{
-						handler_private_transfer(main_data_buffer,0,NULL,0xa0 + Modbus.main_port);
+					{Test[20]++;
+						Test[21] = main_data_buffer[0];
+						if(main_data_buffer[0] ==  Modbus.address || main_data_buffer[0] == 255)
+							handler_private_transfer(main_data_buffer,0,NULL,0xa0 + Modbus.main_port);
 					}
 					else 
 #endif

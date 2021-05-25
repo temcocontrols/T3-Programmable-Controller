@@ -2741,10 +2741,10 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 		{
 			size = (U16_T)((buf[13] & 0x01)	<< 8)	+ buf[12]; // entysize
 			size0 = 16 + size * (buf[11] - buf[10] + 1); // 回复的长度是xx
-			delay_time = size0 / 5 + 20;
+			delay_time = size0 + 50;
 		}
 		else  // private command > 100 write
-		{Test[30]++;
+		{
 			size0 = 16;  // 回复的长度是16
 			delay_time = 100;
 		}		
@@ -2786,9 +2786,10 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 		crc_check = crc16(tmp_sendbuf, len - 2);
 		tmp_sendbuf[len - 2] = HIGH_BYTE(crc_check);
 		tmp_sendbuf[len - 1] = LOW_BYTE(crc_check);
-
 		uart_send_string(tmp_sendbuf, len,port);
-		
+		Test[38]++;
+		Test[39] = len;
+		memcpy(&Test[40],tmp_sendbuf,20);
 	}
 	else
 	{	
@@ -2852,8 +2853,7 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 				{
 					uart2_baudrate = scan_baut;
 					E2prom_Write_Byte(EEP_UART2_BAUDRATE,uart2_baudrate);	
-				}
-				
+				}				
 		
 				if(scan_db_changed == TRUE)
 				{
@@ -2861,8 +2861,7 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 					scan_db_changed = FALSE;			
 				}
 			}
-		}			
-
+		}
 	}
 	else
 	{
@@ -2875,7 +2874,7 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 				memcpy(tmp_sendbuf,header,6);
 				
 				if(buf[1] == TEMCO_MODBUS)
-				{Test[32]++;
+				{
 					memcpy(&tmp_sendbuf[6],subnet_response_buf,length);	
 #if (ASIX_MINI || ASIX_CM5)
 					TCPIP_TcpSend(TcpSocket_ME, tmp_sendbuf, size0 + 6, TCPIP_SEND_NOT_FINAL); 
@@ -2890,7 +2889,7 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 				// tbd: ????????????
 					memcpy(modbus_wifi_buf,tmp_sendbuf,size0 + 6);
 					modbus_wifi_len = size0 + 6;
-#endif			
+#endif	
 				}
 				else
 				{

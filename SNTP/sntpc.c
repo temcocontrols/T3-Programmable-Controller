@@ -289,8 +289,6 @@ void Calculate_DSL_Time(void)
 		end_day++;
 	}
 	
-	Test[20] = start_day;
-	Test[21] = end_day;
 }
 
 void Sync_timestamp(S16_T newTZ,S16_T oldTZ,S8_T newDLS,S8_T oldDLS)
@@ -699,7 +697,6 @@ void update_sntp(void)
 						if(Rtc.Clk.day_of_year > 60)
 							update_sntp_last_time = get_current_time() + 86400;
 					}
-					Test[20]++;
 					E2prom_Write_Byte(EEP_SNTP_TIME4,(U8_T)(update_sntp_last_time >> 24));
 					E2prom_Write_Byte(EEP_SNTP_TIME3,(U8_T)(update_sntp_last_time >> 16));
 					E2prom_Write_Byte(EEP_SNTP_TIME2,(U8_T)(update_sntp_last_time >> 8));
