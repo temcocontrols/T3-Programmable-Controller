@@ -758,7 +758,7 @@ uint8_t ESP8266_Get_MAC(uint8_t * pStamac)
 		pCh += 11;
 	
 	else
-	{Test[10]++;
+	{
 		return 0;
 	}
 	

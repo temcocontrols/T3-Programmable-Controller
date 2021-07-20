@@ -45,7 +45,7 @@ void tcpip_intial(void)
 	uip_ipaddr_t ipaddr;
 	
 	SPI2_Init();
-	Test[11]++;
+//	Test[11]++;
 //	ENC28J60_Reset();
 //	delay_ms(1000);
 	while(tapdev_init() && (count < 100))	//???ENC28J60??
@@ -53,7 +53,7 @@ void tcpip_intial(void)
 		count++;
 		delay_ms(50);
 	}
-	Test[12]++;
+//	Test[12]++;
 	// <tcp_type == 2> means DCHP fail
 	if(Modbus.tcp_type == 0 || Modbus.tcp_type == 2)
 	{
@@ -435,15 +435,15 @@ void udp_demo_appcall(void)
 //			pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
 		UDP_SCAN_APP();			
 		break;
-	case HTONS(UDP_BACNET_LPORT):
+	case HTONS(UDP_BACNET_LPORT):Test[43]++;
 		// get ip and port 
 //		pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
 		if(Send_bip_Flag2)
-		{
+		{Test[44]++;
 			UDP_bip_send2();
 		}
 		else
-		{
+		{Test[45]++;
 			UDP_bacnet_APP();
 		}
 		break;

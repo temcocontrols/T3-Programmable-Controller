@@ -6,7 +6,7 @@
 
 #define Control_STACK_SIZE	((unsigned portSHORT)2048)
 #define BACnet_STACK_SIZE	((unsigned portSHORT)2048)
-#define TCPIP_STACK_SIZE	((unsigned portSHORT)2028)
+#define TCPIP_STACK_SIZE	((unsigned portSHORT)3000)
 //#define USB_STACK_SIZE	   ((unsigned portSHORT)1024)
 #define COMMON_STACK_SIZE	  ((unsigned portSHORT)256)
 //#define GSM_STACK_SIZE	  ((unsigned portSHORT)512)
@@ -1281,12 +1281,12 @@ void Master_Node_task(void) reentrant
 #if (ARM_MINI || ARM_CM5)
 							static char j = 0;
 							char count;
-							
+							Test[35]++;
 							if(j < remote_panel_num)//for(j = 0;j < remote_panel_num;j++)
 							{
 								if(remote_panel_db[j].protocal == BAC_MSTP 
 									&& remote_panel_db[j].sn == 0)
-								{
+								{Test[36]++;
 									remote_panel_db[j].retry_reading_panel++;
 									flag_receive_rmbp = 0;									
 									invoke = Send_private_scan(j);
@@ -1295,7 +1295,7 @@ void Master_Node_task(void) reentrant
 										delay_ms(200);									
 								}
 								if(remote_panel_db[j].retry_reading_panel > 5)
-								{
+								{Test[37]++;
 									remote_panel_db[j].sn = remote_panel_db[j].device_id;
 									remote_panel_db[j].retry_reading_panel = 0;
 									remote_panel_db[j].product_model = 0;
@@ -1403,7 +1403,6 @@ void Common_task(void) reentrant
 		if(task_test.count[0] == 0)  // if tcptask is not running, need watchdog in lower task
 			IWDG_ReloadCounter(); 
 #endif
-		Test[10]++;
 		task_test.count[1]++;
 		current_task = 1;
 #if 0
@@ -1570,7 +1569,7 @@ void Monitor_Task_task(void) reentrant
 		Check_Whether_TCP_STUCK();
 		Check_TCP_UDP_Socket();
 #if REBOOT_PER_WEEK
-		if((Rtc.Clk.day == 0) && (Rtc.Clk.hour == 2) && (Rtc.Clk.min == 0) && (run_time > 3600))
+		if((Rtc.Clk.week == 0) && (Rtc.Clk.hour == 2) && (Rtc.Clk.min == 0) && (run_time > 3600))
 		{
 			QuickSoftReset();			
 		}
@@ -2348,14 +2347,14 @@ void main( void )
 	
 	vStartScanTask(tskIDLE_PRIORITY + 3);
 #if MSTP
-	sTaskCreate(Master_Node_task, (const signed portCHAR * const)"Master_Node_task", BACnet_STACK_SIZE, NULL, tskIDLE_PRIORITY + 13, (xTaskHandle *)&xHandleMSTP);
+	sTaskCreate(Master_Node_task, (const signed portCHAR * const)"Master_Node_task", BACnet_STACK_SIZE, NULL, tskIDLE_PRIORITY + 11, (xTaskHandle *)&xHandleMSTP);
 #endif
 	
 	sTaskCreate(Bacnet_Control,/*(const signed portCHAR * const)*/"BAC_Control_task",
 		Control_STACK_SIZE, NULL, tskIDLE_PRIORITY + 8,(xTaskHandle *)&xHandleBacnetControl);	
 
 	sTaskCreate(Monitor_Task_task, /*(const signed portCHAR * const)*/"monitor_task",
-		Monitor_STACK_SIZE, NULL, tskIDLE_PRIORITY + 12,(xTaskHandle *)&xHandleMornitor_task);
+		Monitor_STACK_SIZE, NULL, tskIDLE_PRIORITY + 13,(xTaskHandle *)&xHandleMornitor_task);
 	
 #if (ARM_MINI || ASIX_MINI || ARM_CM5 || ARM_TSTAT_WIFI)	
 	vStartOutputTasks(tskIDLE_PRIORITY + 5);

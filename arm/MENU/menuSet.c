@@ -59,6 +59,7 @@ void MenuSet_display(void)
             if (set_value > 9)
                 set_value = 9;
             memcpy(temp_buffer, c_strBaudate[set_value], 7);
+						
             disp_str(FORM15X30, 0, MENU_VALUE_POS, temp_buffer, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
         }
         else if (item_to_adjust == 2) //调整协议

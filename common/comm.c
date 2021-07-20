@@ -968,29 +968,39 @@ void SPI_Get(U8_T cmd,U8_T len)
 			{			
 				if((Modbus.mini_type == MINI_BIG) || (Modbus.mini_type == MINI_BIG_ARM))
 				{
-					flag_read_switch = 1;
+					U8_T packet_error;
+					packet_error = 0;
 					for(i = 0;i < 24;i++)
 					{
-						if((tmpbuf[i] != outputs[i].switch_status) &&
-								(tmpbuf[i] <= 2))						
-						{
-							outputs[i].switch_status = tmpbuf[i];	
-							check_output_priority_HOA(i);	
-						}							
+						if(tmpbuf[i] > 2) 			packet_error = 1;
 					}
-					for(i = 0;i < 64 / 2;i++)	  // 88 == 24+64
-					{							
-						temp = Filter(i,(U16_T)(tmpbuf[i * 2 + 1 + 24] + tmpbuf[i * 2 + 24] * 256));
-						if(temp != 0xffff)
-						{// rev42 of top is 12bit, older rev is 10bit
-								//if(chip_info[1] >= 42)
-									// new input moudle with PT sensor
-									input_raw[i] = (U32_T)temp * 1023 / Modbus.vcc_adc;
-//								else
-//									// for old input moudle
-//									input_raw[i] = (U32_T)temp * 255 / Modbus.vcc_adc;	
+					
+					if(packet_error == 0)
+					{
+						flag_read_switch = 1;
+						for(i = 0;i < 24;i++)
+						{
+							if((tmpbuf[i] != outputs[i].switch_status) &&
+									(tmpbuf[i] <= 2))						
+							{
+								outputs[i].switch_status = tmpbuf[i];	
+								check_output_priority_HOA(i);	
+							}							
 						}
+						for(i = 0;i < 64 / 2;i++)	  // 88 == 24+64
+						{							
+							temp = Filter(i,(U16_T)(tmpbuf[i * 2 + 1 + 24] + tmpbuf[i * 2 + 24] * 256));
+							if(temp != 0xffff)
+							{// rev42 of top is 12bit, older rev is 10bit
+									//if(chip_info[1] >= 42)
+										// new input moudle with PT sensor
+										input_raw[i] = (U32_T)temp * 1023 / Modbus.vcc_adc;
+	//								else
+	//									// for old input moudle
+	//									input_raw[i] = (U32_T)temp * 255 / Modbus.vcc_adc;	
+							}
 
+						}
 					}
 				}
 				if((Modbus.mini_type == MINI_SMALL) || (Modbus.mini_type == MINI_SMALL_ARM))

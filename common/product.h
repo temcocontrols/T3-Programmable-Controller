@@ -3,11 +3,11 @@
 
 #include "types.h"
 
-#define SW_REV	6005//5404
+#define SW_REV	6006//5404
 
-#define ARM_MINI 0
+#define ARM_MINI 1
 #define ARM_CM5  0
-#define ARM_TSTAT_WIFI 1
+#define ARM_TSTAT_WIFI 0
 
 #define ASIX_MINI 0
 #define ASIX_CM5  0

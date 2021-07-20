@@ -344,7 +344,7 @@ void initial_tstat10_range(void)
 	if(Check_sensor_exist(E_FLAG_OCC))
 	{
 		PirSensorZero = 160;
-		Pir_Sensetivity = 30;
+		Pir_Sensetivity = 50;
 		override_timer = 5;
 
 		if(Modbus.mini_type == MINI_T10P)
@@ -900,8 +900,7 @@ void inpust_scan(void)
 				{
 					inputs[COMMON_CHANNEL + 3].control = 1;  // OCC
 					override_timer_time = (uint32)60 * override_timer;
-				}				
-				
+				}					
 			}
 			else
 			{

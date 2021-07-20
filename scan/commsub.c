@@ -1322,7 +1322,7 @@ void push_expansion_out_stack(Str_out_point* ptr,uint8 point,uint8_t type)
 #if T3_MAP
 	// protect ptr->control
 		if(ptr->sub_product == PM_T38AI8AO6DO || ptr->sub_product == PM_T36CTA)
-		{	Test[10]++;	
+		{
 			if(type == 1)
 			{
 				if(!(ptr->sub_number & 0x80))  // digital output

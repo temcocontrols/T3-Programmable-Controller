@@ -547,8 +547,9 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 					return 0xff;
 			}
 			if(output_priority[io_index][priority] == 0xff)
+			{
 				return 0xff;	
-
+			}
 			if(outputs[io_index].digital_analog == 0)
 			{  // digital
 				temp = output_priority[io_index][priority] ? 1 : 0;
@@ -558,7 +559,7 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 					&& digi_units[outputs[io_index].range - custom_digital1].direct == 1))
 				{  // inverse logic
 					if(temp == 1)
-					{
+					{if(io_index < 2)		Test[18]++;
 						return 0;
 					}
 					else
@@ -573,7 +574,7 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 						return 1;
 					}
 					else
-					{
+					{if(io_index < 2)		Test[19]++;
 						return 0;
 					}
 				}

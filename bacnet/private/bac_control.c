@@ -1093,7 +1093,7 @@ void check_output_priority_array(U8_T i,U8_T HOA)
 			if(outputs[i].digital_analog == 0)
 			{	// digital
 				//if(i < max_dos)
-				{
+				{uint8 temp;
 					outputs[i].value = swap_double(Binary_Output_Present_Value(i) * 1000); 
 
 					if(( outputs[i].range >= ON_OFF && outputs[i].range <= HIGH_LOW )
@@ -1101,22 +1101,29 @@ void check_output_priority_array(U8_T i,U8_T HOA)
 					&& outputs[i].range <= custom_digital8
 					&& digi_units[outputs[i].range - custom_digital1].direct == 1))
 					{// inverse
-						outputs[i].control = Binary_Output_Present_Value(i) ? 0 : 1;	
+						temp = Binary_Output_Present_Value(i);	
+						outputs[i].control = temp ? 0 : 1;					
 					}	
 					else
 					{
-						outputs[i].control = Binary_Output_Present_Value(i) ? 1 : 0;
+						temp = Binary_Output_Present_Value(i);
+						outputs[i].control = temp ? 1 : 0;						
 					}
 				}
-				
+				if(outputs[i].control == 0xff)
+				{
+					if(i < 2)	Test[14]++;
+				}
 				// when OUT13-OUT24 are used for DO
 				if(outputs[i].control) 
 				{					
 					set_output_raw(i,1000);
+					if(i < 2)	Test[12]++;
 				}
 				else 
 				{
-					set_output_raw(i,0);	
+					set_output_raw(i,0);
+					if(i < 2)	Test[13]++;
 				}
 			}
 			else
@@ -1254,11 +1261,15 @@ void check_output_priority_array_without_AM(U8_T i)
 			{
 				outputs[i].value = swap_double(Analog_Output_Present_Value(i) * 1000);
 			}
-				
+			
 			if(outputs[i].control) 
+			{
 				set_output_raw(i,1000);
+			}
 			else 
+			{
 				set_output_raw(i,0);	
+			}
 		}		
 		else
 		{  // analog
