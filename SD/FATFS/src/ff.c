@@ -2121,10 +2121,10 @@ FRESULT chk_mounted (	/* FR_OK(0): successful, !=0: any error occurred */
 	if (disk_ioctl(fs->drv, GET_SECTOR_SIZE, &fs->ssize) != RES_OK)
 		return FR_DISK_ERR;
 #endif
-		Test[30]++;
+		
 	/* Search FAT partition on the drive. Supports only generic partitions, FDISK and SFD. */
 	fmt = check_fs(fs, bsect = 0);		/* Load sector 0 and check if it is an FAT-VBR (in SFD) */
-Test[31]++;
+
 	if (LD2PT(vol) && !fmt) fmt = 1;	/* Force non-SFD if the volume is forced partition */
 	if (fmt == 1) {						/* Not an FAT-VBR, the physical drive can be partitioned */
 		/* Check the partition listed in the partition table */
@@ -2136,10 +2136,10 @@ Test[31]++;
 			fmt = check_fs(fs, bsect);		/* Check the partition */
 		}
 	}	
-	Test[32] = fmt;
+	
 	if (fmt == 3) return FR_DISK_ERR;
 	if (fmt) return FR_NO_FILESYSTEM;		/* No FAT volume is found */
-	Test[33]++;
+	
 	/* An FAT volume is found. Following code initializes the file system object */
 	
 	if (LD_WORD(fs->win+BPB_BytsPerSec) != SS(fs))		/* (BPB_BytsPerSec must be equal to the physical sector size) */
@@ -2556,11 +2556,11 @@ FRESULT f_write (
 
 	res = validate(fp);						/* Check validity */
 
-	if (res != FR_OK) LEAVE_FF(fp->fs, res);
+	if (res != FR_OK) {Test[22] = 1;LEAVE_FF(fp->fs, res);}
 	if (fp->flag & FA__ERROR)				/* Aborted file? */
-		LEAVE_FF(fp->fs, FR_INT_ERR);
+	{Test[22] = 2;LEAVE_FF(fp->fs, FR_INT_ERR);}
 	if (!(fp->flag & FA_WRITE))				/* Check access mode */
-		LEAVE_FF(fp->fs, FR_DENIED);
+	{Test[22] = 3;	LEAVE_FF(fp->fs, FR_DENIED);}
 	if ((DWORD)(fp->fsize + btw) < fp->fsize) btw = 0;	/* File size cannot reach 4GB */
 
 	for ( ;  btw;							/* Repeat until all data written */
@@ -2581,8 +2581,8 @@ FRESULT f_write (
 						clst = create_chain(fp->fs, fp->clust);	/* Follow or stretch cluster chain on the FAT */
 				}
 				if (clst == 0) break;		/* Could not allocate a new cluster (disk full) */
-				if (clst == 1) ABORT(fp->fs, FR_INT_ERR);
-				if (clst == 0xFFFFFFFF) ABORT(fp->fs, FR_DISK_ERR);
+				if (clst == 1){Test[22] = 4; ABORT(fp->fs, FR_INT_ERR);}
+				if (clst == 0xFFFFFFFF) {Test[22] = 5;ABORT(fp->fs, FR_DISK_ERR);}
 				fp->clust = clst;			/* Update current cluster */
 			}
 #if _FS_TINY
@@ -2591,19 +2591,19 @@ FRESULT f_write (
 #else
 			if (fp->flag & FA__DIRTY) {		/* Write-back sector cache */
 				if (disk_write(fp->fs->drv, fp->buf, fp->dsect, 1) != RES_OK)
-					ABORT(fp->fs, FR_DISK_ERR);
+				{Test[22] = 6;ABORT(fp->fs, FR_DISK_ERR);}
 				fp->flag &= ~FA__DIRTY;
 			}
 #endif
 			sect = clust2sect(fp->fs, fp->clust);	/* Get current sector */
-			if (!sect) ABORT(fp->fs, FR_INT_ERR);
+			if (!sect) {Test[22] = 7;ABORT(fp->fs, FR_INT_ERR);}
 			sect += csect;
 			cc = btw / SS(fp->fs);			/* When remaining bytes >= sector size, */
 			if (cc) {						/* Write maximum contiguous sectors directly */
 				if (csect + cc > fp->fs->csize)	/* Clip at cluster boundary */
 					cc = fp->fs->csize - csect;
 				if (disk_write(fp->fs->drv, wbuff, sect, (BYTE)cc) != RES_OK)
-					ABORT(fp->fs, FR_DISK_ERR);
+				{Test[22] = 8;ABORT(fp->fs, FR_DISK_ERR);}
 #if _FS_TINY
 				if (fp->fs->winsect - sect < cc) {	/* Refill sector cache if it gets invalidated by the direct write */
 					mem_cpy(fp->fs->win, wbuff + ((fp->fs->winsect - sect) * SS(fp->fs)), SS(fp->fs));
@@ -2627,7 +2627,7 @@ FRESULT f_write (
 			if (fp->dsect != sect) {		/* Fill sector cache with file data */
 				if (fp->fptr < fp->fsize &&
 					disk_read(fp->fs->drv, fp->buf, sect, 1) != RES_OK)
-						ABORT(fp->fs, FR_DISK_ERR);
+						{Test[22] = 8;ABORT(fp->fs, FR_DISK_ERR);}
 			}
 #endif
 			fp->dsect = sect;
@@ -2647,7 +2647,7 @@ FRESULT f_write (
 
 	if (fp->fptr > fp->fsize) fp->fsize = fp->fptr;	/* Update file size if needed */
 	fp->flag |= FA__WRITTEN;						/* Set file change flag */
-
+	Test[22] = 9;
 	LEAVE_FF(fp->fs, FR_OK);
 }
 
@@ -2884,6 +2884,7 @@ FRESULT f_lseek (
 
 
 	res = validate(fp);					/* Check validity of the object */
+	
 	if (res != FR_OK) LEAVE_FF(fp->fs, res);
 	if (fp->flag & FA__ERROR)			/* Check abort flag */
 		LEAVE_FF(fp->fs, FR_INT_ERR);
@@ -3022,7 +3023,7 @@ FRESULT f_lseek (
 		}
 #endif
 	}
-
+	
 	LEAVE_FF(fp->fs, res);
 }
 

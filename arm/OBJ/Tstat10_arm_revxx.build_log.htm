@@ -3,9 +3,9 @@
 <pre>
 <h1>µVision Build Log</h1>
 <h2>Tool Versions:</h2>
-IDE-Version: µVision V5.14.0.0
+IDE-Version: ¦ÌVision V5.14.0.0
 Copyright (C) 2015 ARM Ltd and ARM Germany GmbH. All rights reserved.
-License Information: Fance Du, Temco, LIC=Q7GJJ-UIS0M-22KL4-FI5XZ-ZMP3I-JK95K
+License Information: Fan Du, Temco, LIC=CRMWF-6YNFB-LVH1I-TI605-XVRY9-7J1G8
  
 Tool Versions:
 Toolchain:       MDK-ARM Professional  Version: 5.14.0.0
@@ -22,74 +22,444 @@ Dialog DLL:      TCM.DLL V1.14.4.0
  
 <h2>Project:</h2>
 C:\Work\FirmwareWork\T3BB\arm\USER\Tstat10_wifi.uvprojx
-Project File Date:  06/11/2020
+Project File Date:  01/06/2022
 
 <h2>Output:</h2>
 Build target 'STM32F103'
-compiling wifi.c...
+compiling bip.c...
+..\..\bacnet\include\bvlc.h(56): warning:  #1295-D: Deprecated declaration dlenv_init - give arg types
+  void dlenv_init();
+..\TCPIP\tcp_debug.h(11): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\..\common\define.h(681): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\common\define.h(1140): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\..\bacnet\bip.c(85): warning:  #940-D: missing return statement at end of non-void function "bip_send_pdu_client"
+  }
+..\..\bacnet\bip.c(95): warning:  #940-D: missing return statement at end of non-void function "bip_send_pdu_client2"
+  }
+..\..\bacnet\bip.c(731): warning:  #177-D: variable "npdu_len" was declared but never referenced
+                uint16_t npdu_len = 0;      /* return value */
+..\..\bacnet\bip.c(735): warning:  #177-D: variable "result_code" was declared but never referenced
+                uint16_t result_code = 0;
+..\..\bacnet\bip.c: 8 warnings, 0 errors
+compiling ptransfer.c...
+..\..\bacnet\include\bvlc.h(56): warning:  #1295-D: Deprecated declaration dlenv_init - give arg types
+  void dlenv_init();
+..\..\common\define.h(681): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\common\define.h(1140): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\TCPIP\tcp_debug.h(11): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\..\bacnet\private\ptransfer.c(179): warning:  #223-D: function "responseCmd" declared implicitly
+        responseCmd(4/*BAC_TO_MODBUS*/,buf);    // get bacnet_to_modbus
+..\..\bacnet\private\ptransfer.c(329): warning:  #223-D: function "Flash_Write_Mass" declared implicitly
+                Flash_Write_Mass();     // write into flash now
+..\..\bacnet\private\ptransfer.c(407): warning:  #223-D: function "Flash_Write_Mass" declared implicitly
+                Flash_Write_Mass();     // write into flash now
+..\..\bacnet\private\ptransfer.c(470): warning:  #940-D: missing return statement at end of non-void function "Send_Mstp"
+  }
+..\..\bacnet\private\ptransfer.c(478): warning:  #177-D: variable "i" was declared but never referenced
+        U8_T i;
+..\..\bacnet\private\ptransfer.c(479): warning:  #177-D: variable "start" was declared but never referenced
+        U8_T start = 0;
+..\..\bacnet\private\ptransfer.c(657): warning:  #186-D: pointless comparison of unsigned integer with zero
+                        if(apdu[1] == invokeid_mstp && invokeid_mstp >= 0)
+..\..\bacnet\private\ptransfer.c(679): warning:  #177-D: variable "reg" was declared but never referenced
+                                                uint16_t reg;   
+..\..\bacnet\private\ptransfer.c(616): warning:  #177-D: variable "index" was declared but never referenced
+        uint8_t index;
+..\..\bacnet\private\ptransfer.c(617): warning:  #177-D: variable "invokeid_bip" was declared but never referenced
+        U8_T invokeid_bip;
+..\..\bacnet\private\ptransfer.c(618): warning:  #177-D: variable "network_point_index" was declared but never referenced
+        S8_T far network_point_index;   
+..\..\bacnet\private\ptransfer.c(917): warning:  #188-D: enumerated type mixed with another type
+                                        Send_Write_Property_Request(deviceid,object_type,object_instance,PROP_PRESENT_VALUE,&val,0,value,BACNET_ARRAY_ALL,protocal);
+..\..\bacnet\private\ptransfer.c(955): warning:  #68-D: integer conversion resulted in a change of sign
+        invokeid_bip = -1;
+..\..\bacnet\private\ptransfer.c(969): warning:  #188-D: enumerated type mixed with another type
+                        invokeid_mstp = Send_Read_Property_Request(deviceid,object_type,object_instance,PROP_PRESENT_VALUE,0,protocal);
+..\..\bacnet\private\ptransfer.c(953): warning:  #550-D: variable "invokeid_bip" was set but never used
+        U8_T invokeid_bip;
+..\..\bacnet\private\ptransfer.c(1034): warning:  #550-D: variable "len" was set but never used
+      int len;
+..\..\bacnet\private\ptransfer.c(1136): warning:  #177-D: variable "n_ret" was declared but never referenced
+      int n_ret = 0;
+..\..\bacnet\private\ptransfer.c(1138): warning:  #177-D: variable "apdu" was declared but never referenced
+      uint8_t apdu[50] = { 0 };
+..\..\bacnet\private\ptransfer.c(1140): warning:  #177-D: variable "apdu_len" was declared but never referenced
+      int apdu_len = 0;
+..\..\bacnet\private\ptransfer.c(1149): warning:  #550-D: variable "HEADER_LENGTH" was set but never used
+      int HEADER_LENGTH = USER_DATA_HEADER_LEN;
+..\..\bacnet\private\ptransfer.c(1151): warning:  #177-D: variable "i" was declared but never referenced
+                int i;
+..\..\bacnet\private\ptransfer.c(1188): warning:  #177-D: variable "n_ret" was declared but never referenced
+      int n_ret = 0;
+..\..\bacnet\private\ptransfer.c(1191): warning:  #177-D: variable "apdu" was declared but never referenced
+      uint8_t apdu[50] = { 0 };
+..\..\bacnet\private\ptransfer.c(1193): warning:  #177-D: variable "apdu_len" was declared but never referenced
+      int apdu_len = 0;
+..\..\bacnet\private\ptransfer.c(1200): warning:  #177-D: variable "temp_buffer" was declared but never referenced
+      char * temp_buffer = SendBuffer;
+..\..\bacnet\private\ptransfer.c(1201): warning:  #177-D: variable "HEADER_LENGTH" was declared but never referenced
+      int HEADER_LENGTH = USER_DATA_HEADER_LEN;
+..\..\bacnet\private\ptransfer.c(1202): warning:  #177-D: variable "i" was declared but never referenced
+                int i;
+..\..\bacnet\private\ptransfer.c(1267): warning:  #550-D: variable "status" was set but never used
+        bool status = false;
+..\..\bacnet\private\ptransfer.c(1574): warning:  #111-D: statement is unreachable
+                                        break;
+..\..\bacnet\private\ptransfer.c(1721): warning:  #177-D: variable "j" was declared but never referenced
+                                                U8_T k,j;
+..\..\bacnet\private\ptransfer.c(1903): warning:  #223-D: function "Rtc_Set" declared implicitly
+                                                Rtc_Set(Rtc.Clk.year,Rtc.Clk.mon,Rtc.Clk.day,Rtc.Clk.hour,Rtc.Clk.min,Rtc.Clk.sec,0);
+..\..\bacnet\private\ptransfer.c(1904): warning:  #223-D: function "RTC_Get" declared implicitly
+                                                RTC_Get();
+..\..\bacnet\private\ptransfer.c(1945): warning:  #177-D: variable "i" was declared but never referenced
+                                                U8_T i;
+..\..\bacnet\private\ptransfer.c(2062): warning:  #186-D: pointless comparison of unsigned integer with zero
+                        if((transfer_len >= 0) && (transfer_len <= 500 ))
+..\..\bacnet\private\ptransfer.c(2297): warning:  #513-D: a value of type "char *" cannot be assigned to an entity of type "uint8_t *"
+                                        ptr = (char *)(&Remote_tst_db);
+..\..\bacnet\private\ptransfer.c(2357): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+                status = bacapp_parse_application_data(BACNET_APPLICATION_TAG_OCTET_STRING,     temp, &data_value);
+..\..\bacnet\private\ptransfer.c(2414): warning:  #223-D: function "uart_init_send_com" declared implicitly
+                uart_init_send_com(protocal - 0xa0);
+..\..\bacnet\private\ptransfer.c(1348): warning:  #177-D: variable "rec_data_value" was declared but never referenced
+      BACNET_APPLICATION_DATA_VALUE rec_data_value = { 0 };
+..\..\bacnet\private\ptransfer.c(1354): warning:  #550-D: variable "len" was set but never used
+                int len = 0;
+..\..\bacnet\private\ptransfer.c(1356): warning:  #177-D: variable "property_len" was declared but never referenced
+                int property_len = 0;
+..\..\bacnet\private\ptransfer.c(1358): warning:  #177-D: variable "bytes_sent" was declared but never referenced
+                int bytes_sent = 0;
+..\..\bacnet\private\ptransfer.c(1363): warning:  #177-D: variable "flag_write_pic" was declared but never referenced
+                uint8_t flag_write_pic;
+..\..\bacnet\private\ptransfer.c(1366): warning:  #550-D: variable "delay_write_setting" was set but never used
+                uint8_t delay_write_setting;
+..\..\bacnet\private\ptransfer.c: 47 warnings, 0 errors
+compiling user_data.c...
+..\..\bacnet\include\bvlc.h(56): warning:  #1295-D: Deprecated declaration dlenv_init - give arg types
+  void dlenv_init();
+..\..\IO_control\controls.h(99): warning:  #1295-D: Deprecated declaration Check_Remote_Panel_Table - give arg types
+  void Check_Remote_Panel_Table();
+..\..\common\define.h(681): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\common\define.h(1140): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\TCPIP\tcp_debug.h(11): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\USER\remote_connect.h(28): warning:  #375-D: declaration requires a typedef name
+  };
+..\USER\remote_connect.h(34): warning:  #375-D: declaration requires a typedef name
+  };
+..\HARDWARE\VOC\voc.h(13): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\USER\wifi.h(37): warning:  #375-D: declaration requires a typedef name
+  };
+..\USER\wifi.h(77): warning:  #1295-D: Deprecated declaration dma_init_uart4 - give arg types
+  void dma_init_uart4();
+..\..\bacnet\private\user_data.c(417): warning:  #167-D: argument of type "signed char *" is incompatible with parameter of type "char *restrict"
+                sprintf((S8_T *)&ptr.pin->description,"IN %d",(U16_T)(i + 1));
+..\..\bacnet\private\user_data.c(438): warning:  #167-D: argument of type "signed char *" is incompatible with parameter of type "char *restrict"
+                sprintf((S8_T *)&ptr.pin->label,"IN%d",(U16_T)(i + 1));
+..\..\bacnet\private\user_data.c(546): warning:  #167-D: argument of type "signed char *" is incompatible with parameter of type "char *restrict"
+                sprintf((S8_T *)&ptr.pout->description,"OUT%d",(U16_T)(i + 1));
+..\..\bacnet\private\user_data.c(547): warning:  #167-D: argument of type "signed char *" is incompatible with parameter of type "char *restrict"
+                sprintf((S8_T *)&ptr.pout->label,"OUT%d",(U16_T)(i + 1));
+..\..\bacnet\private\user_data.c(816): warning:  #2748-D: null argument provided for parameter marked with attribute "nonnull"
+        memcpy(update_dyndns_time.all,0,sizeof(UN_Time));
+..\..\bacnet\private\user_data.c(1084): warning:  #177-D: variable "i" was declared but never referenced
+        S16_T  i, year;
+..\..\bacnet\private\user_data.c(1084): warning:  #177-D: variable "year" was declared but never referenced
+        S16_T  i, year;
+..\..\bacnet\private\user_data.c(1224): warning:  #177-D: variable "count" was declared but never referenced
+        U8_T count;
+..\..\bacnet\private\user_data.c: 18 warnings, 0 errors
+compiling scan.c...
 ..\USER\remote_connect.h(28): warning:  #375-D: declaration requires a typedef name
   };
 ..\USER\remote_connect.h(34): warning:  #375-D: declaration requires a typedef name
   };
 ..\..\bacnet\include\bvlc.h(56): warning:  #1295-D: Deprecated declaration dlenv_init - give arg types
   void dlenv_init();
-..\..\common\define.h(623): warning:  #375-D: declaration requires a typedef name
+..\..\common\define.h(681): warning:  #375-D: declaration requires a typedef name
   };
-..\..\common\define.h(1052): warning:  #1-D: last line of file ends without a newline
+..\..\common\define.h(1140): warning:  #1-D: last line of file ends without a newline
   #endif
-wifi.h(37): warning:  #375-D: declaration requires a typedef name
-  };
-wifi.h(77): warning:  #1295-D: Deprecated declaration dma_init_uart4 - give arg types
-  void dma_init_uart4();
-wifi.c(121): warning:  #223-D: function "tcp_printf_str" declared implicitly
-                tcp_printf_str(strEsp8266_Fram_Record .Data_RX_BUF);
-wifi.c(108): warning:  #177-D: variable "i" was declared but never referenced
-        int i = 0;
-wifi.c(151): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
-        pos = strstr(str, "+IPD");
-wifi.c(344): warning:  #177-D: variable "testip" was declared but never referenced
-        uint8 testip[4];
-wifi.c(552): warning:  #188-D: enumerated type mixed with another type
-                                while ((!ESP8266_Link_UDP("255.255.255.255",SSID_Info.bacnet_port,SSID_Info.bacnet_port,2,UCID_BACNET)) && (count++ < 5))
-wifi.c(555): warning:  #188-D: enumerated type mixed with another type
-                                while ((!ESP8266_Link_UDP("255.255.255.255",1234,1234,2,UCID_SCAN)) && (count++ < 5))
-wifi.c(599): warning:  #188-D: enumerated type mixed with another type
-                                      ESP8266_SendString(DISABLE, (uint8_t *)&modbus_wifi_buf, modbus_wifi_len, cStr[7] - '0');
-wifi.c(665): warning:  #188-D: enumerated type mixed with another type
-                                      ESP8266_SendString(DISABLE, (uint8_t *)&modbus_wifi_buf, modbus_wifi_len, cStr[7] - '0');
-wifi.c(697): warning:  #188-D: enumerated type mixed with another type
-                                              ESP8266_SendString(DISABLE, (uint8_t *)&bacnet_wifi_buf, bacnet_wifi_len, cStr[7] - '0');
-wifi.c(740): warning:  #188-D: enumerated type mixed with another type
-                                      ESP8266_SendString(DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD), cStr[7] - '0');
-wifi.c(768): warning:  #188-D: enumerated type mixed with another type
-                                                  ESP8266_SendString(DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD), cStr[7] - '0');
-wifi.c(803): warning:  #188-D: enumerated type mixed with another type
-                                          ESP8266_SendString(DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD), cStr[7] - '0');
-wifi.c(861): warning:  #188-D: enumerated type mixed with another type
-                                                  ESP8266_SendString(DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD), cStr[7] - '0');
-wifi.c(399): warning:  #177-D: variable "ip" was declared but never referenced
-        uint8_t ip[4];
-wifi.c(405): warning:  #177-D: variable "ip1" was declared but never referenced
-        uint8_t ip1[4];
-wifi.c(406): warning:  #177-D: variable "ip2" was declared but never referenced
-        uint8_t ip2[4];
-wifi.c(407): warning:  #177-D: variable "i" was declared but never referenced
-        uint8_t i;
-wifi.c(408): warning:  #177-D: variable "status" was declared but never referenced
-        uint8 status;
-wifi.c(903): warning:  #223-D: function "watchdog_init" declared implicitly
-        watchdog_init();        
-wifi.c(905): warning:  #167-D: argument of type "void (*)(void)" is incompatible with parameter of type "TaskFunction_t"
-        sTaskCreate( WIFI_task, "WIFI_task", WifiSTACK_SIZE, NULL, uxPriority, &Wifi_Handler );
-wifi.c(958): warning:  #940-D: missing return statement at end of non-void function "Send_Uart_Data"
+..\HARDWARE\VOC\voc.h(13): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\TCPIP\tcp_debug.h(11): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\..\scan\scan.c(48): warning:  #375-D: declaration requires a typedef name
+  typedef enum { WRITE_OK = 0,WAIT_FOR_WRITE};
+..\..\scan\scan.c(312): warning:  #1293-D: assignment in condition
+        if(length = wait_subnet_response(delay,port))
+..\..\scan\scan.c(396): warning:  #1293-D: assignment in condition
+        if(length = wait_subnet_response(500,port))
+..\..\scan\scan.c(354): warning:  #550-D: variable "length" was set but never used
+        U8_T length, ret = NONE_ID;
+..\..\scan\scan.c(357): warning:  #550-D: variable "tempsem" was set but never used
+        xSemaphoreHandle  tempsem;      
+..\..\scan\scan.c(678): warning:  #940-D: missing return statement at end of non-void function "get_baut_by_port"
   }
-wifi.c(78): warning:  #177-D: function "ESP8266_GPIO_Config" was declared but never referenced
-  static void ESP8266_GPIO_Config ( void )
-wifi.c: 29 warnings, 0 errors
+..\..\scan\scan.c(786): warning:  #177-D: variable "local_id" was declared but never referenced
+        U8_T local_id = Modbus.address;
+..\..\scan\scan.c(787): warning:  #177-D: variable "local_sn" was declared but never referenced
+        U32_T local_sn = ((U32_T)Modbus.serialNum[3] << 24) | ((U32_T)Modbus.serialNum[2] << 16) | \
+..\..\scan\scan.c(958): warning:  #177-D: variable "i" was declared but never referenced
+        U8_T i;
+..\..\scan\scan.c(1267): warning:  #177-D: variable "j" was declared but never referenced
+                                U8_T j;
+..\..\scan\scan.c(1705): warning:  #1293-D: assignment in condition
+        if(length = wait_subnet_response(100,port))
+..\..\scan\scan.c(1584): warning:  #550-D: variable "length" was set but never used
+        U8_T length;
+..\..\scan\scan.c(1855): warning:  #177-D: variable "baut" was declared but never referenced
+        U8_T far baut = 0;
+..\..\scan\scan.c(2756): warning:  #177-D: variable "i" was declared but never referenced
+                U8_T i;
+..\..\scan\scan.c(2917): warning:  #1293-D: assignment in condition
+                if(length = wait_subnet_response(delay_time * 2,port))
+..\..\scan\scan.c(2750): warning:  #550-D: variable "flag_expansion" was set but never used
+        U8_T far flag_expansion;
+..\..\scan\scan.c(3084): warning:  #1293-D: assignment in condition
+        if(length = wait_subnet_response(delay_time,port))
+..\..\scan\scan.c(3156): warning:  #191-D: type qualifier is meaningless on cast type
+        sTaskCreate(ScanTask, (const signed portCHAR * const)"ScanTask", ScanSTACK_SIZE, NULL, uxPriority, (xTaskHandle *)&Handle_Scan);
+..\..\scan\scan.c(3156): warning:  #167-D: argument of type "void (*)(void)" is incompatible with parameter of type "TaskFunction_t"
+        sTaskCreate(ScanTask, (const signed portCHAR * const)"ScanTask", ScanSTACK_SIZE, NULL, uxPriority, (xTaskHandle *)&Handle_Scan);
+..\..\scan\scan.c(3156): warning:  #167-D: argument of type "const signed char *" is incompatible with parameter of type "const char *const"
+        sTaskCreate(ScanTask, (const signed portCHAR * const)"ScanTask", ScanSTACK_SIZE, NULL, uxPriority, (xTaskHandle *)&Handle_Scan);
+..\..\scan\scan.c(3181): warning:  #1293-D: assignment in condition
+        if(length = wait_subnet_response(100,PORT_ZIGBEE))       
+..\..\scan\scan.c(3165): warning:  #550-D: variable "length" was set but never used
+        U16_T length;
+..\..\scan\scan.c(3236): warning:  #1293-D: assignment in condition
+        if(length = wait_subnet_response(5,PORT_ZIGBEE))         
+..\..\scan\scan.c(3221): warning:  #550-D: variable "length" was set but never used
+    U16_T length;
+..\..\scan\scan.c(3270): warning:  #1293-D: assignment in condition
+        if(length = wait_subnet_response(5,PORT_ZIGBEE))         
+..\..\scan\scan.c(3254): warning:  #550-D: variable "length" was set but never used
+    U16_T length;
+..\..\scan\scan.c(3357): warning:  #1293-D: assignment in condition
+        if(length = wait_subnet_response(100,port))      
+..\..\scan\scan.c(3495): warning:  #177-D: variable "j" was declared but never referenced
+        U16_T i,j;
+..\..\scan\scan.c: 35 warnings, 0 errors
+compiling modbus.c...
+..\USER\remote_connect.h(28): warning:  #375-D: declaration requires a typedef name
+  };
+..\USER\remote_connect.h(34): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\bacnet\include\bvlc.h(56): warning:  #1295-D: Deprecated declaration dlenv_init - give arg types
+  void dlenv_init();
+..\..\common\define.h(681): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\common\define.h(1140): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\HARDWARE\VOC\voc.h(13): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\USER\wifi.h(37): warning:  #375-D: declaration requires a typedef name
+  };
+..\USER\wifi.h(77): warning:  #1295-D: Deprecated declaration dma_init_uart4 - give arg types
+  void dma_init_uart4();
+..\TCPIP\tcp_debug.h(11): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\..\common\modbus.c(231): warning:  #1295-D: Deprecated declaration GSM_Test - give arg types
+  void GSM_Test();
+..\..\common\modbus.c(278): warning:  #167-D: argument of type "void (*)(void)" is incompatible with parameter of type "TaskFunction_t"
+        sTaskCreate( main_dealwithData, "mainserailtask", MainSerialSTACK_SIZE, NULL, uxPriority, &Handle_MainSerial );
+..\..\common\modbus.c(518): warning:  #68-D: integer conversion resulted in a change of sign
+                return -1;
+..\..\common\modbus.c(607): warning:  #177-D: variable "count" was declared but never referenced
+        U16_T count = 0;
+..\..\common\modbus.c(689): warning:  #177-D: variable "i" was declared but never referenced
+        U16_T i;
+..\..\common\modbus.c(904): warning:  #177-D: variable "temp" was declared but never referenced
+        U16_T temp = 0;
+..\..\common\modbus.c(966): warning:  #177-D: variable "cTaskWokenByPost" was declared but never referenced
+        U8_T cTaskWokenByPost = FALSE;
+..\..\common\modbus.c(1520): warning:  #177-D: variable "i" was declared but never referenced
+                uint16_t i;
+..\..\common\modbus.c(3520): warning:  #223-D: function "get_high_spd_counter" declared implicitly
+                                                                sendbuf[HeadLen + 3 + loop * 2] = (U8_T)((get_high_spd_counter(index) / 1000) >> 24);
+..\..\common\modbus.c(3525): warning:  #223-D: function "get_high_spd_counter" declared implicitly
+                                                                sendbuf[HeadLen + 3 + loop * 2] = (U8_T)((get_high_spd_counter(index) / 1000) >> 8);
+..\..\common\modbus.c(3983): warning:  #186-D: pointless comparison of unsigned integer with zero
+                        if(StartAdd >= MODBUS_COIL_OUTPUT_START && StartAdd <= MODBUS_COIL_OUTPUT_END )  // BO1-64
+..\..\common\modbus.c(3988): warning:  #223-D: function "get_max_internal_output" declared implicitly
+                                        if(j < get_max_internal_output())
+..\..\common\modbus.c(4103): warning:  #186-D: pointless comparison of unsigned integer with zero
+                if (StartAdd >= MODBUS_SERIALNUMBER_LOWORD && StartAdd <= MODBUS_SERIALNUMBER_LOWORD + 3 )
+..\..\common\modbus.c(4453): warning:  #223-D: function "cal_slop" declared implicitly
+                        cal_slop();
+..\..\common\modbus.c(4481): warning:  #223-D: function "Set_Vendor_ID" declared implicitly
+                        Set_Vendor_ID(Bacnet_Vendor_ID);
+..\..\common\modbus.c(4875): warning:  #223-D: function "get_max_internal_output" declared implicitly
+                                        if(i < get_max_internal_output())
+..\..\common\modbus.c(4943): warning:  #223-D: function "get_max_internal_output" declared implicitly
+                                        if(i < get_max_internal_output())
+..\..\common\modbus.c(4868): warning:  #550-D: variable "old_value" was set but never used
+                                S32_T old_value;
+..\..\common\modbus.c(5786): warning:  #223-D: function "cal_slop" declared implicitly
+                        cal_slop();                             
+..\..\common\modbus.c(2471): warning:  #550-D: variable "read_ok" was set but never used
+        U8_T far read_ok;
+..\..\common\modbus.c(5913): warning:  #167-D: argument of type "unsigned char *" is incompatible with parameter of type "char *"
+                        Set_Object_Name(panelname);             
+..\..\common\modbus.c(5929): warning:  #223-D: function "Sync_timestamp" declared implicitly
+                        Sync_timestamp(swap_word(ptr->reg.time_zone),timezone,0,0);
+..\..\common\modbus.c(5937): warning:  #223-D: function "Sync_timestamp" declared implicitly
+                        Sync_timestamp(0,0,ptr->reg.Daylight_Saving_Time,Daylight_Saving_Time);
+..\..\common\modbus.c(6420): warning:  #177-D: variable "old_value" was declared but never referenced
+                        S32_T old_value;
+..\..\common\modbus.c(6399): warning:  #177-D: variable "j" was declared but never referenced
+        U8_T far i,j;
+..\..\common\modbus.c(6746): warning:  #223-D: function "ESP8266_Set_MAC" declared implicitly
+                        ESP8266_Set_MAC(mac_addr);                      
+..\..\common\modbus.c(6643): warning:  #177-D: variable "i" was declared but never referenced
+        U8_T far i,j;
+..\..\common\modbus.c(6643): warning:  #177-D: variable "j" was declared but never referenced
+        U8_T far i,j;
+..\..\common\modbus.c(6932): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\..\common\modbus.c: 38 warnings, 0 errors
+compiling main.c...
+..\USER\remote_connect.h(28): warning:  #375-D: declaration requires a typedef name
+  };
+..\USER\remote_connect.h(34): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\bacnet\include\bvlc.h(56): warning:  #1295-D: Deprecated declaration dlenv_init - give arg types
+  void dlenv_init();
+..\..\common\define.h(681): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\common\define.h(1140): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\HARDWARE\VOC\voc.h(13): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\..\common\main.c(119): warning:  #223-D: function "Store_Pulse_Counter" declared implicitly
+                Store_Pulse_Counter(1);
+..\..\common\main.c(630): warning:  #223-D: function "cal_slop" declared implicitly
+        cal_slop();
+..\..\common\main.c(1079): warning:  #167-D: argument of type "void (*)(uint8_t *, uint16_t, BACNET_ADDRESS *)" is incompatible with parameter of type "unconfirmed_function"
+      apdu_set_unconfirmed_handler(SERVICE_UNCONFIRMED_WHO_IS, handler_who_is);
+..\..\common\main.c(1081): warning:  #167-D: argument of type "void (*)(uint8_t *, uint16_t, BACNET_ADDRESS *)" is incompatible with parameter of type "unconfirmed_function"
+      apdu_set_unconfirmed_handler(SERVICE_UNCONFIRMED_I_AM, handler_i_am_add);
+..\..\common\main.c(1085): warning:  #167-D: argument of type "void (*)(uint8_t *, uint16_t, BACNET_ADDRESS *, BACNET_CONFIRMED_SERVICE_DATA *, uint8_t)" is incompatible with parameter of type "confirmed_function"
+          (handler_unrecognized_service);
+..\..\common\main.c(1088): warning:  #167-D: argument of type "void (*)(uint8_t *, uint16_t, BACNET_ADDRESS *, BACNET_CONFIRMED_SERVICE_DATA *, uint8_t)" is incompatible with parameter of type "confirmed_function"
+          handler_read_property);
+..\..\common\main.c(1090): warning:  #167-D: argument of type "void (*)(uint8_t *, uint16_t, BACNET_ADDRESS *, BACNET_CONFIRMED_SERVICE_DATA *)" is incompatible with parameter of type "confirmed_function"
+                                        handler_read_property_multiple);
+..\..\common\main.c(1092): warning:  #167-D: argument of type "void (*)(uint8_t *, uint16_t, BACNET_ADDRESS *, BACNET_CONFIRMED_SERVICE_DATA *, uint8_t)" is incompatible with parameter of type "confirmed_function"
+          handler_write_property);
+..\..\common\main.c(1094): warning:  #167-D: argument of type "void (*)(uint8_t *, uint16_t, BACNET_ADDRESS *, BACNET_CONFIRMED_SERVICE_DATA *)" is incompatible with parameter of type "confirmed_function"
+          handler_write_property_multiple);
+..\..\common\main.c(1131): warning:  #167-D: argument of type "unsigned char *" is incompatible with parameter of type "char *"
+                Set_Object_Name(panelname);
+..\..\common\main.c(1249): warning:  #223-D: function "Get_rmp_index_by_panel" declared implicitly
+                                                        if(Get_rmp_index_by_panel(remote_points_list_bacnet[remote_bacnet_index].point.panel,
+..\..\common\main.c(1188): warning:  #177-D: variable "xDelayPeriod" was declared but never referenced
+        portTickType xDelayPeriod  = ( portTickType ) 10 / portTICK_RATE_MS; // 1000
+..\..\common\main.c(1193): warning:  #177-D: variable "Max_count_Mstp" was declared but never referenced
+        uint16_t Max_count_Mstp = 3000;
+..\..\common\main.c(1194): warning:  #177-D: variable "i" was declared but never referenced
+        U8_T i;
+..\..\common\main.c(1379): warning:  #177-D: variable "xDelayPeriod" was declared but never referenced
+        portTickType xDelayPeriod = ( portTickType ) 250 / portTICK_RATE_MS;
+..\..\common\main.c(1380): warning:  #177-D: variable "i" was declared but never referenced
+        U8_T i = 0;
+..\..\common\main.c(1521): warning:  #177-D: variable "xDelayPeriod" was declared but never referenced
+        portTickType xDelayPeriod = ( portTickType ) 1000 / portTICK_RATE_MS;
+..\..\common\main.c(1524): warning:  #550-D: variable "check_sd" was set but never used
+        static U16_T check_sd = 0;
+..\..\common\main.c(1525): warning:  #177-D: variable "DYNDNS_TIMER" was declared but never referenced
+        static U8_T DYNDNS_TIMER = 0; // time  
+..\..\common\main.c(1851): warning:  #177-D: variable "t1" was declared but never referenced
+        static u32 t1 = 0;
+..\..\common\main.c(1852): warning:  #177-D: variable "t2" was declared but never referenced
+        static u32 t2 = 0;
+..\..\common\main.c(2013): warning:  #951-D: return type of function "main" must be "int"
+  void main( void )
+..\..\common\main.c(2034): warning:  #223-D: function "Output_IO_Init" declared implicitly
+        Output_IO_Init();//??
+..\..\common\main.c(2293): warning:  #167-D: argument of type "void (*)(void)" is incompatible with parameter of type "TaskFunction_t"
+        sTaskCreate(Common_task,/* (const signed portCHAR * const)*/"Common_task",
+..\..\common\main.c(2363): warning:  #191-D: type qualifier is meaningless on cast type
+        sTaskCreate(Master_Node_task, (const signed portCHAR * const)"Master_Node_task", BACnet_STACK_SIZE, NULL, tskIDLE_PRIORITY + 11, (xTaskHandle *)&xHandleMSTP);
+..\..\common\main.c(2363): warning:  #167-D: argument of type "void (*)(void)" is incompatible with parameter of type "TaskFunction_t"
+        sTaskCreate(Master_Node_task, (const signed portCHAR * const)"Master_Node_task", BACnet_STACK_SIZE, NULL, tskIDLE_PRIORITY + 11, (xTaskHandle *)&xHandleMSTP);
+..\..\common\main.c(2363): warning:  #167-D: argument of type "const signed char *" is incompatible with parameter of type "const char *const"
+        sTaskCreate(Master_Node_task, (const signed portCHAR * const)"Master_Node_task", BACnet_STACK_SIZE, NULL, tskIDLE_PRIORITY + 11, (xTaskHandle *)&xHandleMSTP);
+..\..\common\main.c(2366): warning:  #167-D: argument of type "void (*)(void)" is incompatible with parameter of type "TaskFunction_t"
+        sTaskCreate(Bacnet_Control,/*(const signed portCHAR * const)*/"BAC_Control_task",
+..\..\common\main.c(2369): warning:  #167-D: argument of type "void (*)(void)" is incompatible with parameter of type "TaskFunction_t"
+        sTaskCreate(Monitor_Task_task, /*(const signed portCHAR * const)*/"monitor_task",
+..\..\common\main.c(2373): warning:  #223-D: function "vStartOutputTasks" declared implicitly
+        vStartOutputTasks(tskIDLE_PRIORITY + 5);
+..\..\common\main.c(2016): warning:  #177-D: variable "set_para" was declared but never referenced
+        U8_T set_para;
+..\..\common\main.c(2018): warning:  #177-D: variable "flag_store" was declared but never referenced
+        U8_T flag_store;
+..\..\common\main.c(47): warning:  #550-D: variable "backup_sub_no" was set but never used
+  static uint8 backup_sub_no = 0;
+..\..\common\main.c(48): warning:  #550-D: variable "backup_current_online_ctr" was set but never used
+  static uint8 backup_current_online_ctr = 0;
+..\..\common\main.c(49): warning:  #550-D: variable "backup_ether_rx_packet" was set but never used
+  static uint32 backup_ether_rx_packet = 0;
+..\..\common\main.c(50): warning:  #550-D: variable "backup_ether_tx_packet" was set but never used
+  static uint32 backup_ether_tx_packet = 0;
+..\..\common\main.c(1972): warning:  #177-D: function "_uart1_dma_configuration" was declared but never referenced
+  static void _uart1_dma_configuration()
+..\..\common\main.c: 43 warnings, 0 errors
+compiling sntpc.c...
+..\..\SNTP\sntpc.c(13): warning:  #9-D: nested comment is not allowed
+  /* INCLUDE FILE DECLARATIONS */
+..\USER\remote_connect.h(28): warning:  #375-D: declaration requires a typedef name
+  };
+..\USER\remote_connect.h(34): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\bacnet\include\bvlc.h(56): warning:  #1295-D: Deprecated declaration dlenv_init - give arg types
+  void dlenv_init();
+..\..\common\define.h(681): warning:  #375-D: declaration requires a typedef name
+  };
+..\..\common\define.h(1140): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\HARDWARE\VOC\voc.h(13): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\TCPIP\tcp_debug.h(11): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\..\SNTP\sntpc.c(140): warning:  #550-D: variable "nRemain" was set but never used
+        U16_T nRemain;
+..\..\SNTP\sntpc.c(399): warning:  #550-D: variable "Buf" was set but never used
+        U8_T far Buf[48];
+..\..\SNTP\sntpc.c(481): warning:  #940-D: missing return statement at end of non-void function "SNTPC_Start"
+  } /* End of SNTPC_Start() */
+..\..\SNTP\sntpc.c(662): warning:  #550-D: variable "time_ptr" was set but never used
+        U8_T *time_ptr;
+..\..\SNTP\sntpc.c(44): warning:  #177-D: variable "timetickinfo" was declared but never referenced
+  static U16_T far timetickinfo;
+..\..\SNTP\sntpc.c(48): warning:  #550-D: variable "sntpc_Conns" was set but never used
+  static SNTPC_CONN far sntpc_Conns;
+..\..\SNTP\sntpc.c(49): warning:  #177-D: variable "sntpc_InterAppId" was declared but never referenced
+  static U8_T far sntpc_InterAppId;
+..\..\SNTP\sntpc.c(51): warning:  #177-D: variable "sntp_Retry" was declared but never referenced
+  static U8_T sntp_Retry = 0;
+..\..\SNTP\sntpc.c: 16 warnings, 0 errors
+compiling tcp_debug.c...
+..\TCPIP\tcp_debug.h(11): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\TCPIP\tcp_debug.c(80): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\TCPIP\tcp_debug.c: 2 warnings, 0 errors
 linking...
-Program Size: Code=178660 RO-data=60536 RW-data=1756 ZI-data=426836  
+Program Size: Code=189752 RO-data=66664 RW-data=2036 ZI-data=470556  
 FromELF: creating hex file...
-"..\OBJ\Tstat10_arm_revxx.axf" - 0 Error(s), 29 Warning(s).
+"..\OBJ\Tstat10_arm_revxx.axf" - 0 Error(s), 207 Warning(s).
 
 <h2>Collection of Component include folders:</h2>
   C:\Work\FirmwareWork\T3BB\arm\USER\RTE

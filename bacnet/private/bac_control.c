@@ -692,7 +692,10 @@ void Bacnet_Control(void) reentrant
 	count_wring_code = 5;
 	Check_All_WR();
 	for(;;)
-  {
+  {		
+#if BAC_TRENDLOG
+		trend_log_timer(0);// 0 is unused parameter
+#endif
 		//vTaskDelay(500 / portTICK_RATE_MS);
 		vTaskDelayUntil( &xLastWakeTime,500 );
 		/* deal with exec_program roution per 1s */	
@@ -732,6 +735,8 @@ void Bacnet_Control(void) reentrant
 		}
 		check_trendlog_1s(2); // T3 里面该函数因为一些特殊放在outputtask
 #endif
+		if(Modbus.mini_type == MINI_NANO )
+			check_trendlog_1s(2);
 		current_task = 9;
 		task_test.count[9]++;
 
@@ -815,8 +820,11 @@ void Bacnet_Control(void) reentrant
 		{
 	   // dealwith controller roution per 1 sec	
 			for(i = 0;i < MAX_CONS; i++)
-			{					
-				pid_controller( i );
+			{	
+					if(controllers[i].input.panel != 0)
+					{
+						pid_controller( i );
+					}
 			}
 			count_10s = 0;
 #if (ARM_MINI || ARM_TSTAT_WIFI)
@@ -885,7 +893,6 @@ void check_trendlog_1s(unsigned char count)
 	if(count_wait_sample >= 100)
 	{
 		count_wait_sample = 0;
-		
 		if(count_1s++ % count == 0)
 		{
 			count_1s = 0;
@@ -1112,18 +1119,18 @@ void check_output_priority_array(U8_T i,U8_T HOA)
 				}
 				if(outputs[i].control == 0xff)
 				{
-					if(i < 2)	Test[14]++;
+					
 				}
 				// when OUT13-OUT24 are used for DO
 				if(outputs[i].control) 
 				{					
 					set_output_raw(i,1000);
-					if(i < 2)	Test[12]++;
+					
 				}
 				else 
 				{
 					set_output_raw(i,0);
-					if(i < 2)	Test[13]++;
+					
 				}
 			}
 			else

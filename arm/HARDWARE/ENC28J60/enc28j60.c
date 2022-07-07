@@ -8,7 +8,12 @@
 static u8 ENC28J60BANK;
 static u32 NextPacketPtr;
 
+u8 flag_reintial_tcpip;
+extern U16_T count_reintial_tcpip;
+u8 count_tcp_hwErr_rx;
+u8 count_tcp_hwErr_tx;
 void tcpip_intial(void);
+void QuickSoftReset(void);
 //复位ENC28J60
 //包括SPI初始化/IO初始化等
 void ENC28J60_Reset(void)
@@ -436,8 +441,8 @@ u8 ENC28J60_Get_EREVID(void)
 //通过ENC28J60发送数据包到网络
 //len:数据包大小
 //packet:数据包
-void ENC28J60_Packet_Send(u32 len, u8* packet)
-{
+u8 ENC28J60_Packet_Send(u32 len, u8* packet)
+{Test[15]++;
 	//设置发送缓冲区地址写指针入口
 	ENC28J60_Write(EWRPTL, TXSTART_INIT & 0xFF);
 	ENC28J60_Write(EWRPTH, TXSTART_INIT >> 8);
@@ -453,19 +458,29 @@ void ENC28J60_Packet_Send(u32 len, u8* packet)
 	ENC28J60_Write_Op(ENC28J60_BIT_FIELD_SET, ECON1, ECON1_TXRTS);
 	//复位发送逻辑的问题。参见Rev. B4 Silicon Errata point 12.
 	if((ENC28J60_Read(EIR) & EIR_TXERIF))
-	{
+	{Test[16]++;
 		ENC28J60_Write_Op(ENC28J60_BIT_FIELD_CLR, ECON1, ECON1_TXRTS);
 		// added by chelsea
-	  // hardware error		
-		Test[18]++;
+	  // hardware error	
+		count_tcp_hwErr_tx++;
+		if(count_tcp_hwErr_tx > 20) // reboot
+			QuickSoftReset();
 #if (ARM_MINI || ARM_CM5)
+			//flag_reintial_tcpip = 1;Test[46]++;
+			//count_reintial_tcpip = 2;
 		tcpip_intial();
 #endif
+		return 0;
+		
 	}
+	else {
+		count_tcp_hwErr_tx = 0;
 	// 改全双工 -> 半双工
-
+Test[17]++;
+	}
 //	if((ENC28J60_Read(EIR)&EIR_TXERIF))
 //		ENC28J60_Write_Op(ENC28J60_BIT_FIELD_CLR,ECON1,ECON1_TXRST); 
+	return 1;
 }
 
 //从网络获取一个数据包内容
@@ -476,6 +491,7 @@ u32 ENC28J60_Packet_Receive(u32 maxlen, u8* packet)
 {
 	u32 rxstat;
 	u32 len;
+	Test[12]++;
 	if(ENC28J60_Read(EPKTCNT) == 0)
 		return 0;  //是否收到数据包?	
 	//设置接收缓冲器读指针
@@ -493,27 +509,39 @@ u32 ENC28J60_Packet_Receive(u32 maxlen, u8* packet)
 	rxstat |= ENC28J60_Read_Op(ENC28J60_READ_BUF_MEM, 0) << 8;
 	//限制接收长度	
 	if (len > maxlen - 1)
-	{Test[16]++;
-		// hardware error		
+	{
+		// hardware error	
+		count_tcp_hwErr_rx++;	
+		if(count_tcp_hwErr_rx > 20) // reboot
+			QuickSoftReset();
 #if (ARM_MINI || ARM_CM5)
+			//flag_reintial_tcpip = 1;Test[46]++;
+			//count_reintial_tcpip = 5;
 		tcpip_intial();
 #endif
+		
 		len = maxlen - 1;
 		return 0;
 	}
 	//检查CRC和符号错误
 	// ERXFCON.CRCEN为默认设置,一般我们不需要检查.
 	if((rxstat & 0x80) == 0)
-	{Test[17]++;
-		// hardware error		
-		#if (ARM_MINI || ARM_CM5)
+	{Test[13]++;
+		// hardware error	
+		count_tcp_hwErr_rx++;	
+		if(count_tcp_hwErr_rx > 20) // reboot
+			QuickSoftReset();
+#if (ARM_MINI || ARM_CM5)
+//			flag_reintial_tcpip = 1;Test[46]++;
+//			count_reintial_tcpip = 5;
 		tcpip_intial();
-		#endif
+#endif
 		len = 0;	//无效
 		return 0;
 	}
 	else
-	{
+	{		Test[14]++;
+		count_tcp_hwErr_rx = 0;
 		ENC28J60_Read_Buf(len, packet);//从接收缓冲器中复制数据包	    
 	}
 	//RX读指针移动到下一个接收到的数据包的开始位置 

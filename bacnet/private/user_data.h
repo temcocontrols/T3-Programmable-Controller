@@ -132,7 +132,7 @@ typedef	union
 	 uint8_t reset_default;	  // write 88
 	 uint8_t com_baudrate[3]; 
 
-		uint8_t  en_username;  // 2-enalbe  1 - disable 0: unused
+	 uint8_t  en_username;  // 2-enalbe  1 - disable 0: unused
 	 uint8_t  cus_unit;
 
 	 uint8_t usb_mode; 
@@ -462,7 +462,7 @@ extern U16_T Last_Contact_Remote_points_modbus[MAXREMOTEPOINTS];
 
 extern U8_T remote_panel_num;
 
-#define MAX_REMOTE_PANEL_NUMBER 30
+#define MAX_REMOTE_PANEL_NUMBER 100
 extern STR_REMOTE_PANEL_DB far remote_panel_db[MAX_REMOTE_PANEL_NUMBER];
 
 extern BACNET_DATE Local_Date;
@@ -528,7 +528,7 @@ U8_T check_remote_point_list(Point_Net *point,U8_T *index, U8_T protocal);
 void put_remote_point_value( S16_T index, S32_T *val_ptr, S16_T prog_op , uint8_t protocal);
 void add_remote_point(U8_T id,U8_T point_type,U8_T high_5bit,U8_T number,S32_T val_ptr,U8_T specail,U8_T float_type);
 void put_network_point_value( S16_T index, S32_T *val_ptr, S16_T prog_op );
-void add_network_point(U8_T panel,U8_T id,U8_T point_type,U8_T number,S32_T val_ptr,U8_T specail);
+void add_network_point(U8_T panel,U8_T id,U8_T point_type,U8_T number,S32_T val_ptr,U8_T specail,U8_T float_type);
 
 void change_panel_number_in_code(U8_T old, U8_T new_panel);
 

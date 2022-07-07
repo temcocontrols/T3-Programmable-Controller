@@ -224,6 +224,13 @@ char* get_label(uint8_t type,uint8_t num)
 		else return "reserved";
 	}
 #endif
+	
+#if BAC_TRENDLOG
+	if(type == TRENDLOG)
+	{
+		return (char*)monitors[io_index].label;
+	}
+#endif
 	return NULL;
 }
 
@@ -574,7 +581,7 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 						return 1;
 					}
 					else
-					{if(io_index < 2)		Test[19]++;
+					{
 						return 0;
 					}
 				}
@@ -2517,9 +2524,10 @@ char Write_temcovars_string_to_buf(uint8_t number,char * str)
 }
 #endif
 
-#if (ARM_MINI || ASIX_MINI || ARM_CM5)
 extern uint8_t header_len;
 extern uint16_t transfer_len;
+#if (ARM_MINI || ASIX_MINI || ARM_CM5)
+
 void Send_UserList_Broadcast(U8_T start,U8_T end)
 {
 	BACNET_PRIVATE_TRANSFER_DATA private_data = { 0 };
@@ -2558,7 +2566,7 @@ void Send_UserList_Broadcast(U8_T start,U8_T end)
 	Send_ConfirmedPrivateTransfer(&dest,&private_data,BAC_IP_CLIENT);
 	
 }
-
+#endif
 
 int Send_private_scan(U8_T index)
 {
@@ -2608,7 +2616,7 @@ int Send_private_scan(U8_T index)
 
 	return invokeid_mstp;
 }
-#endif
+
 #endif
 
 

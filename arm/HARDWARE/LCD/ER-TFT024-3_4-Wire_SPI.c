@@ -651,7 +651,17 @@ void display_screen_value(uint8 type)
 			else
 			{
 					show_value = ((float)vars[type - 1].value) / 1000;
-					sprintf(spbuf, "%.2f", show_value);
+					if(vars[type - 1].value / 1000 >= 10000)
+						show_value = 9999;
+					
+					if(show_value >= 1000)
+					{
+						sprintf(spbuf, "%d",(int)show_value);
+					}
+					else if(vars[type - 1].value / 1000 >= 10)
+						sprintf(spbuf, "%.1f", show_value);
+					else
+						sprintf(spbuf, "%.2f", show_value);
 			}
     }
 		
@@ -1874,7 +1884,7 @@ void Top_area_display(uint8 item, int16 value, uint8 unit)
 		{display_dec(0);
         disp_str(FORM15X30, UNIT_POS - 23, 56, "Pa", TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 		}		
-		else if(unit == TOP_AREA_DISP_UNIT_NONE)
+		else //if(unit == TOP_AREA_DISP_UNIT_NONE)
 		{display_dec(0);
         disp_str(FORM15X30, UNIT_POS - 16, 56, "  ", TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 		}

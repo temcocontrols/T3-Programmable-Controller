@@ -77,7 +77,8 @@ void remap_table(U8_T index,U8_T type)
 	S32_T value;
 	U8_T i,j;
 	U16_T reg;
-
+	
+	if(type == 0) return;
 	if(sub_map[index].add_in_map == 0)
 	{
 		if(type == PM_T3IOA)
@@ -285,7 +286,7 @@ void remap_table(U8_T index,U8_T type)
 		}	
 		else if(type == PM_T38AI8AO6DO)
 		{		
-	
+			Test[36]++;
 			for(i = 0;i < 6;i++)  // 6 do
 			{  
 				reg = T3_8AIAO6DO_DO_REG_START + i;
@@ -328,6 +329,7 @@ void remap_table(U8_T index,U8_T type)
 			sub_map[index].ao_len = 0;
 			sub_map[index].ai_len = 0;
 		}
+		
 		
 		sub_map[index].do_start = base_out;				
 		base_out += sub_map[index].do_len;
@@ -374,7 +376,7 @@ void update_remote_map_table(U8_T id,U16_T reg,U16_T value,U8_T *buf)
 	U8_T temp_res_buf[50];
 	
 	if(get_index_by_id(id,&index) == 1)
-	{
+	{	
 		product = scan_db[index].product_model;
 		if((product == PM_T34AO) || (product == PM_T3IOA) || (product == PM_T38I13O) || (product == PM_T332AI)
 			|| (product == PM_T322AI) || (product == PM_T38AI8AO6DO) || (product == PM_T36CTA) || (product == PM_T3LC)

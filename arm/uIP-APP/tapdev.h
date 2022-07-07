@@ -43,6 +43,6 @@
 
 u8 tapdev_init(void);		//修改为带返回值的函数	 
 uint16_t tapdev_read(void);
-void tapdev_send(void);
+u8 tapdev_send(void);
 
 #endif /* __TAPDEV_H__ */

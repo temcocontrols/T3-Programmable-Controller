@@ -710,7 +710,7 @@ void SMTPC_appcall(void)
 		if (smtpc_Conns.State == SMTP_STATE_WAIT_MESSAGE)
 		{
 			SMTPC_SendMessage("test",20);
-			Test[18]++;			
+
 		}
 	}
 	 	//接收到一个新的TCP数据包 

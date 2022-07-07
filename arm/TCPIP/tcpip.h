@@ -127,7 +127,7 @@ void TCPIP_Task( void *pvParameters );
 // UDP CLIENT SCAN 
 
 #define UDP_SCAN_LPORT 1234
-#define UDP_BACNET_LPORT 47808
+//#define UDP_BACNET_LPORT 47808
 #define UDP_BIP_SEND_LPORT 40005
 void udp_scan_init(void);
 void bip_Init(void);

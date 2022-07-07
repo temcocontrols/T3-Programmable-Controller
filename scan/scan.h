@@ -114,7 +114,7 @@ void Check_whether_clear_conflict_id(void);
 //void check_write_to_nodes(void);
 //void get_parameters_from_nodes(void);
 void write_parameters_to_nodes(U8_T func,U8_T id, U16_T reg, U16_T* value, U8_T len);
-int write_NP_Modbus_to_nodes(U8_T pane,U8_T func,U8_T id, U16_T reg, U16_T value, U8_T len);
+int write_NP_Modbus_to_nodes(U8_T pane,U8_T func,U8_T id, U16_T reg, U16_T* value, U8_T len);
 
 void init_scan_db(void);
 //U8_T check_master_id_in_database(U8_T set_id, U8_T increase) reentrant;

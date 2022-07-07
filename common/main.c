@@ -39,7 +39,7 @@ xTaskHandle far xHandleGSM;
 xTaskHandle far xHandleLCD_task;
 xTaskHandle far xHandleLedRefresh;
 
-extern  uint8_t SendBuff[SENDBUFF_SIZE];  //ÓÃÓÚDMA ´®¿Ú·¢ËÍ
+extern  uint8_t SendBuff[SENDBUFF_SIZE];  //??DMA ????
 //xQueueHandle xLCDQueue;
 xLCDMessage xMessage;
 
@@ -808,12 +808,15 @@ void Read_ALL_Data(void)
 		E2prom_Write_Byte(EEP_PANEL_NUMBER,panel_number);
 	}
  
-//  E2prom_Read_Byte(EEP_NETWORK,&Modbus.network_number);
-//	if(Modbus.network_number == 0 || Modbus.network_number > 32)
-//	{
-//		Modbus.network_number = 1;
-//		E2prom_Write_Byte(EEP_NETWORK,Modbus.network_number);
-//	}	
+  E2prom_Read_Byte(EEP_NETWORK_NUMBER_LO,&temp[0]);
+	E2prom_Read_Byte(EEP_NETWORK_NUMBER_HI,&temp[1]);
+	Modbus.network_number = temp[1] * 256 + temp[0];
+	if(Modbus.network_number == 0)
+	{
+		Modbus.network_number = 0xffff;
+		E2prom_Write_Byte(EEP_NETWORK_NUMBER_LO,Modbus.network_number);
+		E2prom_Write_Byte(EEP_NETWORK_NUMBER_HI,Modbus.network_number >> 8);
+	}	
 	
 	E2prom_Read_Byte(EEP_MSTP_NETWORK_LO,&temp[0]);
 	E2prom_Read_Byte(EEP_MSTP_NETWORK_HI,&temp[1]);
@@ -1067,7 +1070,8 @@ void set_default_parameters(void)
 
 
 uint8_t far PDUBuffer[MAX_APDU];
-void Trend_Log_Init(void);
+
+
 //void Schedule_Init(void);
 
 static void Init_Service_Handlers(
@@ -1156,6 +1160,11 @@ void Inital_Bacnet_Server(void)
 #if BAC_TRENDLOG
 	TRENDLOGS = 8;
 	Trend_Log_Init();
+#endif
+	
+#if BAC_TRENDLOG_MUL
+	TRENDLOGS_MUL = 2;
+	Trend_Log_Mul_Init();
 #endif
 
 #if BAC_PROPRIETARY
@@ -1278,15 +1287,14 @@ void Master_Node_task(void) reentrant
 						
 						if(remote_bacnet_index == number_of_remote_points_bacnet)
 						{  // read private modbus from Temco product
-#if (ARM_MINI || ARM_CM5)
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 							static char j = 0;
 							char count;
-							Test[35]++;
 							if(j < remote_panel_num)//for(j = 0;j < remote_panel_num;j++)
 							{
 								if(remote_panel_db[j].protocal == BAC_MSTP 
 									&& remote_panel_db[j].sn == 0)
-								{Test[36]++;
+								{
 									remote_panel_db[j].retry_reading_panel++;
 									flag_receive_rmbp = 0;									
 									invoke = Send_private_scan(j);
@@ -1295,7 +1303,7 @@ void Master_Node_task(void) reentrant
 										delay_ms(200);									
 								}
 								if(remote_panel_db[j].retry_reading_panel > 5)
-								{Test[37]++;
+								{
 									remote_panel_db[j].sn = remote_panel_db[j].device_id;
 									remote_panel_db[j].retry_reading_panel = 0;
 									remote_panel_db[j].product_model = 0;
@@ -1371,7 +1379,7 @@ U8_T flag_Update_Sntp;
 U8_T Update_Sntp_Retry;
 U8_T flag_Update_Dyndns;
 U8_T Update_Dyndns_Retry;
-
+void Get_Time_by_sec(u32 sec_time,UN_Time * rtc,uint8_t flag);
 #define MAX_DDNS_RETRY_COUNT 5
 void Common_task(void) reentrant
 {
@@ -1396,8 +1404,10 @@ void Common_task(void) reentrant
 #endif
 	count_flash = 0;
 	ChangeFlash = 0;
+	
 	for (;;)
-	{
+	{	
+		
 		vTaskDelay(250 / portTICK_RATE_MS);
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 		if(task_test.count[0] == 0)  // if tcptask is not running, need watchdog in lower task
@@ -1505,13 +1515,15 @@ void Check_Remote_Panel_Table(void);
 void check_whether_suspend_mstp(void);
 void Check_LCD_time_off(void);
 void Check_Whether_TCP_STUCK(void);
-void Check_TCP_UDP_Socket(void);
+void Check_TCP_UDP_Socket(uint16_t bip_port);
+uint8_t check_msv_data_len(uint8_t index);
 
-// Ã¿ÃëÖÓÖ´ÐÐÒ»´Î
+// ???????
 void check_override_timer_1s(void);
-
+void check_transfer_bip_to_mstp(void);
 void Email_Task(void);
 void ESP8266_Rst( void );
+
 void Monitor_Task_task(void) reentrant
 {	
 	portTickType xDelayPeriod = ( portTickType ) 1000 / portTICK_RATE_MS;
@@ -1520,7 +1532,6 @@ void Monitor_Task_task(void) reentrant
 	static U16_T check_sd = 0;
 	static U8_T DYNDNS_TIMER = 0; // time  
 
-	
 	ether_tx_inactive_count = 0;
 	flag_reset_default = 0;
 	flag_reboot = 0;
@@ -1536,47 +1547,43 @@ void Monitor_Task_task(void) reentrant
 	resume_rs485_count = 0;
 	check_sd = 0;
 	Device_Set_Object_Instance_Number(Instance);
-	
+	count_reintial_tcpip = 600;
 	for(;;)
 	{				
 		vTaskDelay(1000 / portTICK_RATE_MS);
 		task_test.count[14]++;	
 		current_task = 14;
 		Check_Program_Output_Pri_valid();
+		
+		
 		Test[8] = ether_rx_packet;
-		Test[9] = ether_tx_packet;
-	
+		if((ether_rx_packet > 999999) || (ether_tx_packet > 999999))
+		{
+			ether_rx_packet = 0;
+			ether_tx_packet = 0;
+		}
 		Check_LCD_time_off();	
 		
 #if ARM_TSTAT_WIFI		
 		memcpy(&Test[0],Setting_Info.reg.display_lcd.lcddisplay,sizeof(lcdconfig));
 		check_override_timer_1s();
 #endif
-		
-		if(run_time % 3600 == 0)
-		{
-#if ARM_MINI || ARM_CM5
-			tcpip_intial();
-#endif
-			
-#if (ASIX_MINI || ASIX_CM5)
-			TCP_IP_Init();
-#endif 
-		}
+
 		
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 #if (ARM_MINI || ARM_CM5)		
 		Check_Whether_TCP_STUCK();
-		Check_TCP_UDP_Socket();
+		Check_TCP_UDP_Socket(Modbus.Bip_port);
 #if REBOOT_PER_WEEK
 		if((Rtc.Clk.week == 0) && (Rtc.Clk.hour == 2) && (Rtc.Clk.min == 0) && (run_time > 3600))
 		{
 			QuickSoftReset();			
 		}
 #endif
+		
 #endif
 		Check_whether_clear_conflict_id();
-
+		//check_transfer_bip_to_mstp();
 		
 #endif
 		
@@ -1832,7 +1839,6 @@ void Monitor_Task_task(void) reentrant
 
 
 void Read_ALL_Data(void);
-u8 flag_tcpip_initial;
 u8 retry_tcpip_intial;
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 void Check_Whether_TCP_STUCK(void)
@@ -1847,46 +1853,53 @@ void Check_Whether_TCP_STUCK(void)
 	{
 		RX = ether_rx_packet;
 		retry_tcpip_intial = 0;
-		count = 0;
+		//count = 0;
 	}
 	else
 	{
 		count++;
-		if(count >= 5)  // no tx rx , for 5s
+		if(count >= 10)  // no rx , for 10s
 		{
+			if(ether_rx_packet > 0) 
+			{
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
-			flag_tcpip_initial = 1;
+#if 	ARM_MINI || ARM_CM5
+			tcpip_intial();Test[44]++;
+#endif
+			count_reintial_tcpip = 60;
+			retry_tcpip_intial++;
 #else
 			TCP_IP_Init();
 #endif
+			}
 			count = 0;
 		}
 	}	
-	
-	if(flag_tcpip_initial == 1)
-	{Test[42]++;
-		flag_tcpip_initial = 0;
+	Test[43] = count_reintial_tcpip;
+	Test[33] = retry_tcpip_intial;
+	//if(flag_reintial_tcpip == 1)
+	{	
+		if(count_reintial_tcpip-- == 0)
+		{Test[42]++;	
 #if (ARM_MINI || ARM_CM5)
 		tcpip_intial();
 		
 #elif (ASIX_MINI || ASIX_CM5)
 		TCP_IP_Init();
 #endif
-		
-		t1 = uip_timer;
-		if(t1 - t2 > 60000)  // 1min
-		{
-			t2 = uip_timer;
+			count_reintial_tcpip = 60;
 			retry_tcpip_intial++;
-			if(retry_tcpip_intial > 5)
-			// reboot
-			{
-				Test[43]++;
-//				if(ether_rx_packet > 0) 
-//					flag_reboot = 1;
-			}
-			
+		}		
+		
+
+		if(retry_tcpip_intial >= 5)
+		// reboot
+		{retry_tcpip_intial = 0;
+			Test[47]++;			
+			if(ether_rx_packet > 0) 
+				QuickSoftReset();
 		}
+			
 	}
 	
 }
@@ -1966,31 +1979,31 @@ static void _uart1_dma_configuration()
 
     /* DMA1 Channel5 (triggered by USART1 Rx event) Config */
     DMA_DeInit(DMA1_Channel5);
-    DMA_InitStructure.DMA_PeripheralBaseAddr = USART1_DR_Base;// ³õÊ¼»¯ÍâÉèµØÖ·£¬Ïàµ±ÓÚ¡°ÄÄ¼Ò¿ìµÝ¡±
-    DMA_InitStructure.DMA_MemoryBaseAddr = (u32)receivebuf;// ÄÚ´æµØÖ·£¬Ïàµ±ÓÚ¼¸ºÅ¹ñ
-    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;//ÍâÉè×÷ÎªÊý¾ÝÀ´Ô´£¬¼´ÎªÊÕ¿ìµÝ
-    DMA_InitStructure.DMA_BufferSize = DMASIZE;// »º´æÈÝÁ¿£¬¼´¹ñ×Ó´óÐ¡
-    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable; // ÍâÉèµØÖ·²»µÝÔö£¬¼´¹ñ×Ó¶ÔÓ¦µÄ¿ìµÝ²»±ä
-    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;// ÄÚ´æµÝÔö
-    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte; //ÍâÉè×Ö½Ú¿í¶È£¬¼´¿ìµÝÔËÊä¿ì¼þ´óÐ¡¶ÈÁ¿£¨°´ÖØÁ¿Ëã£¬»¹ÊÇ°´Ìå»ýËã£©
-    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;// ÄÚ´æ×Ö½Ú¿í¶È£¬¼´µêÖ÷·â×°¿ìµÝµÄ¶ÈÁ¿(°´ÖØÁ¿£¬»¹ÊÇ°´ÌåÖÊ½øÐÐ·â×°)
-    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;// Õý³£Ä£Ê½£¬¼´ÂúÁË¾Í²»ÔÚ½ÓÊÕÁË£¬¶ø²»ÊÇÑ­»·´æ´¢
-    DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;// ÓÅÏÈ¼¶ºÜ¸ß£¬¶ÔÓ¦¿ìµÝ¾ÍÊÇ¼Ó¼±
-    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable; // ÄÚ´æÓëÍâÉèÍ¨ÐÅ£¬¶ø·ÇÄÚ´æµ½ÄÚ´æ
-    DMA_Init(DMA1_Channel5, &DMA_InitStructure);// °Ñ²ÎÊý³õÊ¼»¯£¬¼´ÄâºÃÓë¿ìµÝ¹«Ë¾µÄÐ­Òé
+    DMA_InitStructure.DMA_PeripheralBaseAddr = USART1_DR_Base;// ???????,???“????”
+    DMA_InitStructure.DMA_MemoryBaseAddr = (u32)receivebuf;// ????,??????
+    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;//????????,?????
+    DMA_InitStructure.DMA_BufferSize = DMASIZE;// ????,?????
+    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable; // ???????,??????????
+    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;// ????
+    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte; //??????,???????????(????,??????)
+    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;// ??????,??????????(???,?????????)
+    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;// ????,?????????,???????
+    DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;// ?????,????????
+    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable; // ???????,???????
+    DMA_Init(DMA1_Channel5, &DMA_InitStructure);// ??????,???????????
 
-    DMA_Cmd(DMA1_Channel5, ENABLE);// Æô¶¯DMA£¬¼´Óë¿ìµÝ¹«Ë¾Ç©¶©ºÏÍ¬£¬ÕýÊ½ÉúÐ§
+    DMA_Cmd(DMA1_Channel5, ENABLE);// ??DMA,??????????,????
 
                                    /* DMA1 Channel4 (triggered by USART1 Tx event) Config */
     DMA_DeInit(DMA1_Channel4);
-    DMA_InitStructure.DMA_PeripheralBaseAddr = USART1_DR_Base;  // ÍâÉèµØÖ·£¬´®¿Ú1£¬ ¼´·¢¼þµÄ¿ìµÝ
-    DMA_InitStructure.DMA_MemoryBaseAddr = (u32)sendbuf;// ·¢ËÍÄÚ´æµØÖ·
-    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralDST;// ÍâÉèÎª´«ËÍÊý¾ÝÄ¿µÄµØ£¬¼´·¢ËÍÊý¾Ý£¬¼´¿ìµÝÊÇ·¢¼þ
-    DMA_InitStructure.DMA_BufferSize = 0;  //·¢ËÍ³¤¶ÈÎª0£¬¼´Î´ÓÐ¿ìµÝÐèÒª·¢ËÍ
-    DMA_Init(DMA1_Channel4, &DMA_InitStructure);//³õÊ¼»¯
+    DMA_InitStructure.DMA_PeripheralBaseAddr = USART1_DR_Base;  // ????,??1, ??????
+    DMA_InitStructure.DMA_MemoryBaseAddr = (u32)sendbuf;// ??????
+    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralDST;// ??????????,?????,??????
+    DMA_InitStructure.DMA_BufferSize = 0;  //?????0,?????????
+    DMA_Init(DMA1_Channel4, &DMA_InitStructure);//???
 
-    USART_ITConfig(USART1, USART_IT_TC, ENABLE);// Ê¹ÄÜ´®¿Ú·¢ËÍÍê³ÉÖÐ¶Ï
-    USART_DMACmd(USART1, USART_DMAReq_Tx | USART_DMAReq_Rx, ENABLE);// Ê¹ÄÜDMA´®¿Ú·¢ËÍºÍ½ÓÊÜÇëÇó
+    USART_ITConfig(USART1, USART_IT_TC, ENABLE);// ??????????
+    USART_DMACmd(USART1, USART_DMAReq_Tx | USART_DMAReq_Rx, ENABLE);// ??DMA?????????
 }
 #endif
 
@@ -2018,9 +2031,9 @@ void main( void )
 	for(loop = 0;loop < 50;loop++)	Test[loop] = 0;	
 
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
-	Output_IO_Init();//²âÊÔ
+	Output_IO_Init();//??
 	uart1_init(115200);
-// Èç¹ûÉÏÒ»´ÎÌø×ªÊÇÄ¬ÈÏ×Ô¼º
+// ????????????
 #if REBOOT_PER_WEEK
 	if(AT24CXX_ReadOneByte(EEP_APP2BOOT_TYPE) == 0x55)
 	{
@@ -2269,7 +2282,7 @@ void main( void )
 	uart_send_string(debug_str,strlen(debug_str),UART_SUB1);
 #endif 
 #if (ARM_MINI || ARM_TSTAT_WIFI)
-	vStartWifiTasks(tskIDLE_PRIORITY + 14); 		
+	vStartWifiTasks(tskIDLE_PRIORITY + 10); 		
 #endif
 
 #if ARM_TSTAT_WIFI

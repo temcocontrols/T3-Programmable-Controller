@@ -80,10 +80,11 @@ void Float_to_Byte(float f, unsigned char *mybyte,  unsigned char ntype)
 
     if (ntype == FLOAT_TYPE_ABCD)
     {
-       mybyte[0] = transfer_byte1[0];
-       mybyte[1] = transfer_byte1[1];
-       mybyte[2] = transfer_byte1[2];
-       mybyte[3] = transfer_byte1[3];
+			mybyte[0] = transfer_byte1[0];
+			mybyte[1] = transfer_byte1[1];
+			mybyte[2] = transfer_byte1[2];
+			mybyte[3] = transfer_byte1[3];
+			
     }
     else if (ntype == FLOAT_TYPE_CDAB)
     {
@@ -699,8 +700,8 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 								prog += 3;
 								val1 = veval_exp(local);
 								val2 = veval_exp(local);
-								step = veval_exp(local);
-								if(val2>=val1)
+								step = veval_exp(local);		
+								if(val2 >= val1)
 								{
 								 put_local_var(p,val1,local);
 								 prog += 2;
@@ -725,13 +726,12 @@ S16_T exec_program(S16_T current_prg, U8_T *prog_code)
 								step = veval_exp(local);
 								q = prog;
 								prog = p;
-								value=operand(NULL,local);    /*	veval_exp(local);*/
-								value += step;
-								
+								value = operand(NULL,local);   /* 	veval_exp(local);*/
+								value += step;								
 								put_local_var(p,value,local);
 								prog = q;
-								if(value<=val2)
-								{									
+								if(value <= val2)
+								{					
 									prog += 2;
 								}
 								else
@@ -1264,6 +1264,72 @@ S32_T veval_exp(U8_T *local)
 				push(swap_double(rs232_cmd.res));	
 				break;
 #endif
+		case MB_BW:
+			 {uint8_t panel,sub_id,len;
+				uint16_t addr;
+				Point_Net point;
+			  uint16_t val[25];
+				uint8_t buf[50];
+				m = *prog++;				
+				
+				if((m < 3) || (m > 25)) 
+					break;
+				 
+				for(i = 0;i < m;i++)
+				{
+					op1 = pop()/1000;
+	 				//op1 = swap_double(op1); 
+					val[m - i - 1] = op1;					
+				}				
+				
+				point.panel =  panel_number;//val[0];
+				point.sub_id = val[0];
+				point.number = LOW_BYTE(val[1]);
+				point.point_type = (HIGH_BYTE(val[1]) << 5) + VAR + 1;
+				point.network_number = (HIGH_BYTE(val[1]) >> 3) + 0x80;
+				len = m - 2;
+				for (i = 0;i < m-2; i++)
+				{
+					buf[2 * i] = HIGH_BYTE(val[2 + i]);
+					buf[2 * i + 1] = LOW_BYTE(val[2 + i]);
+				}
+				{	
+					put_net_point_value(&point,(int *)&buf,len*2,1,1);
+				}
+				push(1000);
+			}
+			break;
+		case MB_BW_COIL:
+			 {uint8_t panel,sub_id,len;
+				uint16_t addr;
+				Point_Net point;
+			  uint16_t val[25];
+				m = *prog++;				
+				
+				if((m < 3) || (m > 25)) 
+					break;
+				 
+				for(i = 0;i < m;i++)
+				{
+					op1 = pop()/1000;
+	 				//op1 = swap_double(op1); 
+					val[m - i - 1] = op1;					
+				}			
+				
+				point.panel = panel_number;//val[0];
+				point.sub_id = val[0];
+				point.number = LOW_BYTE(val[1]);
+				point.point_type = (HIGH_BYTE(val[1]) << 5) + MB_COIL_REG + 1;
+				point.network_number = (HIGH_BYTE(val[1]) >> 3) + 0x80;
+				//len = val[3];
+				len = m - 2;
+				//if(len == m - 3)
+				{	
+					put_net_point_value(&point,(int *)&val[2],len*2,1,1);
+				}
+				push(1000);
+			}
+			break;
 	 case MAX:
 				m = *prog++;
 				value = swap_double(pop());
@@ -1276,6 +1342,7 @@ S32_T veval_exp(U8_T *local)
 				}
 				push(swap_double(value));
 				break;
+		
 	 case MIN:
 				m = *prog++;
 				value = swap_double(pop());
@@ -1351,7 +1418,7 @@ S32_T veval_exp(U8_T *local)
 				    i = i * 2;
 				else
 					i = i * 2 + 1;	
-				
+
 				if(((op2 / 1000) <= 0)		||					
 				((i < 0) || (i >= MAX_SCHEDULES_PER_WEEK )) ||
 					(m <= 0))
@@ -1359,7 +1426,8 @@ S32_T veval_exp(U8_T *local)
 					push(0);
 					break;
 				}
-				value = (S32_T)wr_times[(op2/1000)-1][m - 1].time[i].hours * 3600L + (S32_T)wr_times[(op2/1000)-1][m - 1].time[i].minutes * 60L;
+
+				value = (S32_T)wr_times[(op2/1000)-1][m].time[i].hours * 3600L + (S32_T)wr_times[(op2/1000)-1][m].time[i].minutes * 60L;
 				
 				push(swap_double(value*1000L));				 
 				 
@@ -1401,8 +1469,8 @@ S32_T veval_exp(U8_T *local)
 				power_loss = 1;
 				push(swap_double(1));	
 			}
-			else
-				push(swap_double(0));	
+			else{
+				push(swap_double(0));	}
 		}			
 		break;
 		case SCANS:	 push(swap_double(1));  break;  /* nr scanari pe secunda*/						 
@@ -1434,8 +1502,9 @@ S32_T veval_exp(U8_T *local)
 //								value =  3600000L * Rtc.Clk.hour + 60000L * Rtc.Clk.min + 1000L * Rtc.Clk.sec;
 //						}
 //						else
-							value =  3600000L * Rtc.Clk.hour + 60000L * Rtc.Clk.min + 1000L * Rtc.Clk.sec;// - (S16_T)timezone * 36000;
-								
+							//value =  3600000L * Rtc.Clk.hour + 60000L * Rtc.Clk.min + 1000L * Rtc.Clk.sec;// - (S16_T)timezone * 36000;
+						// hour * 100 + min + sec / 100
+						value =  100000L * Rtc.Clk.hour + 1000L * Rtc.Clk.min + 10L * Rtc.Clk.sec;		
 						push(swap_double(value));
 						break;
 		case USER_A:	 // ethernet
@@ -1534,6 +1603,7 @@ S32_T operand(S8_T **buf,U8_T *local)
 		else */
 		{	
 			get_point_value( ( (Point *)(++prog) ), &value );
+			
 			prog += sizeof(Point);
 
 		}

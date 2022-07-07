@@ -14,7 +14,13 @@
 #pragma anon_unions
 #endif
 
-
+#if ARM_TSTAT_WIFI
+typedef struct
+{
+	U8_T buf[600];
+	U16_T len;
+}STR_SEND_BUF;
+#endif 
 
 /******************************* ESP8266 数据类型定义 ***************************/
 typedef enum{

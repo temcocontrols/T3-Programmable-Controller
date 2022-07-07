@@ -1044,7 +1044,7 @@ typedef struct
 }	REMOTE_POINTS; /* 1+5+4+2+2=14 bytes */
 
 
-#define NP_TIME_TO_LIVE 10   	// network points 10s
+#define NP_TIME_TO_LIVE 30   	// network points 10s
 #define RB_TIME_TO_LIVE 10		// remote bacnet 10s
 #define RM_TIME_TO_LIVE 20		// remote modbus 20s
 
@@ -1431,7 +1431,7 @@ typedef struct
 
 #define STR_MSV_NAME_LENGTH 		20
 #define STR_MSV_MULTIPLE_COUNT 	8
-#define MAX_MSV 				3
+#define MAX_MSV 				4
 
 typedef struct
 {

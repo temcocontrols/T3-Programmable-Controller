@@ -176,7 +176,6 @@ void RM_Rec_appcall(void)
 			
 				break;
 				case COMMAND_T3000_SEND_TO_DEVICE_MAKEHOLE:
-					Test[19]++;
 					break;
 			}
 		}			

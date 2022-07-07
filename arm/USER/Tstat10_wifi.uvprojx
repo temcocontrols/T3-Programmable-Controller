@@ -646,9 +646,9 @@
               <FilePath>..\..\bacnet\bip.c</FilePath>
             </File>
             <File>
-              <FileName>bacnet_ARM_revXX_mini.lib</FileName>
+              <FileName>bacnet_ARM_rev17_mini.lib</FileName>
               <FileType>4</FileType>
-              <FilePath>..\..\..\BACLIB\bacnet_ARM_revXX_mini.lib</FilePath>
+              <FilePath>..\..\bacnet\bacnet_ARM_rev17_mini.lib</FilePath>
             </File>
           </Files>
         </Group>

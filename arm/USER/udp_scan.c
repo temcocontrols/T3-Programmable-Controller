@@ -42,7 +42,10 @@ void udp_scan_init(void)
 	// udp server
 	uip_listen(HTONS(UDP_SCAN_LPORT));
 	tempaddr = 0xffffffff;
-	uip_ipaddr_copy(&addr,&tempaddr);
+//	uip_ipaddr_copy(&addr,&tempaddr);
+//	uip_ipaddr_copy(addr, 0xffffffff);
+	memcpy(&addr, &tempaddr, sizeof(uip_ipaddr_t));
+	
 	conn = uip_udp_new(&addr, HTONS(UDP_SCAN_LPORT)); // des port
 	if(conn != NULL) 
 	{ 

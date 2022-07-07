@@ -4,7 +4,6 @@
 #define USART_SEND_LEN			512
 
 
-
 typedef struct
 {
 	uint8 MANUEL_EN;	// 0 - smartconfig 		1 - t3000·½Ê½ 		2 - disable wifi

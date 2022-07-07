@@ -2,6 +2,7 @@
 #include "wifi.h"
 #include "bsp_esp8266.h"
 
+
 void Sync_with_NTP_by_Wifi(void);
 char Get_SSID_RSSI(void);
 #if ARM_MINI
@@ -15,7 +16,7 @@ uint8 flag_set_wifi;
 #define WIFI_CONNECTED 			1
 #define WIFI_DISCONNECTED   0
 
-#define WifiSTACK_SIZE 1024//2048
+#define WifiSTACK_SIZE 1000//2048
 xTaskHandle Wifi_Handler;
 extern uint8_t PDUBuffer_BIP[MAX_APDU];
 STR_SSID	SSID_Info;
@@ -24,6 +25,32 @@ u8 wifi_send_buf[1000];
 u16 wifi_sendbyte_num;
 u16 wifi_send_count;
 char * itoa( int value, char *string, int radix );	
+
+
+
+#if ARM_TSTAT_WIFI
+STR_SEND_BUF mstp_bac_buf[10];
+u8 rec_mstp_index;
+u8 send_mstp_index;
+u8 rec_mstp_index1; // response packets form   
+u8 send_mstp_index1;
+STR_SEND_BUF mstp_bac_buf1[10];
+#endif
+u8 count_transfer_bip_to_mstp;
+
+void check_transfer_bip_to_mstp(void)
+{
+	if(rec_mstp_index1 > 0)
+	{
+		count_transfer_bip_to_mstp++;
+		if(count_transfer_bip_to_mstp > 5)
+		{
+			rec_mstp_index1 = 0;
+			count_transfer_bip_to_mstp = 0;
+			Test[26]++;
+		}
+	}
+}
 
 /**
   * @brief  初始化ESP8266用到的GPIO引脚
@@ -118,9 +145,8 @@ void UART4_IRQHandler(void)
 	if( USART_GetITStatus( macESP8266_USARTx, USART_IT_IDLE ) == SET )                                         //数据帧接收完毕
 	{
     strEsp8266_Fram_Record .InfBit .FramFinishFlag = 1;
-		tcp_printf_str(strEsp8266_Fram_Record .Data_RX_BUF);
+//		tcp_printf_str(strEsp8266_Fram_Record .Data_RX_BUF);
 		ucCh = USART_ReceiveData( macESP8266_USARTx );                                         //由软件序列清除中断标志位(先读USART_SR，然后读USART_DR)
-	
   }	
 
 }
@@ -381,7 +407,9 @@ void connect_AP(void)
 	check_linkStatus();
 }
 
+extern uint8_t count_hold_on_bip_to_mstp;
 extern uint8_t flag_send_ntp_by_wifi;
+extern u32 t_1;
 uint8 count_reboot_wifi = 0;
 uint8_t bacnet_wifi_buf[600];
 uint16_t bacnet_wifi_len;
@@ -423,7 +451,7 @@ void WIFI_task(void) reentrant//one second base software timer
 	
 #if ARM_TSTAT_WIFI 
 	SSID_Info.modbus_port = 502;
-	SSID_Info.bacnet_port = 47808;
+	SSID_Info.bacnet_port = Modbus.Bip_port;//47808;
 	itoa(SSID_Info.modbus_port,tcp_port,10);
 	ESP8266_Init();	
 	delay_ms ( 2000 ); 
@@ -508,7 +536,6 @@ void WIFI_task(void) reentrant//one second base software timer
 	for(;;)
 	{	
 		delay_ms(5) ;
-		
 		if(ATret == 2)
 		{
 			if(flag_set_wifi == 1)
@@ -727,6 +754,7 @@ void WIFI_task(void) reentrant//one second base software timer
 					}	
 					else 	if(ucID == UCID_BACNET) // udp bacnet port 47808
 					{
+						U8_T i;
 						uint16_t pdu_len = 0;  
 						BACNET_ADDRESS far src;
 						count = 0;
@@ -736,13 +764,45 @@ void WIFI_task(void) reentrant//one second base software timer
 							pdu_len = datalink_receive(&src, &packet[0], packet_len, 0 ,BAC_IP);
 							{
 								if((pdu_len > 0) && (pdu_len < 512)) 
-								{ 
+								{
 									npdu_handler(&src, &packet[0], pdu_len, BAC_IP);	
+									// check whether need wait rec_mstp_index1
+									
+									if(count_hold_on_bip_to_mstp > 0)
+									{
+										i = 0;
+										while(rec_mstp_index1 == 0 && i++ < 10)
+											delay_ms(50);
+										if(rec_mstp_index1 > 0)
+										{	
+											count_hold_on_bip_to_mstp = 0;											
+											for(i = 0;i < rec_mstp_index1;i++)									
+											{
+												ESP8266_SendString ( DISABLE, (uint8_t *)mstp_bac_buf1[i].buf, mstp_bac_buf1[i].len,cStr[7] - '0' );
+												delay_ms(1);
+											}										
+											rec_mstp_index1 = 0;
+										}
+										
+									}		
+													
 									if(bacnet_wifi_len > 0)
 									{
 										ESP8266_SendString ( DISABLE, (uint8_t *)&bacnet_wifi_buf, bacnet_wifi_len,cStr[7] - '0' );
-										bacnet_wifi_len = 0;
-									}
+										bacnet_wifi_len = 0;											
+									}	
+									
+									if(rec_mstp_index > 0)
+									{
+										for(i = 0;i < rec_mstp_index;i++)
+										{
+											if(mstp_bac_buf[i].len > 0)
+											{delay_ms(1);
+												ESP8266_SendString ( DISABLE, (uint8_t *)&mstp_bac_buf[i].buf, mstp_bac_buf[i].len,cStr[7] - '0' );
+											}
+										}
+										rec_mstp_index = 0;
+									}																					
 								}			
 							}	
 						}
@@ -782,8 +842,7 @@ void WIFI_task(void) reentrant//one second base software timer
 								memcpy(&Scan_Infor.panelname,panelname,20);			
 								//uip_send((char *)&Scan_Infor, sizeof(STR_SCAN_CMD));
 								Scan_Infor.zigbee_exist = zigbee_exist | 0x02; 
-								ESP8266_SendString ( DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD),cStr[7] - '0' );
-
+								ESP8266_SendString ( DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD),cStr[7] - '0' );							
 							//	rec_scan_index = 0;
 							
 							// for MODBUS device
@@ -854,8 +913,7 @@ void WIFI_task(void) reentrant//one second base software timer
 								
 					// for MSTP device		
 								for(i = 0;i < remote_panel_num;i++)
-								{	 
-									
+								{	
 									if(remote_panel_db[i].protocal == BAC_MSTP)
 									{
 				//						BACNET_ADDRESS dest = { 0 };
@@ -901,8 +959,8 @@ void WIFI_task(void) reentrant//one second base software timer
 											memcpy(&Scan_Infor.panelname,temp_name,20);
 											
 											Scan_Infor.subnet_protocal = 12;  // MSTP device
-											Scan_Infor.zigbee_exist = zigbee_exist | 0x02; 
-											
+											Scan_Infor.zigbee_exist = zigbee_exist | 0x02;	
+											delay_ms(1);
 											ESP8266_SendString ( DISABLE, (uint8_t *)&Scan_Infor, sizeof(STR_SCAN_CMD),cStr[7] - '0' );
 		//									if(rec_scan_index < 19)
 		//									memcpy(&Infor[rec_scan_index++],&Scan_Infor, sizeof(STR_SCAN_CMD));		
@@ -941,9 +999,8 @@ void WIFI_task(void) reentrant//one second base software timer
 					count_checkip = 0;
 					IWDG_ReloadCounter();
 					if(ESP8266_CIPSTA_CUR(1) == 2)
-						get_ip = 0;
-				}
-				
+						get_ip = 0;					
+				}			
 			}
 		}	
 	}

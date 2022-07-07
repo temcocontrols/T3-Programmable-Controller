@@ -129,7 +129,7 @@ void SNTPC_Event(U8_T id, U8_T event)
 } /* End of SNTPC_Event() */
 #endif
 
-
+#define FOURYEARS 1461
 
 void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 {
@@ -137,10 +137,10 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 	U8_T	hour, min;	
 	U8_T	i;
 	U16_T temp_YY;
-	
+	U16_T nRemain;
 	i = 0;
 	tt->timestamp = timestamp;
-	memcpy(&Test[25],&timestamp,4);
+//	memcpy(&Test[25],&timestamp,4);
 	signhour = timezone / 100;
 	signmin = timezone % 100;
 	
@@ -175,10 +175,15 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 	tt->YY = tt->day_total / 365.2425;
 	
 	temp_YY = tt->YY;
+	
 	if(source == 0)  // time server
 		temp_YY += 1900;
 	else  // PC
-		temp_YY += 1970;	
+		temp_YY += 1970;
+	
+		
+	
+	nRemain = tt->day_total / 1461;
 	if((temp_YY % 4) == 0)
 	{
 		tt->DD_r = tt->day_total-(tt->YY*365)-(tt->YY/4);
@@ -197,32 +202,33 @@ void Get_RTC_by_timestamp(U32_T timestamp,TimeInfo *tt,UN_Time* rtc,U8_T source)
 	else
 	{	
 		tt->DD_r = tt->day_total-(tt->YY*365)-(tt->YY/4);
-		if(source == 0)
+		
+		if(((temp_YY - 1) % 4) == 0)
 		{
-			tt->DD_r++;
+			
 		}
-		if(tt->DD_r > 365){
-			tt->DD_r = 1;
-			tt->YY++;
-		}
+		else
+			tt->DD_r++;	
+				
 		while(tt->DD_r > 0)
 		{
 			tt->DD = tt->DD_r;
 			tt->DD_r -= Month[i];
 			i++;
 		}
+		
 	}
 	tt->MM = i;	
 	if(source == 0)  // time server
 		tt->YY += 1900;
 	else  // PC
 		tt->YY += 1970;	
-	
 
 	rtc->Clk.sec = tt->SS;
 	rtc->Clk.min = tt->MI;
 	rtc->Clk.hour = tt->HH;
 	rtc->Clk.day = tt->DD;
+	
 //	Rtc.Clk.week = tt.SS;
 	rtc->Clk.mon = tt->MM;
 	rtc->Clk.year = tt->YY - 2000;
@@ -692,11 +698,14 @@ void update_sntp(void)
 					flag_Updata_Clock = 1;
 #endif						
 					}		
-   				if(Rtc.Clk.year % 4 == 0)
+   				/*if(Rtc.Clk.year % 4 == 0)
 					{			
 						if(Rtc.Clk.day_of_year > 60)
 							update_sntp_last_time = get_current_time() + 86400;
 					}
+					else*/
+						update_sntp_last_time = get_current_time();
+						
 					E2prom_Write_Byte(EEP_SNTP_TIME4,(U8_T)(update_sntp_last_time >> 24));
 					E2prom_Write_Byte(EEP_SNTP_TIME3,(U8_T)(update_sntp_last_time >> 16));
 					E2prom_Write_Byte(EEP_SNTP_TIME2,(U8_T)(update_sntp_last_time >> 8));

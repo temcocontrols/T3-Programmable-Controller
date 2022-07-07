@@ -13,7 +13,7 @@ extern void set_output_raw(uint8_t point,uint16_t value);
 extern U8_T far output_pri_live[MAX_OUTS];
 S8_T get_point_info_by_instacne(Point_Net * point);
 uint16_t get_reg_from_list(uint8_t type,uint8_t index,uint8_t * len);
-
+U16_T crc16(U8_T *p, U8_T length);
 /*
  * ----------------------------------------------------------------------------
  * Function Name: rtrim
@@ -109,7 +109,7 @@ S16_T find_remote_point( Point_Net *point )
 //	else
 //		flag = 0;
 
-	for( i=0; i<MAXREMOTEPOINTS; i++, ptr++ )
+	for(i = 0; i < MAXREMOTEPOINTS; i++, ptr++)
 	{
 		if( ptr->count )
 		{
@@ -179,9 +179,9 @@ U8_T check_remote_point_list(Point_Net *point,U8_T *index, U8_T protocal)
 	for(i = 0;i < MAXREMOTEPOINTS;i++,ptr++)
 	{		
 		if(/*(point->network_number == remote_points_list[i].point.network_number) &&*/ 
-		(point->panel == ptr->point.panel) &&  
+		(point->panel == ptr->point.panel) &&
 		(point->sub_id == ptr->point.sub_id) &&
-		(point->point_type == ptr->point.point_type) && 
+		(point->point_type == ptr->point.point_type) &&
 		(point->number == ptr->point.number) )
 		{
 			*index = i;
@@ -295,7 +295,7 @@ void add_remote_point(U8_T id,U8_T point_type,U8_T high_5bit, U8_T number,S32_T 
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 // special -- 2: bacnet points, 0/1 - modbus points
 
-void add_network_point(U8_T panel,U8_T id,U8_T point_type,U8_T number,S32_T val_ptr,U8_T specail)
+void add_network_point(U8_T panel,U8_T id,U8_T point_type,U8_T number,S32_T val_ptr,U8_T specail,U8_T float_type)
 {
 	NETWORK_POINTS ptr;//	Point_Net *point; 
 	U8_T index;
@@ -326,31 +326,49 @@ void add_network_point(U8_T panel,U8_T id,U8_T point_type,U8_T number,S32_T val_
 		else if(type == READ_DIS_INPUT)
 			ptr.point.point_type = MB_DIS_REG + 1 + number_high3bit;
 		else if(type == READ_INPUT)
+		{
 			ptr.point.point_type = MB_IN_REG + 1 + number_high3bit;
+			float_type = 1;			// read input float 32bit
+			protocal = 0;			
+		}
 		else if(type == READ_VARIABLES)
 		{
 			if(specail == 1) 
 				ptr.point.point_type = MB_REG + 1 + number_high3bit;
 			else   // MB_REG & REG
 				ptr.point.point_type = VAR + 1 + number_high3bit;	
+			
+			if(float_type > 0)
+			{
+				ptr.point.point_type = ((BAC_FLOAT_ABCD + float_type) & 0x1f) + number_high3bit;
+				ptr.point.network_number |= ((BAC_FLOAT_ABCD + float_type) & 0x60);
+			}
 		}
 		protocal = 0;
 	}
 	// network panel
-
+	
 	if(check_network_point_list(&ptr.point,&index,protocal))
 	{
 #if NETWORK_MODBUS	
 		if(protocal == 0) // modbus
 		{
-			network_points_list_modbus[index].point_value = val_ptr;
+			if(float_type == 0)
+			{
+				network_points_list_modbus[index].point_value = val_ptr * 1000;
+			}
+			else 
+			{
+				float f;
+				Byte_to_Float(&f,val_ptr,float_type);
+				network_points_list_modbus[index].point_value = f*1000;
+			}			
 		}
 		else
 #endif
 		{
 			network_points_list_bacnet[index].point_value = val_ptr;
-		}	
-		
+		}			
 	}
 }
 #endif
@@ -482,6 +500,7 @@ S16_T insert_network_point( Point_Net *point, S16_T index )
 	S16_T i;
 	NETWORK_POINTS *ptr;
 	U8_T point_type;
+	
 #if NETWORK_MODBUS	
 	if(check_point_type(point) == 1)
 	{ // only support MB_COIL_REG to MB_REG
@@ -560,6 +579,7 @@ S16_T insert_network_point( Point_Net *point, S16_T index )
 						
 					}
 #endif
+					
 					memcpy( &ptr->point, point, sizeof(Point_Net) );
 					ptr->point_value = DEFUATL_REMOTE_NETWORK_VALUE;
 					//if( point->network_number == 0x0FFFF )
@@ -1007,7 +1027,7 @@ S16_T put_point_value( Point *point, S32_T *val_ptr, S16_T aux, S16_T prog_op )
 							set_output_raw(point->number,0);
 						
 #if  T3_MAP
-				if(point->number >= get_max_internal_output())
+				if(point->number >= get_max_internal_output() && (point->number < base_out))
 				{					
 						if(old_value != outputs[point->number].control)
 						{	
@@ -1032,10 +1052,11 @@ S16_T put_point_value( Point *point, S32_T *val_ptr, S16_T aux, S16_T prog_op )
 							output_priority[point->number][9] = (float)(*val_ptr) / 1000;			
 						// if external io
 #if  T3_MAP
-						if(point->number >= get_max_internal_output())
+						if(point->number >= get_max_internal_output() && (point->number < base_out))
 						{		
 							old_value = outputs[point->number].value; 
 							output_raw[point->number] = *val_ptr;
+							// if current points is expansion IO
 							if(old_value != *val_ptr)
 							{
 								vTaskSuspend(Handle_Scan);	// dont not read expansion io
@@ -1231,51 +1252,78 @@ S16_T put_net_point_value( Point_Net *p, S32_T *val_ptr, S16_T aux, S16_T prog_o
 
 				point_type = (ptr->point.point_type & 0x1f) + (ptr->point.network_number & 0x60);
 				
-				high_3bit = ptr->point.point_type >> 5;				
+				high_3bit = ptr->point.point_type >> 5;		
 				
-				
+				if(ptr->point.network_number & 0x80) 
+						high_5bit = ptr->point.network_number & 0x1f;	
+					else
+						high_5bit = 0;
+					
 				if((point_type == (VAR + 1)) \
 				|| (point_type == (MB_IN_REG + 1))\
 				|| (point_type == (MB_REG + 1)) \
 				|| ((point_type >= BAC_FLOAT_ABCD + 1) &&( point_type <= BAC_FLOAT_DCBA + 1))
 				)
-				{	
-					if(ptr->point.network_number & 0x80) 
-						high_5bit = ptr->point.network_number & 0x1f;	
-					else
-						high_5bit = 0;
-					if(ptr->point_value != *val_ptr)
-					{		
-						if((point_type >= BAC_FLOAT_ABCD + 1) &&( point_type <= BAC_FLOAT_DCBA + 1))
-						{	
-						
-							Float_to_Byte((float)(*val_ptr) / 1000,(U8_T *)&value,point_type - BAC_FLOAT_ABCD);
-							write_parameters_to_nodes(0x10,remote_points_list_modbus[index].tb.RP_modbus.id,ptr->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)&value,
-							4);					
-						}
-						else
-						{	value = *val_ptr / 1000;
-							write_parameters_to_nodes(0x06,remote_points_list_modbus[index].tb.RP_modbus.id,ptr->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)&value,1);					
+				{				
+					if(aux == 0)
+					{
+						if(ptr->point_value != *val_ptr)
+						{								
+							if((point_type >= BAC_FLOAT_ABCD + 1) &&( point_type <= BAC_FLOAT_DCBA + 1))
+							{						
+								Float_to_Byte((float)(*val_ptr) / 1000,(U8_T *)&value,point_type - BAC_FLOAT_ABCD);
+								write_parameters_to_nodes(0x10,remote_points_list_modbus[index].tb.RP_modbus.id,ptr->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)&value,4);					
+							}
+							else
+							{	
+								value = *val_ptr / 1000;
+								write_parameters_to_nodes(0x06,remote_points_list_modbus[index].tb.RP_modbus.id,ptr->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)&value,1);					
+							}
 						}
 					}
+					else
+					{
+						//value = crc16(val_ptr,aux);
+						if(value != ptr->point_value)
+							write_parameters_to_nodes(0x10,remote_points_list_modbus[index].tb.RP_modbus.id,ptr->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)val_ptr,aux);	
+						
+					}				
+					
 				}
 								
 				if((point_type == (MB_COIL_REG + 1)) || (point_type == (MB_DIS_REG + 1)))
 				{	
-					if(ptr->point_value != *val_ptr)
+					if(aux == 0)
 					{
-						value = (float)*val_ptr / 1000; // write coil
-						write_parameters_to_nodes(0x05,remote_points_list_modbus[index].tb.RP_modbus.id,ptr->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)&value,1);					
+						if(ptr->point_value != *val_ptr)
+						{
+							value = (float)*val_ptr / 1000; // write coil
+							write_parameters_to_nodes(0x05,remote_points_list_modbus[index].tb.RP_modbus.id,ptr->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)&value,1);					
+						}
+					}
+					else
+					{
+						if(value != ptr->point_value)
+							write_parameters_to_nodes(0x0f,remote_points_list_modbus[index].tb.RP_modbus.id,ptr->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)val_ptr,aux);	
+   // 0F multi-write_coil
+						
 					}
 				}
-				if(mode == 0)
-					ptr->time_to_live = RM_TIME_TO_LIVE;
-				else if(mode == 2)
-					ptr->time_to_live = 60;
-				else 
-					ptr->time_to_live = PERMANENT_LIVE;
-//				ptr->decomisioned = 1;
 				
+				if(aux == 1)
+				{
+					ptr->time_to_live = 60;
+				}
+				else
+				{
+					if(mode == 0)
+						ptr->time_to_live = RM_TIME_TO_LIVE;
+					else if(mode == 2)
+						ptr->time_to_live = 60;
+					else 
+						ptr->time_to_live = PERMANENT_LIVE;
+	//				ptr->decomisioned = 1;
+				}
 				Last_Contact_Remote_points_modbus[index] = 0;
 				
 				ptr->instance = 0;
@@ -1289,8 +1337,7 @@ S16_T put_net_point_value( Point_Net *p, S32_T *val_ptr, S16_T aux, S16_T prog_o
 				if(ptr->point.point_type == BAC_AV + 1)
 				{				
 					if(ptr->point_value != *val_ptr /*/ 1000*/)
-					{			
-
+					{
 						WriteRemotePoint(OBJECT_ANALOG_VALUE,
 									point.number,
 									point.panel,
@@ -1414,41 +1461,40 @@ S16_T put_net_point_value( Point_Net *p, S32_T *val_ptr, S16_T aux, S16_T prog_o
 				high_3bit = ptr1->point.point_type >> 5;					
 //				value = ptr1->point_value;
 //				Test[4] = value / 1000;
+				
 				if((point_type == (VAR + 1)) \
 				|| (point_type == (MB_IN_REG + 1))\
-				|| (point_type == (MB_REG + 1))
+				|| (point_type == (MB_REG + 1)) \
+				|| (point_type == (MB_COIL_REG + 1))
 				|| ((point_type >= BAC_FLOAT_ABCD + 1) &&( point_type <= BAC_FLOAT_DCBA + 1)))
 				{					
 					if(ptr1->point.network_number & 0x80) 
 						high_5bit = ptr1->point.network_number & 0x1f;	
 					else
-						high_5bit = 0;
-					
+						high_5bit = 0;		
 					if(ptr1->point_value != *val_ptr)
 					{		
-//						if((point_type >= BAC_FLOAT_ABCD + 1) &&( point_type <= BAC_FLOAT_CDBA + 1))
-//						{
-//								Float_to_Byte(*val_ptr,(U8_T *)&value,point_type - BAC_FLOAT_ABCD);
-//						}
-//						else						
+						if((point_type >= BAC_FLOAT_ABCD + 1) &&( point_type <= BAC_FLOAT_DCBA + 1))
+						{
+							Float_to_Byte((float)(*val_ptr) / 1000,(U8_T *)&value,point_type - BAC_FLOAT_ABCD);
+							//network_points_list_modbus[index].invoked_id =
+								write_NP_Modbus_to_nodes(ptr1->point.panel,0x10,ptr1->point.sub_id,ptr1->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)&value,2);	
+						}
+						else	
+						{	
 							value = *val_ptr / 1000;
-						
-						network_points_list_modbus[index].invoked_id = 
-							write_NP_Modbus_to_nodes(ptr1->point.panel,0x06,ptr1->point.sub_id,ptr1->point.number + 256 * high_3bit + 2048 * high_5bit,value,1);					
-						ptr1->point_value = *val_ptr;
+							if(point_type == (MB_COIL_REG + 1))  // WRITE COIL
+							{
+								//network_points_list_modbus[index].invoked_id =
+									write_NP_Modbus_to_nodes(ptr1->point.panel,0x05,ptr1->point.sub_id,ptr1->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)&value,1);					
+							}
+							else									
+								//network_points_list_modbus[index].invoked_id =
+									write_NP_Modbus_to_nodes(ptr1->point.panel,0x06,ptr1->point.sub_id,ptr1->point.number + 256 * high_3bit + 2048 * high_5bit,(U16_T*)&value,1);					
+						}
+							ptr1->point_value = *val_ptr;
 					}
-					
-					
-					
-					if(ptr1->point_value != *val_ptr)
-					{				
-						value = *val_ptr / 1000;
 
-						network_points_list_modbus[index].invoked_id = 
-							write_NP_Modbus_to_nodes(ptr1->point.panel,0x06,ptr1->point.sub_id,ptr1->point.number + 256 * high_3bit + 2048 * high_5bit,value,1);					
-						ptr1->point_value = *val_ptr;
-					}
-				}
 //				if(((ptr1->point.point_type & 0x1f) == (MB_COIL_REG + 1)) || ((ptr1->point.point_type & 0x1f) == (MB_DIS_REG + 1)))
 //				{	
 //					if(ptr1->point_value != *val_ptr)
@@ -1457,8 +1503,9 @@ S16_T put_net_point_value( Point_Net *p, S32_T *val_ptr, S16_T aux, S16_T prog_o
 //						//write_parameters_to_nodes(0x05,remote_points_list_modbus[index].tb.RP_modbus.id,ptr->point.number + high_3bit * 256,(U16_T*)&value,1);					
 //					}
 //				}
+				}
 				if(mode == 0)
-					ptr1->time_to_live = RM_TIME_TO_LIVE;
+					ptr1->time_to_live = NP_TIME_TO_LIVE;
 				else if(mode == 2)
 					ptr1->time_to_live = 60;
 				else 
@@ -1592,7 +1639,7 @@ S16_T put_net_point_value( Point_Net *p, S32_T *val_ptr, S16_T aux, S16_T prog_o
  * ----------------------------------------------------------------------------
  * Function Name: get_net_point_value
  * Purpose: according to the network number of the networt point, get point value of the remote points,
-* Params: mode : 0 - not permanent, 1 - permanent
+ * Params: mode : 0 - not permanent, 1 - permanent
  * Returns:
  * Note: read remote points and network points
  * ----------------------------------------------------------------------------

@@ -161,10 +161,9 @@ void sample_analog_points(char i, Str_monitor_point *mon_ptr/*, Mon_aux  *aux_pt
 			}
 //		}			
 	}
-	//Test[20]++;
-	//Test[21] = mon_block[i * 2].index;
+	
 	if(mon_block[i * 2].index +  mon_block[i * 2].no_points > MAX_MON_POINT)
-	{ //Test[22]++;
+	{
 		// current buffer is full, save data to SD card.	
 		// clear no used point
 		for(k = mon_block[i * 2].index;k < MAX_MON_POINT;k++)
@@ -199,7 +198,7 @@ void sample_analog_points(char i, Str_monitor_point *mon_ptr/*, Mon_aux  *aux_pt
 				}
 			}			
 		}
-
+		
 
 		init_new_analog_block( i, mon_ptr);
 	}
@@ -496,7 +495,7 @@ void sample_points( void  )
 	mon_ptr = monitors;
 
 	for( i = 0; i < MAX_MONITORS; i++, mon_ptr++)
-	{		
+	{	
 		if((mon_ptr->status > 0) /*&& (max_monitor_time[i] > 0)*/)
 		{
 			//if(count_max_time[i] > 0)
@@ -505,7 +504,7 @@ void sample_points( void  )
 				if( mon_ptr->an_inputs > 0)
 				{
 					if( mon_ptr->next_sample_time <= get_current_time() )
-					{	
+					{
 						sample_analog_points(i, mon_ptr);
 					}
 				}
@@ -1035,7 +1034,6 @@ void dealwithMonitor(uint8_t bank)
 	}
 
 }
-
 
 
 

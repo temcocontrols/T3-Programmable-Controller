@@ -154,9 +154,10 @@ void uip_polling(void)
 		timer_set(&periodic_timer, CLOCK_SECOND / 2); //创建1个0.5秒的定时器 
 		timer_set(&arp_timer, CLOCK_SECOND * 10);	   //创建1个10秒的定时器 	}
 	}
+	Test[10]++;
 	uip_len = tapdev_read();							//从网络设备读取一个IP包,得到数据长度.uip_len在uip.c中定义
 	if(uip_len > 0)							 			//有数据
-	{  
+	{  Test[11]++;
 		count_connect = 0;
 		// receive data
 		ether_rx_packet++;
@@ -171,11 +172,14 @@ void uip_polling(void)
 			//需要发送的数据在uip_buf, 长度是uip_len  (这是2个全局变量)		
 			if(uip_len > 0)							//需要回应数据
 			{	
-				// response data
-				ether_tx_packet++;
-				flagLED_ether_tx = 1;
+				// response data				
 				uip_arp_out();							//加以太网头结构，在主动连接时可能要构造ARP请求
-				tapdev_send();								//发送数据到以太网
+				if(tapdev_send() == 1)								//发送数据到以太网
+				{
+					ether_tx_packet++;
+					flagLED_ether_tx = 1;
+					count_reintial_tcpip = 60; // receive packets and response correctly
+				}
 			}
 		}
 		else if (BUF->type == htons(UIP_ETHTYPE_ARP))	//处理arp报文,是否是ARP请求包?
@@ -185,10 +189,12 @@ void uip_polling(void)
 			//需要发送的数据在uip_buf, 长度是uip_len(这是2个全局变量)
  			if(uip_len > 0)
 			{
-				// response data
-				ether_tx_packet++;
-				flagLED_ether_tx = 1;
-				tapdev_send();								//需要发送数据,则通过tapdev_send发送	 
+				// response data				
+				if(tapdev_send() == 1)								//发送数据到以太网
+				{
+					ether_tx_packet++;
+					flagLED_ether_tx = 1;
+				}
 			}				
 		}
 	}
@@ -204,10 +210,13 @@ void uip_polling(void)
 	 		if(uip_len > 0)
 			{
 				// response data
-				ether_tx_packet++;
-				flagLED_ether_tx = 1;
 				uip_arp_out();							//加以太网头结构，在主动连接时可能要构造ARP请求
-				tapdev_send();								//发送数据到以太网
+				if(tapdev_send() == 1)								//发送数据到以太网
+				{
+					ether_tx_packet++;
+					flagLED_ether_tx = 1;
+					count_reintial_tcpip = 60; // receive tcp packets and response correctly
+				}
 			}
 		}
 #if UIP_UDP	//UIP_UDP 
@@ -220,10 +229,13 @@ void uip_polling(void)
 			if(uip_len > 0)
 			{
 				// response data
-				ether_tx_packet++;
-				flagLED_ether_tx = 1;
 				uip_arp_out();							//加以太网头结构，在主动连接时可能要构造ARP请求
-				tapdev_send();							//发送数据到以太网
+				if(tapdev_send() == 1)								//发送数据到以太网
+				{
+					ether_tx_packet++;
+					flagLED_ether_tx = 1;
+					count_reintial_tcpip = 60; // receive udp packets and response correctly
+				}
 			}
 		}
 #endif 
@@ -377,7 +389,7 @@ void Response_bacnet_Start(void)
 	uip_ipaddr(addr, (U8_T)(response_bacnet_ip), (U8_T)(response_bacnet_ip >> 8), (U8_T)(response_bacnet_ip >> 16), (U8_T)(response_bacnet_ip >> 24));	
 	bacnet_Rec_conn = uip_udp_new(&addr, HTONS(response_bacnet_port));
 	if(bacnet_Rec_conn != NULL) { 
-		uip_udp_bind(bacnet_Rec_conn, HTONS(UDP_BACNET_LPORT));
+		uip_udp_bind(bacnet_Rec_conn, HTONS(Modbus.Bip_port/*UDP_BACNET_LPORT*/));
 		send_mstp_index = 0;
 			
   }
@@ -424,10 +436,22 @@ void udp_demo_appcall(void)
 		Response_Scan_appcall();
 	}
 	
-	if((uip_udp_conn->lport == HTONS(UDP_BACNET_LPORT)) && (uip_udp_conn->lport != 0)
+	if((uip_udp_conn->lport == HTONS(Modbus.Bip_port/*UDP_BACNET_LPORT*/)) && (uip_udp_conn->lport != 0)
 		&& (uip_udp_conn->rport == HTONS(response_bacnet_port)))
 	{
 		Response_bacnet_appcall();
+	}
+	
+	if(uip_udp_conn->lport == HTONS(Modbus.Bip_port/*UDP_BACNET_LPORT*/))
+	{
+		if(Send_bip_Flag2)
+		{
+			UDP_bip_send2();
+		}
+		else
+		{
+			UDP_bacnet_APP();
+		}
 	}
 	switch(uip_udp_conn->lport)
 	{
@@ -435,18 +459,18 @@ void udp_demo_appcall(void)
 //			pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
 		UDP_SCAN_APP();			
 		break;
-	case HTONS(UDP_BACNET_LPORT):Test[43]++;
+	/*case HTONS(UDP_BACNET_LPORT):
 		// get ip and port 
 //		pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
 		if(Send_bip_Flag2)
-		{Test[44]++;
+		{
 			UDP_bip_send2();
 		}
 		else
-		{Test[45]++;
+		{
 			UDP_bacnet_APP();
 		}
-		break;
+		break;*/
 	case HTONS(UDP_BIP_SEND_LPORT):
 //		pos = Get_uip_udp_conn_pos(&uip_udp_conns->ripaddr,uip_udp_conns->lport);
 
@@ -565,53 +589,76 @@ void Modbus_Client_appcall(struct uip_conn * conn)
 			U8_T tcp_clinet_buf[20];
 			float val_ptr;
 			// add value
-			
-			if(uip_len == 11)  // response read
-			{
+			U8_T float_type;
+		
+			if(uip_len == 11 || uip_len == 13 || uip_len == 10)  // response read
+			{ // READ ONE is 11, read 2bytes is 13, read coil is 10
 				memcpy(&tcp_clinet_buf, uip_appdata,uip_len);		
 				//invokeid = tcp_clinet_buf[5];
+				
 				network_point_index = get_netpoint_index_by_invoke_id_modbus(tcp_clinet_buf[1]);
 				if(network_point_index == -1) return;
 				//if(network_points_list_modbus[network_point_index].point.panel == (U8_T)(ip >> 24) )
+				float_type = (network_points_list_modbus[network_point_index].tb.NT_modbus.func & 0xff00) >> 8;				
 				if((U8_T)(ip >> 24) == tcp_clinet_buf[0])
-				{			
-					val_ptr = tcp_clinet_buf[9] * 256 + tcp_clinet_buf[10];
+				{
+					if(uip_len == 13)	// read input float 32bit
+						float_type = 1;
+					if(float_type == 1)
+						val_ptr = (U32_T)(tcp_clinet_buf[9] << 24) + (U32_T)(tcp_clinet_buf[10] << 16) \
+									+ (U16_T)(tcp_clinet_buf[11] << 8) + tcp_clinet_buf[12];
+					else
+					{
+						if(uip_len == 11)
+							val_ptr = tcp_clinet_buf[9] * 256 + tcp_clinet_buf[10];
+						else if(uip_len == 10)
+							val_ptr = tcp_clinet_buf[9];
+						else
+							;// error
+					}
+
 					if((tcp_clinet_buf[6] == network_points_list_modbus[network_point_index].tb.NT_modbus.id) 
 						&& (network_points_list_modbus[network_point_index].tb.NT_modbus.id != 0)
 						&& (tcp_clinet_buf[7] == (network_points_list_modbus[network_point_index].tb.NT_modbus.func & 0x7f))
 					)
 					{
+						
 						add_network_point( network_points_list_modbus[network_point_index].point.panel,
 						network_points_list_modbus[network_point_index].point.sub_id,
 						network_points_list_modbus[network_point_index].point.point_type - 1,
 						network_points_list_modbus[network_point_index].point.number + 1,
-						val_ptr * 1000,
-						0);
-						
+						val_ptr,
+						0,float_type);
 						flag_receive_netp_modbus = 1;
 						network_points_list_modbus[network_point_index].lose_count = 0;
 						network_points_list_modbus[network_point_index].decomisioned = 1;
 					}
 				}
 			}
-			else if(uip_len == 12)	// response write
+			else if(uip_len == 12 || uip_len == 17)	// response write
 			{
 				memcpy(&tcp_clinet_buf, uip_appdata,uip_len);	
+				flag_receive_netp_modbus = 1;
 				
 				network_point_index = get_netpoint_index_by_invoke_id_modbus(tcp_clinet_buf[1]);
+				float_type = (network_points_list_modbus[network_point_index].tb.NT_modbus.func & 0xff00) >> 8;	
 				
 				if(network_point_index == -1) return;
 				
 				if((U8_T)(ip >> 24) == tcp_clinet_buf[0])
 				{
-					val_ptr = tcp_clinet_buf[10] * 256 + tcp_clinet_buf[11];
+					if(float_type == 0)
+					{
+						val_ptr = tcp_clinet_buf[10] * 256 + tcp_clinet_buf[11];			
+						
+						add_network_point( network_points_list_modbus[network_point_index].point.panel,
+								network_points_list_modbus[network_point_index].point.sub_id,
+								network_points_list_modbus[network_point_index].point.point_type - 1,
+								network_points_list_modbus[network_point_index].point.number + 1,
+								val_ptr,
+						0,float_type);
+					}
 					
-					add_network_point( network_points_list_modbus[network_point_index].point.panel,
-							network_points_list_modbus[network_point_index].point.sub_id,
-							network_points_list_modbus[network_point_index].point.point_type - 1,
-							network_points_list_modbus[network_point_index].point.number + 1,
-							val_ptr * 1000,
-					0);
 				}			
 						
 			}

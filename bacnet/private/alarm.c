@@ -317,7 +317,11 @@ void generate_common_alarm(U8_T index)
 	else if(index == ALARM_LOST_PIC)
 		sprintf(str, "Lose communication with pic" );
 	else if(index == ALARM_ABNORMAL_SD)
+	{
+		SD_exist = 3;
+		Setting_Info.reg.sd_exist = SD_exist;
 		sprintf(str, "SD CARD IS ABNORMAL" );
+	}
 	else if(index == DNS_FAIL)
 		sprintf(str, "CAN NOT CONNECT SNTP" );
 	else
@@ -331,6 +335,7 @@ void generate_common_alarm(U8_T index)
 	{
 		alarm_flag = 1;
 	}
+
 }
 
 

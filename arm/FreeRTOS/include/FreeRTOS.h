@@ -41,7 +41,7 @@
     defined configASSERT()?
 
     http://www.FreeRTOS.org/support - In return for receiving this top quality
-    embedded software for free we request you assist our global community by
+    embedded software for free we rest you assist our global community by
     participating in the support forum.
 
     http://www.FreeRTOS.org/training - Investing in training allows your team to
@@ -195,7 +195,7 @@ extern "C" {
 #endif
 
 #ifndef INCLUDE_uxTaskGetStackHighWaterMark
-	#define INCLUDE_uxTaskGetStackHighWaterMark 0
+	#define INCLUDE_uxTaskGetStackHighWaterMark 1
 #endif
 
 #ifndef INCLUDE_eTaskGetState
@@ -1060,4 +1060,6 @@ typedef struct xSTATIC_TIMER
 #endif
 
 #endif /* INC_FREERTOS_H */
+
+
 

@@ -61,7 +61,6 @@ static void RTC_NVIC_Config(void)
 //			if(RTC_Init() == 1) //initial OK
 //			{
 //				rtc_state = 0;
-//				Test[43] = 1;
 //				break;
 //			}
 //			else
@@ -69,7 +68,6 @@ static void RTC_NVIC_Config(void)
 //		}
 //		else
 //		{
-//			Test[43] = 0;
 //			rtc_state = 0;
 //			break;
 //		}
@@ -214,14 +212,20 @@ u32 Rtc_Set(u16 syear, u8 smon, u8 sday, u8 hour, u8 min, u8 sec, u8 flag)
 	return seccount;	    
 }
 
-void Get_Time_by_sec(u32 sec_time,UN_Time * rtc)
+/*flag : whether update local_date and local_time*/
+/*flag == 0 used bacnet trendlog*/
+void Get_Time_by_sec(u32 sec_time,UN_Time * rtc, uint8_t flag)
 {
 	static u16 daycnt = 0;
 	u32 temp = 0;
 	u16 temp1 = 0;
 	
- 	temp = sec_time / 86400;		//得到天数(秒钟数对应的)
 	
+ 	temp = sec_time / 86400;		//得到天数(秒钟数对应的)
+	if(flag == 0)
+	{
+		daycnt = 0;
+	}
 	if(daycnt != temp)				//超过一天了
 	{	  
 		daycnt = temp;
@@ -276,6 +280,9 @@ void Get_Time_by_sec(u32 sec_time,UN_Time * rtc)
 	rtc->Clk.min = (temp % 3600) / 60; 	//分钟	
 	rtc->Clk.sec = (temp % 3600) % 60; 	//秒钟
 	rtc->Clk.week = RTC_Get_Week(2000 + rtc->Clk.year, rtc->Clk.mon,rtc->Clk.day);	//获取星期   
+	
+	if(flag == 1)
+	{
 	Local_Date.year = rtc->Clk.year + 2000;
 	Local_Date.month = rtc->Clk.mon;
 	Local_Date.day = rtc->Clk.day;
@@ -284,14 +291,16 @@ void Get_Time_by_sec(u32 sec_time,UN_Time * rtc)
 	Local_Time.hour = rtc->Clk.hour;
 	Local_Time.min = rtc->Clk.min;
 	Local_Time.sec = rtc->Clk.sec;
-	
+	}
 }
+
+
 
 //得到当前的时间
 //返回值:0,成功;其他:错误代码.
 u8 RTC_Get(void)
 {
-	Get_Time_by_sec(RTC_GetCounter(),&Rtc);
+  Get_Time_by_sec(RTC_GetCounter(),&Rtc,1);
 	return 0;
 }
 

@@ -232,7 +232,7 @@ static u16_t tmp16;
 #define UDPBUF ((struct uip_udpip_hdr *)&uip_buf[UIP_LLH_LEN])
 
 
-//extern u8 own_ip[4];
+extern U16_T count_reintial_tcpip;
 
 #if UIP_STATISTICS == 1
 struct uip_stats uip_stat;
@@ -415,13 +415,14 @@ uip_init(void)
 
 /*---------------------------------------------------------------------------*/
 #if UIP_ACTIVE_OPEN
+
 extern U16_T far Test[50];
 extern u8 IP_Change;
 extern uint32_t run_time;
-extern u8 flag_tcpip_initial;
+extern u8 flag_reintial_tcpip;
 void tcpip_intial(void);
 // reset per 1 day
-void Check_TCP_UDP_Socket(void)
+void Check_TCP_UDP_Socket(uint16_t bip_port)
 {
 	char c;
 	uint32 temp;
@@ -434,16 +435,10 @@ void Check_TCP_UDP_Socket(void)
 	
 	for(c = 0; c < UIP_UDP_CONNS; ++c) 
 	{
-//		if(c < 9)
-//		{
-//			Test[31 + c] = HTONS(uip_udp_conns[c].lport);
-//			Test[41 + c] = HTONS(uip_udp_conns[c].rport);
-//		}
-		
 		if(uip_udp_conns[c].lport == HTONS(1234))
 			flag_udp_scan_lport = 1;
 
-		if(uip_udp_conns[c].lport == HTONS(47808))
+		if(uip_udp_conns[c].lport == HTONS(bip_port))
 			flag_udp_bip_lport = 1;
 
 	}
@@ -453,16 +448,15 @@ void Check_TCP_UDP_Socket(void)
 	{
 		if((run_time > 300) && (run_time % 60 == 0))
 		{
-			//tcpip_intial();
 			// intial tcpip
-			//flag_tcpip_initial = 1;
-			Test[29]++;
+			flag_reintial_tcpip = 1;Test[45]++;
+			count_reintial_tcpip = 20;
 		}
 	}
+		
 	
 	for(c = 0; c < UIP_CONNS; ++c) {
 		//memcpy(&temp,uip_conn[c].ripaddr,4);
-
 		if(uip_conns[c].tcpstateflags != UIP_CLOSED)
 		{
 			if(uip_time_to_live[c] > 0) 
@@ -471,6 +465,7 @@ void Check_TCP_UDP_Socket(void)
 			{
 				uip_conns[c].tcpstateflags = UIP_CLOSED;
 				uip_time_to_live[c] = 20;
+				Test[28]++;
 			}
 		}
   }
@@ -1220,8 +1215,13 @@ uip_process(u8_t flag)
 				uip_ipaddr_copy(uip_udp_conn->ripaddr, all_ones_addr);
 			}
 			else
-			{ // if in same subnet, response src ip address
-				uip_ipaddr_copy(uip_udp_conn->ripaddr, BUF->srcipaddr);
+			{ // if in same subnet, response src ip address				
+				// if dest addr is broadcast or multicast, response multicase addr
+				if(uip_ipaddr_cmp(BUF->destipaddr, all_ones_addr) || uip_ipaddr_cmp(BUF->destipaddr, uip_hostaddr_submask))
+					uip_ipaddr_copy(uip_udp_conn->ripaddr, uip_hostaddr_submask);
+				else	// else response src ip addrs
+					uip_ipaddr_copy(uip_udp_conn->ripaddr, BUF->srcipaddr);
+				
 			}			
 		}
 		else

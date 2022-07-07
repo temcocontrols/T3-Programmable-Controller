@@ -399,7 +399,6 @@ void init_info_table( void )
 	}
 }
 
-
 void init_panel(void)
 {	 	
 	uint16_t i,j;
@@ -467,6 +466,7 @@ void init_panel(void)
     strcpy(msv_data[2][2].msv_name, "HEAT");
 		write_page_en[25] = 1;
 		
+
 		initial_tstat10_range();
 		
 #endif
@@ -814,7 +814,7 @@ void init_panel(void)
 	Write_Special.reg.clear_health_rx_tx = 0;
 	
 	memcpy(update_dyndns_time.all,0,sizeof(UN_Time));
-	Test[18]++;
+	
 	memset(remote_panel_db,0,sizeof(STR_REMOTE_PANEL_DB) * MAX_REMOTE_PANEL_NUMBER);
 	remote_panel_num = 0;
 	
@@ -1220,7 +1220,7 @@ extern U16_T count_send_whois;
 //extern xSemaphoreHandle sem_mstp;
 void Send_whois_to_mstp(void)
 {
-#if (ARM_MINI || ARM_CM5 )
+#if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 	U8_T count;
 	if(Modbus.com_config[2] == BACNET_MASTER || Modbus.com_config[0] == BACNET_MASTER)
 	{
@@ -1239,8 +1239,10 @@ void Send_whois_to_mstp(void)
 		if(remote_panel_num > 0)
 		{
 			U8_T i;
+#if 1//(ARM_MINI || ARM_CM5)
 			send_mstp_index = 0;
 			rec_mstp_index = 0;
+#endif
 			for(i = 0;i < remote_panel_num;i++)
 			{
 				if(remote_panel_db[i].protocal == BAC_MSTP)
@@ -1248,13 +1250,14 @@ void Send_whois_to_mstp(void)
 					Send_SUB_I_Am(i);  // mstp device
 				}					
 			}
-			
+#if (ARM_MINI || ARM_CM5)			
 			if(rec_mstp_index > 0)
 			{
 				memcpy(&response_bacnet_ip ,uip_udp_conn->ripaddr,4);
 				response_bacnet_port = HTONS(uip_udp_conn->rport);
 				Response_bacnet_Start();
 			}
+#endif
 		}
 	}
 #endif
@@ -1325,7 +1328,7 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 
 			remote_panel_db[remote_panel_num].remote_iam_buf_len = pdu_len;
 			if(protocal == BAC_IP)
-			{	Test[31]++;
+			{
 				remote_panel_db[remote_panel_num].panel = panel;					
 				if(src->len == 1)  //  sub device,mstp device
 				{
@@ -1340,7 +1343,7 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 				
 			}
 			else // BAC_MSTP
-			{ 
+			{
 				remote_panel_db[remote_panel_num].panel = panel_number;//Modbus.network_ID[2];
 				remote_panel_db[remote_panel_num].sub_id = panel;
 				remote_panel_db[remote_panel_num].product_model = 0;
@@ -1361,8 +1364,11 @@ void add_remote_panel_db(uint32_t device_id,BACNET_ADDRESS* src,uint8_t panel,ui
 			}
 			
 			remote_panel_db[remote_panel_num].retry_reading_panel = 0;
+//			Test[31 + remote_panel_num] = remote_panel_db[remote_panel_num].panel;
+//			Test[21 + remote_panel_num] = remote_panel_db[remote_panel_num].device_id;
 			remote_panel_num++;
 			Test[30] = remote_panel_num;	
+			
 		}
 	}
 #endif
@@ -1374,7 +1380,7 @@ void Check_Remote_Panel_Table(void)
 	STR_REMOTE_PANEL_DB * ptr;
 	U8_T i;
 	static U8_T count = 0;
-	if(count++ >= 180)
+	if(count++ >= 300/*180*/)
 	{
 		count = 0;
 		ptr = &remote_panel_db[0];
@@ -1506,15 +1512,19 @@ U8_T check_point_type(Point_Net * point)
 {
 	U8_T point_type;
 	point_type = (point->point_type & 0x1f) + (point->network_number & 0x60);
-
+	
 	if(point_type == VAR + 1) // point type of T3-IO is VAR
-		return 1;
+	{
+		if(point->panel != panel_number) // network panel,bacnet point
+			return 0;
+		else
+			return 1;
+	}
 	if((point_type <= MB_REG + 1) 
 		&& (point_type >= MB_COIL_REG + 1))
 		return 1;	
 	if((point_type >= BAC_FLOAT_ABCD + 1) && (point_type <= BAC_FLOAT_DCBA + 1))
 		return 1;
-	
 	return 0;
 }
 
@@ -1553,11 +1563,12 @@ S8_T get_point_info_by_instacne(Point_Net * point)
 
 // 81 0b 00 18 
 // 01 20 ff ff 00 ff 10 00 c4 02 01 90 de 00 02 58 19 03 21 94
-
+extern uint8_t bacnet_wifi_buf[500];
+extern uint16_t bacnet_wifi_len;
 void Send_SUB_I_Am(uint8_t index)
 {
 
-#if ARM_MINI || ARM_CM5
+#if ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI
 	uint8_t pos;
 	uint8_t mtu[50];
 	uint8_t len;
@@ -1619,11 +1630,24 @@ void Send_SUB_I_Am(uint8_t index)
 			len += 3;
 		}
 
+#if ARM_MINI || ARM_CM5
 		memcpy(mstp_bac_buf[rec_mstp_index].buf,&mtu, len);
 		mstp_bac_buf[rec_mstp_index].len = len;
 		rec_mstp_index++;
 
 		bip_send_mstp_rport = HTONS(uip_udp_conn->rport);
+#endif
+
+
+#if ARM_TSTAT_WIFI
+		{
+			memcpy(mstp_bac_buf[rec_mstp_index].buf,&mtu, len);
+			mstp_bac_buf[rec_mstp_index].len = len;
+			rec_mstp_index++;
+			//memcpy(bacnet_wifi_buf,mtu,len);
+			//bacnet_wifi_len = len;		
+		}	
+#endif		
 
 //  auto send 
 	

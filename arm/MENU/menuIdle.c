@@ -18,6 +18,7 @@ uint8 flag_left_key = 0;
 uint8	count_left_key = 0;
 void MenuIdle_init(void)
 {
+	uint8 i,j;
 	//vars[0].value = uart0_baudrate * 1000;
 	//vars[1].value = Station_NUM * 1000;
 	//vars[2].value = Modbus.protocal * 1000;
@@ -53,6 +54,15 @@ void MenuIdle_init(void)
 	disp_str(FORM15X30, SCH_XPOS,  FAN_MODE_POS, UI_DIS_LINE2,SCH_COLOR,TSTAT8_BACK_COLOR);
 	disp_str(FORM15X30, SCH_XPOS,  SYS_MODE_POS, UI_DIS_LINE3,SCH_COLOR,TSTAT8_BACK_COLOR);
 
+	//msv_data[MAX_MSV][STR_MSV_MULTIPLE_COUNT]
+	for (i = 0;i < MAX_MSV;i++)
+		for (j = 0; j < STR_MSV_MULTIPLE_COUNT;j++)
+		{
+			if(msv_data[i][j].status == 255)
+			{
+				msv_data[i][j].status = 0;
+			}
+		}
 #if ARM_UART_DEBUG
 	uart1_init(115200);
 	DEBUG_EN = 1;
@@ -104,6 +114,10 @@ void MenuIdle_display(void)
 {
     //char test_char[3];
     //memset(test_char, 0, 3);
+
+		UI_DIS_LINE1[0] = ' ';
+		UI_DIS_LINE1[1] = ' ';
+		UI_DIS_LINE1[2] = ' ';
     memcpy(UI_DIS_LINE1, vars[0].label, 3);UI_DIS_LINE1[3] = 0;
     memcpy(UI_DIS_LINE2, vars[1].label, 3);UI_DIS_LINE2[3] = 0;
     memcpy(UI_DIS_LINE3, vars[2].label, 3);UI_DIS_LINE3[3] = 0;
@@ -127,9 +141,17 @@ void MenuIdle_display(void)
 			display_icon();
 			display_fan();
 		}		
-		else
+		else if(Modbus.disable_tstat10_display == 1)
 		{
 			disp_str(FORM15X30, 0,TIME_POS,"            ",TSTAT8_CH_COLOR,TSTAT8_MENU_COLOR2); 
+			disp_null_icon(ICON_XDOTS, ICON_YDOTS, 0, FIRST_ICON_POS ,ICON_POS,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
+			disp_null_icon(ICON_XDOTS, ICON_YDOTS, 0, SECOND_ICON_POS ,ICON_POS,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
+			disp_null_icon(ICON_XDOTS, ICON_YDOTS, 0, THIRD_ICON_POS ,ICON_POS,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
+			disp_null_icon(ICON_XDOTS, ICON_YDOTS, 0, FOURTH_ICON_POS ,ICON_POS,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
+		}
+		else if(Modbus.disable_tstat10_display == 2)
+		{
+			display_scroll();		
 			disp_null_icon(ICON_XDOTS, ICON_YDOTS, 0, FIRST_ICON_POS ,ICON_POS,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
 			disp_null_icon(ICON_XDOTS, ICON_YDOTS, 0, SECOND_ICON_POS ,ICON_POS,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
 			disp_null_icon(ICON_XDOTS, ICON_YDOTS, 0, THIRD_ICON_POS ,ICON_POS,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
@@ -283,7 +305,7 @@ void MenuIdle_display(void)
 			if(SSID_Info.IP_Wifi_Status == WIFI_NORMAL)//ÔÚÆÁÄ»ÓÒÉÏ½ÇÏÔÊ¾wifiµÄ×´Ì¬
 			{
 				if(SSID_Info.rssi < 70)		
-						disp_icon(26, 26, wifi_4, 210,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+					disp_icon(26, 26, wifi_4, 210,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 				else if(SSID_Info.rssi < 80)							
 					disp_icon(26, 26, wifi_3, 210,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 				else if(SSID_Info.rssi < 90)							
@@ -310,6 +332,7 @@ uint8_t check_msv_data_len(uint8_t index)
 	len = 0;
 
 	for(j = 0; j < STR_MSV_MULTIPLE_COUNT;j++)
+	{
 		if(msv_data[index][j].status != 0)
 		{
 			len++;
@@ -318,7 +341,7 @@ uint8_t check_msv_data_len(uint8_t index)
 		{
 			return len;
 		}
-	
+	}
 	return len;
 }
 
@@ -352,7 +375,8 @@ void MenuIdle_keycope(uint16 key_value)
 
 						for (i = temp_value; i < 7; i++)
 						{
-							if(strlen(msv_data[disp_index - 1][i + 1].msv_name) != 0)
+							if(strlen(msv_data[disp_index - 1][i + 1].msv_name) != 0
+								&& msv_data[disp_index - 1][i + 1].msv_name[0] != 0xff)
 							{
 								vars[disp_index - 1].value = msv_data[disp_index - 1][i + 1].msv_value * 1000;
 								break;
@@ -369,7 +393,7 @@ void MenuIdle_keycope(uint16 key_value)
 				}
 				else
 				{
-					if(vars[disp_index - 1].value < 99 * 1000)
+					if(vars[disp_index - 1].value < 999 * 1000)
 							vars[disp_index - 1].value = vars[disp_index - 1].value + 1000;
 						else
 							vars[disp_index - 1].value = 0;
@@ -380,11 +404,47 @@ void MenuIdle_keycope(uint16 key_value)
 			ChangeFlash = 1;
 			break;
 		case KEY_SPEED_10 | KEY_UP_MASK:	
+			count_left_key = 0;
+			if((disp_index >= 1) && (disp_index <= 3))
+			{
+				if ((vars[disp_index - 1].range >= 101) && (vars[disp_index - 1].range <= 103))  // 101 102 103 	MSV range
+				{					
+					char len;
+					len = check_msv_data_len(disp_index - 1);
+					for (i = 0; i < len; i++)
+					{
+						if (vars[disp_index - 1].value / 1000 == msv_data[disp_index - 1][i].msv_value)
+						{
+							temp_value = i;
+							break;
+						}
+					}
+
+					for (i = temp_value; i < 7; i++)
+					{
+						if(strlen(msv_data[disp_index - 1][i + 1].msv_name) != 0
+							&& msv_data[disp_index - 1][i + 1].msv_name[0] != 0xff)
+						{
+							vars[disp_index - 1].value = msv_data[disp_index - 1][i + 1].msv_value * 1000;
+							break;
+						}
+					}
+				}
+				else
+				{
+					if(vars[disp_index - 1].value < 999 * 1000)
+							vars[disp_index - 1].value = vars[disp_index - 1].value + 10000;
+						else
+							vars[disp_index - 1].value = 0;
+				}
+			}
+
+			write_page_en[VAR] = 1;
+			ChangeFlash = 1;
 			break;
 
 		case KEY_DOWN_MASK:
-			count_left_key = 0;
-			
+			count_left_key = 0;			
 			if((disp_index >= 1) && (disp_index <= 3))
 			{
 				if ((vars[disp_index - 1].range >= 101) && (vars[disp_index - 1].range <= 103))  // 101 102 103 	MSV range
@@ -433,7 +493,39 @@ void MenuIdle_keycope(uint16 key_value)
 			ChangeFlash = 1;
 			break;		
 		case KEY_SPEED_10 | KEY_DOWN_MASK: 
+			count_left_key = 0;			
+			if((disp_index >= 1) && (disp_index <= 3))
+			{
+				if ((vars[disp_index - 1].range >= 101) && (vars[disp_index - 1].range <= 103))  // 101 102 103 	MSV range
+				{
+					char len;
+					len = check_msv_data_len(disp_index - 1);
+						for (i = 0; i < len; i++)
+						{
+								if (vars[disp_index - 1].value / 1000 == msv_data[disp_index - 1][i].msv_value)
+								{
+										temp_value = i;
+										break;
+								}
+						}
 
+						for (i = temp_value; i > 0; i--)
+						{
+								if (strlen(msv_data[disp_index - 1][i - 1].msv_name) != 0)
+								{
+										vars[disp_index - 1].value = msv_data[disp_index - 1][i - 1].msv_value * 1000;
+										break;
+								}
+						}
+				}
+				else
+				{
+						vars[disp_index - 1].value = vars[disp_index - 1].value - 10000;
+				}
+			}
+		
+			write_page_en[VAR] = 1;
+			ChangeFlash = 1;
 			break;
 		
 		case KEY_LEFT_MASK:

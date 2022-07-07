@@ -50,7 +50,8 @@ STR_flag_flash 	far bac_flash;
 #define BASE_OUT_RELINQUISH	  0x8078a28   // length is 4*MAX_OUTS  0x100  256
 #define BASE_DIS_CONFIG			  0x8078b28  // length is 7
 #define BASE_VENDOR_INFO			0x8078b30		// Length is 40
-
+#define BASE_MSV_DATA2				0x8078b58		// length is 184
+#define BASE_VAR_UNIT					0x8078c10   // length is 100 MAX_VAR_UNIT*VAR_UNIT_SIZE
 
 
 
@@ -457,13 +458,15 @@ void Flash_Store_Code(void)
 void Flash_Write_Other_Page2(void)
 {
     if (write_page_en[25] == 1)
-    {__disable_irq();
+    {		__disable_irq();
         STMFLASH_Unlock();
 				STMFLASH_ErasePage(FLASH_OTHER_ADDR2);
-				iap_write_appbin(BASE_MSV_DATA, (u8 *)(msv_data), MAX_MSV * STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
+				iap_write_appbin(BASE_MSV_DATA, (u8 *)(msv_data), 3 * STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
+				iap_write_appbin(BASE_MSV_DATA2, (u8 *)(&msv_data[3]), STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
 				iap_write_appbin(BASE_OUT_RELINQUISH, (u8 *)(output_relinquish), 4 * MAX_OUTS);
 				iap_write_appbin(BASE_VENDOR_INFO,(void *)(&bacnet_vendor_name),20);
 				iap_write_appbin(BASE_VENDOR_INFO + 20,(void *)(&bacnet_vendor_product),20);
+				iap_write_appbin(BASE_VAR_UNIT,(void *)(&var_unit),MAX_VAR_UNIT*VAR_UNIT_SIZE);
 #if ARM_TSTAT_WIFI
 			iap_write_appbin(BASE_DIS_CONFIG,Modbus.display_lcd.lcddisplay,sizeof(lcdconfig));
 #endif				
@@ -585,7 +588,9 @@ void Flash_Read_Other(void)
 #endif	
 	STMFLASH_MUL_Read(BASE_WEEKLY_ONOFF,(u8 *)(wr_time_on_off), 576);
 
-	STMFLASH_MUL_Read(BASE_MSV_DATA,(u8 *)(msv_data), MAX_MSV * STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
+	STMFLASH_MUL_Read(BASE_MSV_DATA,(u8 *)(msv_data), 3 * STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
+	STMFLASH_MUL_Read(BASE_MSV_DATA2,(u8 *)(&msv_data[3]), STR_MSV_MULTIPLE_COUNT * sizeof(multiple_struct));
+	STMFLASH_MUL_Read(BASE_VAR_UNIT,(u8 *)(&var_unit), MAX_VAR_UNIT*VAR_UNIT_SIZE);
 #if ARM_TSTAT_WIFI
 	//TSTAT 10 初始化 多态 用于TSTAT10 界面的默认显示;
 //	Test[11] = msv_data[1][0].msv_value;

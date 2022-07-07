@@ -335,7 +335,6 @@ uint8_t change_value_by_range(U8_T channel)
 uint32_t get_high_spd_counter(uint8_t point)
 {
 	inputs[point].value = swap_double((high_spd_counter[point] + high_spd_counter_tempbuf[point]) * 1000);
-	Test[30]++;
 	return (high_spd_counter[point] + high_spd_counter_tempbuf[point]) * 1000;
 }
 

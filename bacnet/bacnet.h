@@ -177,9 +177,9 @@
 #define MAX_CALENDARS 4
 #endif
 
-//#ifndef MAX_TRENDLOGS
-//#define MAX_TRENDLOGS 8
-//#endif
+#ifndef MAX_TRENDLOGS
+#define MAX_TRENDLOGS 8
+#endif
 
 #ifndef MAX_TEMCOVARS
 #define MAX_TEMCOVARS  10
@@ -241,7 +241,8 @@ void UART_Init(U8_T port);
  
 #define BAC_CALENDAR 1
 #define BAC_SCHEDULE 1
-#define BAC_TRENDLOG 0
+#define BAC_TRENDLOG 1
+#define BAC_TRENDLOG_MUL 1
 
 #define BAC_PROPRIETARY 1
 
@@ -337,7 +338,7 @@ typedef enum
 extern uint8_t far MSTP_Rec_buffer[600];
 extern uint8_t MSTP_Write_OK;
 extern uint8_t MSTP_Transfer_OK;
-extern uint8_t MSTP_Transfer_Len;
+extern uint16_t MSTP_Transfer_Len;
 extern uint8_t remote_panel_num;
 extern U8_T flag_mstp_source;
 
@@ -364,7 +365,7 @@ void handler_conf_private_trans_ack(
     int apdu_len,       /* total length of the apdu */
    uint8_t protocal );
 		
-uint8_t Send_Mstp(uint8_t flag,uint8_t *type);		
+uint16_t Send_Mstp(uint8_t flag,uint8_t *type);		
 
 #endif
 
@@ -417,7 +418,15 @@ extern uint8_t  CALENDARS;
 
 #if BAC_TRENDLOG
 extern uint8_t  TRENDLOGS;
+void Trend_Log_Init(void);
 #endif
+
+#if BAC_TRENDLOG_MUL
+extern uint8_t  TRENDLOGS_MUL;
+void Trend_Log_Init_Mul(void);
+#endif
+
+
 #endif
 
 

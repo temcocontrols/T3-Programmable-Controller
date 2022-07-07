@@ -248,15 +248,18 @@ void bip_Init(void)
 	
 	bip_set_socket(0);
 	bip_set_addr(0);
-	bip_set_port(UDP_BACNET_LPORT); 	
+	bip_set_port(Modbus.Bip_port/*UDP_BACNET_LPORT*/); 	
 	// udp server
-	uip_listen(HTONS(UDP_BACNET_LPORT));
+	uip_listen(HTONS(Modbus.Bip_port/*UDP_BACNET_LPORT*/));
 	tempaddr = 0xffffffff;
-	uip_ipaddr_copy(&addr,&tempaddr);
-	conn = uip_udp_new(&addr, HTONS(UDP_BACNET_LPORT)); 
+//	uip_ipaddr_copy(&addr,&tempaddr);
+//	uip_ipaddr_copy(addr, 0xffffffff);	
+	memcpy(&addr, &tempaddr, sizeof(uip_ipaddr_t));
+	
+	conn = uip_udp_new(&addr, HTONS(Modbus.Bip_port/*UDP_BACNET_LPORT*/)); 
 	if(conn != NULL) 
 	{ 
-		uip_udp_bind(conn,HTONS(UDP_BACNET_LPORT));  // src port					
+		uip_udp_bind(conn,HTONS(Modbus.Bip_port/*UDP_BACNET_LPORT*/));  // src port					
 	}
 	
 #if ARM_CM5
@@ -591,9 +594,10 @@ int bip_send_pdu_client(
         (uint16_t) (pdu_len + 4 /*inclusive */ ));
     memcpy(&mtu1[mtu_len], pdu, pdu_len);
     mtu_len += pdu_len;
+		
 		if(Send_bip_Flag)
 		{
-			uip_ipaddr_t addr;
+			uip_ipaddr_t addr;			
 			if(bip_send_client_conn != NULL) 
 			{	
 				uip_udp_remove(bip_send_client_conn);
@@ -604,7 +608,7 @@ int bip_send_pdu_client(
 			if(bip_send_client_conn != NULL) 
 			{
 				// network points
-					uip_udp_bind(bip_send_client_conn,HTONS(UDP_BIP_SEND_LPORT));  // src port
+				uip_udp_bind(bip_send_client_conn,HTONS(UDP_BIP_SEND_LPORT));  // src port
 			}
 			memcpy(bip_bac_buf.buf,&mtu1, mtu_len);			
 			bip_bac_buf.len = mtu_len;
@@ -678,7 +682,7 @@ int bip_send_pdu_client2(
 			bip_send_client_conn2 = uip_udp_new(&addr, HTONS(Send_bip_address2[4] * 256 + Send_bip_address2[5])); // des port
 			if(bip_send_client_conn2 != NULL) 
 			{ 
-				uip_udp_bind(bip_send_client_conn2,HTONS(UDP_BACNET_LPORT));  // src port	
+				uip_udp_bind(bip_send_client_conn2,HTONS(Modbus.Bip_port/*UDP_BACNET_LPORT*/));  // src port	
 			}
 			memcpy(bip_bac_buf2.buf,&mtu1, mtu_len);			
 			bip_bac_buf2.len = mtu_len;
@@ -1265,13 +1269,20 @@ void bip_get_my_address(
         my_address->mac_len = 6;
         memcpy(&my_address->mac[0], &BIP_Address.s_addr, 4);
         memcpy(&my_address->mac[4], &BIP_Port, 2);
-
-        my_address->net = 0;    /* local only, no routing */
-        my_address->len = 0;    /* no SLEN */
-        for (i = 0; i < MAX_MAC_LEN; i++) {
-            /* no SADR */
-            my_address->adr[i] = 0;
-        }
+				
+        my_address->net = Modbus.network_number;    /* local only, no routing */
+ 				if(Modbus.network_number == 0xffff || Modbus.network_number == 0)
+				{
+					my_address->len = 0;
+				}
+				else 
+				{
+					my_address->len = 6;    /* no SLEN */
+					for (i = 0; i < MAX_MAC_LEN; i++) {
+							/* no SADR */
+							my_address->adr[i] = Modbus.mac_addr[i];
+					}
+				}
     }
 
     return;

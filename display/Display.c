@@ -172,6 +172,8 @@ void Display_IP(void)
 	// MAC address
 //	sprintf(text, "MAC:%02X:%02X:%02X:%02X:%02X:%02X", (uint16)Modbus.mac_addr[0], (uint16)Modbus.mac_addr[1], (uint16)Modbus.mac_addr[2], (uint16)Modbus.mac_addr[3], (uint16)Modbus.mac_addr[4], (uint16)Modbus.mac_addr[5]);
 //	Lcd_Show_String(3, 0, text, NORMAL, 21); 
+	
+	if((ether_rx_packet < 999999) && (ether_tx_packet < 99999))
 	sprintf(text, "RX:%lu TX:%lu",ether_rx_packet,ether_tx_packet);
 	Lcd_Show_String(3, 0, text, NORMAL, 21,0,0); 
 //	get_time_text();

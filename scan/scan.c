@@ -23,7 +23,8 @@ void check_id_alarm(uint8_t type, uint8_t id, uint32_t old_sn, uint32_t new_sn);
 void add_id_online(U8_T index);
 
 U8_T  tmp_sendbuf[500];
-
+U8_T force_scan;
+U16_T modbus_scan_count;
 extern U8_T count_reset_zigbee;
 extern U16_T last_reset_zigbee;
 
@@ -52,12 +53,12 @@ typedef struct
 	U8_T func;
 	U8_T id;
 	U16_T reg;
-	U16_T value;
+	U16_T value[2];
 	U8_T len;
 	U8_T flag;
 	U8_T retry;
 }STR_NP_NODE_OPERATE;
-STR_NP_NODE_OPERATE far np_node_write[STACK_LEN];
+STR_NP_NODE_OPERATE far NP_node_write[STACK_LEN];
 
 
 U32_T far com_rx[3];
@@ -813,6 +814,8 @@ void clear_scan_db(void)
 {
 	U8_T i;
 	db_ctr = 0;
+	force_scan = 1;
+	modbus_scan_count = 0;
 	Comm_Tstat_Initial_Data();
 	init_scan_db();
 	for(i = 0;i < MAX_ID;i++)
@@ -837,7 +840,6 @@ void clear_scan_db(void)
 	// clear mstp devide
 	memset(remote_panel_db,0,sizeof(STR_REMOTE_PANEL_DB) * MAX_REMOTE_PANEL_NUMBER);
 	remote_panel_num = 0;
-	Test[17]++;
 
 }
 
@@ -1114,6 +1116,8 @@ U8_T Check_Read_Len(U16_T reg,U8_T product_id,U16_T *newreg)
 	return len;
 }
 
+
+	
 void get_parameters_from_nodes(U8_T index,U8_T type)
 {
 	U8_T port;
@@ -1126,6 +1130,10 @@ void get_parameters_from_nodes(U8_T index,U8_T type)
 	U8_T delay;
 	xSemaphoreHandle  tempsem;
 	U8_T float_type;
+	
+	// if start scan command, resume reading parameters after scanning 10 timers
+	if(force_scan == 1)
+		return;
 	
 	float_type = 0;
 	if(type == 0)  // heart beat, read product model
@@ -1248,6 +1256,7 @@ void get_parameters_from_nodes(U8_T index,U8_T type)
 		
 	}
 	length = wait_subnet_response(delay,port);
+
 	if(length > 0)	 
 	{
 		crc_check = crc16(subnet_response_buf,size0 - 2);
@@ -1295,13 +1304,11 @@ void get_parameters_from_nodes(U8_T index,U8_T type)
 			else
 			{					
 				U8_T i,j;
-				
 				get_index_by_id(buf[0],&j);
 				if(scan_db[j].product_model == PM_T322AI || scan_db[j].product_model == PM_T38AI8AO6DO
 					|| scan_db[j].product_model == PM_T36CTA || scan_db[j].product_model == PM_T3PT12)
 				{	
 					refresh_extio_by_database(0,0,0,0,1);  //  refresh time of T3-expansion
-					
 				}
 				
 				if(read_len == 0)
@@ -1347,7 +1354,7 @@ void get_parameters_from_nodes(U8_T index,U8_T type)
 					}
 				}
 				else
-				{		// 读多个字节			
+				{	// 读多个字节			
 					for(i = 0;i < buf[5] / 2;i++)
 					{
 						if(Get_product_by_id(remote_points_list_modbus[index].tb.RP_modbus.id) == 203)  // only for PM test
@@ -1410,7 +1417,6 @@ void get_parameters_from_nodes(U8_T index,U8_T type)
 
 					if(read_len == 0)
 					{ // read one byte
-						
 						for(i = 0;i < buf[5];i++)
 						{
 							update_remote_map_table(remote_points_list_modbus[index].tb.RP_modbus.id,remote_points_list_modbus[index].tb.RP_modbus.reg + i,(U16_T)subnet_response_buf[3 + i * 2] * 256 + subnet_response_buf[4 + i * 2],subnet_response_buf);
@@ -1421,7 +1427,7 @@ void get_parameters_from_nodes(U8_T index,U8_T type)
 					{	// multi-read	, only for new T3, work as external IO
 						U8_T product = Get_product_by_id(remote_points_list_modbus[index].tb.RP_modbus.id);
 						if((product == PM_T38AI8AO6DO) || (product == PM_T322AI) || (product == PM_T36CTA) || (product == PM_T3PT12)) 
-						{
+						{	
 							update_remote_map_table(remote_points_list_modbus[index].tb.RP_modbus.id,remote_points_list_modbus[index].tb.RP_modbus.reg,0,subnet_response_buf);
 						}
 						else
@@ -1539,7 +1545,6 @@ void write_parameters_to_nodes(uint8_t func,uint8 id, uint16 reg, uint16* value,
 		node_write[i].id = id;
 		node_write[i].reg = reg;
 		node_write[i].len = len;
-		
 		if(len == 1)
 		{
 #if (ASIX_MINI || ASIX_CM5)
@@ -1557,8 +1562,9 @@ void write_parameters_to_nodes(uint8_t func,uint8 id, uint16 reg, uint16* value,
 			for(j = 0;j < len / 2;j++)
 			{
 				temp_value[j * 2] = value[j] >> 8;
-				temp_value[j * 2 + 1] = value[j];
-			}
+				temp_value[j * 2 + 1] = value[j];					
+			}		
+			node_write[i].len = len / 2; //???????????????
 			memcpy(&node_write[i].value[0],&temp_value,len);
 #endif
 	
@@ -1566,7 +1572,7 @@ void write_parameters_to_nodes(uint8_t func,uint8 id, uint16 reg, uint16* value,
 			memcpy(&node_write[i].value[0],value,len);
 #endif
 		}
-		node_write[i].len = len;
+		//node_write[i].len = len;
 		node_write[i].flag = WAIT_FOR_WRITE;
 		node_write[i].retry = 0;
 	}
@@ -1585,8 +1591,6 @@ void check_write_to_nodes(U8_T port)
 	{
 		tempsem = sem_subnet_tx_uart0;
 	}
-	
-
 	if(port == 1)	
 	{
 		tempsem = sem_subnet_tx_uart1;
@@ -1595,6 +1599,7 @@ void check_write_to_nodes(U8_T port)
 	{
 		tempsem = sem_subnet_tx_uart2;
 	}
+	
 	for(i = 0;i < STACK_LEN;i++)
 	{
 		if(node_write[i].flag == WAIT_FOR_WRITE) //	get current index, 1 -- WAIT_FOR_WRITE, 0 -- WRITE_OK
@@ -1652,18 +1657,43 @@ void check_write_to_nodes(U8_T port)
 		buf[1] = node_write[i].func;
 		buf[4] = 0;
 		buf[5] = node_write[i].len;
-		buf[6] = node_write[i].len * 2;
-
-		for(j = 0;j < node_write[i].len;j++)
-		{
 			
-			buf[7 + j * 2] = HIGH_BYTE(node_write[i].value[j]);
-			buf[8 + j * 2] = LOW_BYTE(node_write[i].value[j]);
-		}	
+		if(node_write[i].func == 0x0f)
+		{	
+			uint8_t temp = 0;
+			buf[6] = (node_write[i].len + 7) / 8;
+			
+			for( j = 0;j < node_write[i].len;j++)
+			{				
+				temp |= ((node_write[i].value[j] != 0) ? 1 : 0) << (j % 8);					
+				
+				if((j + 1) % 8 == 0)
+				{
+					buf[6 + (j + 1) / 8] = temp;
+					temp = 0;
+				}
+				else if(j + 1 == node_write[i].len)
+				{
+					buf[6 + (j + 1) / 8 + 1] = temp;
+				}
+			}				
+			
+		}
+		else
+		{
+			buf[6] = node_write[i].len * 2;
+		
+			for(j = 0;j < node_write[i].len;j++)
+			{			
+				buf[7 + j * 2] = HIGH_BYTE(node_write[i].value[j]);
+				buf[8 + j * 2] = LOW_BYTE(node_write[i].value[j]);
+			}	
+		}
 		crc_check = crc16(buf, buf[6] + 7); // crc16
 		buf[buf[6] + 7] = HIGH_BYTE(crc_check);				 
 		buf[buf[6] + 8] = LOW_BYTE(crc_check);
 		uart_send_string(buf, buf[6] + 9,port);
+		//memcpy(&Test[10],buf,buf[6] + 7);
 	}
 	else  // signal wirte
 	{		
@@ -1710,7 +1740,10 @@ void check_write_to_nodes(U8_T port)
 				add_remote_point(buf[0],READ_VARIABLES + (buf[2] << 5),buf[2] >> 3,buf[3],node_write[i].value[0],1,0);
 			}
 		}
-		
+		else
+		{
+			add_remote_point(buf[0],READ_VARIABLES + (buf[2] << 5),buf[2] >> 3,buf[3],node_write[i].value[0],1,0);
+		}
 		tst_retry[buf[0]] = 0;
 		scan_db_time_to_live[buf[0]] = SCAN_DB_TIME_TO_LIVE;
 		if((current_online[buf[0] / 8] & (1 << (buf[0] % 8))) == 0)
@@ -1817,6 +1850,18 @@ void Scan_Idle(void)
 	}
 }
 
+void check_whether_force_scan(void)
+{
+	if(force_scan == 1)
+	{
+		modbus_scan_count++;	
+		if(modbus_scan_count > 10)
+		{
+			force_scan = 0;
+			modbus_scan_count = 0;
+		}
+	}	
+}
 
 U8_T tempcount;	
 U8_T comindex1;
@@ -1842,7 +1887,8 @@ void ScanTask(void)
 	comindex2 = 0;
 
 	Count_com_config();	
-
+	force_scan = 1;
+	modbus_scan_count = 0;
 	task_test.enable[2] = 1;
 	memset(tst_retry,0,MAX_ID);
 	index_sub = 0;
@@ -1865,27 +1911,23 @@ void ScanTask(void)
 		Schedule_Sync_Tstat();
 #endif
 #endif	
-	
+		check_whether_force_scan();
 		if(tempcount >= 10000 / READ_POINT_TIMER)	 // 20s
 		{
-
-				if(subcom_num >= 1)
-				{				
-					port = subcom_seq[comindex1];
-					if(comindex1 < subcom_num - 1)
-					{
-						comindex1++;	
-					} 
-					else
-						comindex1 = 0;
-
-					scan_sub_nodes(port);		   // 19200
+			if(subcom_num >= 1)
+			{				
+				port = subcom_seq[comindex1];
+				if(comindex1 < subcom_num - 1)
+				{
+					comindex1++;	
 				} 
-
-						
+				else
+					comindex1 = 0;
+				scan_sub_nodes(port);		   // 19200	
+				
+			} 						
 			tempcount = 0;
 		}
-
 		else
 		{	
 			//if(Modbus.com_config[1] == MODBUS_MASTER)
@@ -1924,8 +1966,7 @@ void ScanTask(void)
 				Scan_Idle();
 			}
 			else
-			{// update remote point
-			
+			{// update remote point			
 				if(subcom_num > 0)
 				{
 					port = subcom_seq[comindex2];
@@ -1969,7 +2010,6 @@ void ScanTask(void)
 						)						
 						{
 							// current device is on line, read remote point one by one
-							//get_parameters_from_nodes(remote_modbus_index,type);	// remote modubs point
 							if(remote_points_list_modbus[remote_modbus_index].tb.RP_modbus.id > 0)
 							{
 								get_parameters_from_nodes(remote_modbus_index,type);	// remote modubs point
@@ -2149,7 +2189,7 @@ void Scan_network_bacnet_Task(void)
 	U8_T far network_point_index;	
 	U8_T send_whois_interval;
 	int invoke;
-	bip_set_port(UDP_BACNET_LPORT);
+	bip_set_port(Modbus.Bip_port/*UDP_BACNET_LPORT*/);
 
 //	count_send_bip = 0;
 	Modbus.network_master = 0;  // ONLY FOR NETWORK TEST
@@ -2268,8 +2308,7 @@ void Scan_network_bacnet_Task(void)
 							else
 							{
 								;//Test[10]++;
-							}
-							
+							}							
 						}
 						
 						// if retry many times, means it is old panel or other product
@@ -2318,10 +2357,9 @@ void Scan_network_bacnet_Task(void)
 //			}
 			// find remote point from remote panel
 			if(number_of_network_points_bacnet > 0) 
-			{		Test[21] = number_of_network_points_bacnet;
+			{		
 				for(network_point_index = 0;network_point_index < number_of_network_points_bacnet;network_point_index++)
 				{
-					Test[22]++;
 					if(network_points_list_bacnet[network_point_index].lose_count > 5)
 					{
 						network_points_list_bacnet[network_point_index].lose_count = 0;
@@ -2353,8 +2391,7 @@ void Scan_network_bacnet_Task(void)
 							IWDG_ReloadCounter(); 
 							vTaskDelay( 50 / portTICK_RATE_MS);
 						}
-//						Test[13] = uip_timer - t1;
-//						Test[14]++;
+
 						if(flag_receive_netp == 1)
 						{
 							U8_T remote_panel_index;
@@ -2469,13 +2506,14 @@ int Get_Network_Point_Modbus(uint8_t network_point_index)//ip,uint8_t sub_id,uin
 	uip_ipaddr_t ipaddr;
 	struct uip_conn * Modbus_Client_Conn[UIP_CONNS];
 	uint8_t count;
-	uint8_t ip,sub_id,func,reg;
+	uint8_t ip,sub_id,func;
+	uint16_t reg;
 
-	if(cSemaphoreTake(sem_Modbus_Client_Send, 50) == pdFALSE)
+	/*if(cSemaphoreTake(sem_Modbus_Client_Send, 50) == pdFALSE)
 	{
 		return 0;
-	}	
-
+	}	*/
+	
 	ip = network_points_list_modbus[network_point_index].point.panel;
 	sub_id = network_points_list_modbus[network_point_index].tb.NT_modbus.id;
 	func = network_points_list_modbus[network_point_index].tb.NT_modbus.func & 0x7f;
@@ -2511,7 +2549,7 @@ int Get_Network_Point_Modbus(uint8_t network_point_index)//ip,uint8_t sub_id,uin
 		else
 			tcp_client_transaction_id = 1;
 		
-		Modbus_Client_Command[conn_pos][0] =  ip;// 0x00;//transaction_id >> 8;
+		Modbus_Client_Command[conn_pos][0] = ip;// 0x00;//transaction_id >> 8;
 		Modbus_Client_Command[conn_pos][1] = tcp_client_transaction_id;
 		Modbus_Client_Command[conn_pos][2] = 0x00;
 		Modbus_Client_Command[conn_pos][3] = 0x00;
@@ -2522,45 +2560,124 @@ int Get_Network_Point_Modbus(uint8_t network_point_index)//ip,uint8_t sub_id,uin
 		Modbus_Client_Command[conn_pos][6] = sub_id;
 		Modbus_Client_Command[conn_pos][7] = func;
 		
-		if(func == 0x03)  // read command
-		{
+		if(func == READ_VARIABLES || func == READ_COIL
+			|| func == READ_DIS_INPUT || func == READ_INPUT)  // read command 
+		{// 01 03 02 04
+			U8_T float_type;
 			Modbus_Client_Command[conn_pos][8] = reg >> 8;
 			Modbus_Client_Command[conn_pos][9] = reg;
 			Modbus_Client_Command[conn_pos][10] = 0x00;
-			Modbus_Client_Command[conn_pos][11] = 0x01;
-			Modbus_Client_CmdLen = 12;
+			float_type = (network_points_list_modbus[network_point_index].tb.NT_modbus.func & 0xff00) >> 8;	
+			// for specail customer, use READ_INPUT to replace INPUT_FLOATABCD, 
+			if(func == READ_INPUT) float_type = 1;
+			if(float_type == 0)
+			{
+				Modbus_Client_Command[conn_pos][11] = 0x01;
+				Modbus_Client_CmdLen = 12;
+			}
+			else
+			{
+				Modbus_Client_Command[conn_pos][11] = 0x02;
+				Modbus_Client_CmdLen = 12;
+			}			
 		}	
-
+		
 		flag_Modbus_Client_Send = 1;
-
-		cSemaphoreGive(sem_Modbus_Client_Send);	
-
+			//cSemaphoreGive(sem_Modbus_Client_Send);	
 		
 		return tcp_client_transaction_id;
 	}
 	
-	cSemaphoreGive(sem_Modbus_Client_Send);
+	//cSemaphoreGive(sem_Modbus_Client_Send);
 	return 0;
 
 }
 
 
-int write_NP_Modbus_to_nodes(U8_T ip,U8_T func,U8_T sub_id, U16_T reg, U16_T value, U8_T len)
+
+int write_NP_Modbus_to_nodes(U8_T ip,U8_T func,U8_T sub_id, U16_T reg, U16_T * value, U8_T len)
+{
+
+	U8_T i = 0;
+	for(i = 0;i < STACK_LEN;i++)
+	{
+		if(NP_node_write[i].flag == WRITE_OK) 	
+			break;
+	}
+	
+	if(i == STACK_LEN)		
+	{  // stack full
+	// tbd
+		return -1;	
+	}
+	else
+	{		
+		if(len >= 2) return -1;
+		NP_node_write[i].ip = ip;
+		NP_node_write[i].func = func;
+		NP_node_write[i].id = sub_id;
+		NP_node_write[i].reg = reg;
+		NP_node_write[i].len = len;
+		
+		if(len == 1)
+		{
+			NP_node_write[i].value[0] = value[0];
+		}
+		else
+		{			
+			U8_T temp_value[50];
+			U8_T j;
+			for(j = 0;j < len / 2;j++)
+			{
+				temp_value[j * 2] = value[j] >> 8;
+				temp_value[j * 2 + 1] = value[j];
+			}
+			memcpy(&NP_node_write[i].value[0],&temp_value,len);
+
+		}
+		NP_node_write[i].len = len;
+		NP_node_write[i].flag = WAIT_FOR_WRITE;
+		NP_node_write[i].retry = 0;
+	}
+}
+
+
+int check_NP_Modbus_to_nodes(void)
 {
 
 	uip_ipaddr_t ipaddr;
+	U8_T wait_count;
 	struct uip_conn * Modbus_Client_Conn[UIP_CONNS];
 	uint8_t count;
 //	uint8_t ip,sub_id,func,reg;
-	uint8_t i;	
-
-	if(cSemaphoreTake(sem_Modbus_Client_Send, 200) == pdFALSE)
+	uint8_t i = 0;
+	/*if(cSemaphoreTake(sem_Modbus_Client_Send, 200) == pdFALSE)
 	{
 		return 0;
-	}
+	}*/
 	
-	uip_ipaddr(ipaddr, Modbus.ip_addr[0], Modbus.ip_addr[1], Modbus.ip_addr[2], ip);		//??IP?192.168.1.103
-	
+	for(i = 0;i < STACK_LEN;i++)
+	{
+		if(NP_node_write[i].flag == WAIT_FOR_WRITE) //	get current index, 1 -- WAIT_FOR_WRITE, 0 -- WRITE_OK
+		{
+			if(NP_node_write[i].retry < MAX_WRITE_RETRY)
+			{
+				NP_node_write[i].retry++;
+				//break;
+			}
+			else
+			{  	// retry 10 time, give up
+				NP_node_write[i].flag = WRITE_OK; 
+				NP_node_write[i].retry = 0;
+				return 0;
+			}
+		
+//	}
+//	if(i >= STACK_LEN)		// no WAIT_FOR_WRITE
+//	{
+//		return 0;	
+//	}
+	uip_ipaddr(ipaddr, Modbus.ip_addr[0], Modbus.ip_addr[1], Modbus.ip_addr[2], NP_node_write[i].ip);		//??IP?192.168.1.103
 	do
 	{
 		conn_pos = Get_uip_conn_pos(&ipaddr, htons(Modbus.tcp_port));
@@ -2583,32 +2700,83 @@ int write_NP_Modbus_to_nodes(U8_T ip,U8_T func,U8_T sub_id, U16_T reg, U16_T val
 		else
 			tcp_client_transaction_id = 1;
 		
-		Modbus_Client_Command[conn_pos][0] = ip;//transaction_id >> 8;
+		Modbus_Client_Command[conn_pos][0] = NP_node_write[i].ip;//transaction_id >> 8;
 		Modbus_Client_Command[conn_pos][1] = tcp_client_transaction_id;
 		Modbus_Client_Command[conn_pos][2] = 0x00;
 		Modbus_Client_Command[conn_pos][3] = 0x00;
-		Modbus_Client_Command[conn_pos][4] = 0x00;
+		Modbus_Client_Command[conn_pos][4] = 0x00;		
 		Modbus_Client_Command[conn_pos][5] = 0x06;  // len
-		if(sub_id == 0)
-				sub_id = 255;
-		Modbus_Client_Command[conn_pos][6] = sub_id;
-		Modbus_Client_Command[conn_pos][7] = func;
+		if(NP_node_write[i].id == 0)
+				NP_node_write[i].id = 255;
+		Modbus_Client_Command[conn_pos][6] = NP_node_write[i].id;
+		Modbus_Client_Command[conn_pos][7] = NP_node_write[i].func;
 
 
-		Modbus_Client_Command[conn_pos][8] = reg >> 8;
-		Modbus_Client_Command[conn_pos][9] = reg;
-		Modbus_Client_Command[conn_pos][10] = value >> 8;
-		Modbus_Client_Command[conn_pos][11] = value;
-		Modbus_Client_CmdLen = 12;
-
+		Modbus_Client_Command[conn_pos][8] = NP_node_write[i].reg >> 8;
+		Modbus_Client_Command[conn_pos][9] = NP_node_write[i].reg;
+		if(NP_node_write[i].len == 1)
+		{
+			if(NP_node_write[i].func == 0x06)
+			{
+				Modbus_Client_Command[conn_pos][10] = NP_node_write[i].value[0] >> 8;
+				Modbus_Client_Command[conn_pos][11] = NP_node_write[i].value[0];
+			}
+			else if(NP_node_write[i].func == 0x05) // wirte coil
+			{
+				if(NP_node_write[i].value[0] == 0)
+				{
+					Modbus_Client_Command[conn_pos][10] = 0x00;
+					Modbus_Client_Command[conn_pos][11] = 0x00;
+				}
+				else  // *value = 0
+				{
+					Modbus_Client_Command[conn_pos][10] = 0xFF;
+					Modbus_Client_Command[conn_pos][11] = 0x00;
+				}
+			}
+				
+			Modbus_Client_CmdLen = 12;
+		}
+		if(NP_node_write[i].len == 2)
+		{
+			Modbus_Client_Command[conn_pos][5] = 0x0b;  // len
+			Modbus_Client_Command[conn_pos][10] = 0x00;
+			Modbus_Client_Command[conn_pos][11] = 0x02;
+			Modbus_Client_Command[conn_pos][12] = 0x04;
+			Modbus_Client_Command[conn_pos][13] = NP_node_write[i].value[0];
+			Modbus_Client_Command[conn_pos][14] = NP_node_write[i].value[0] >> 8;
+			Modbus_Client_Command[conn_pos][15] = NP_node_write[i].value[1];
+			Modbus_Client_Command[conn_pos][16] = NP_node_write[i].value[1] >> 8;
+			Modbus_Client_CmdLen = 17;
+		}
 		flag_Modbus_Client_Send = 1;
 	}
-	cSemaphoreGive(sem_Modbus_Client_Send);
+	
+	flag_receive_netp_modbus = 0;	
+	wait_count = 0;
+	while(flag_receive_netp_modbus == 0 && wait_count++ < 20) 
+	{
+		delay_ms(50);
+	}						
+//	if(flag_receive_netp_modbus == 1)
+//	{
+//		network_points_list_modbus[network_point_index].lose_count = 0;
+//		network_points_list_modbus[network_point_index].decomisioned = 1;
+//	}
+//	else
+//	{
+//		network_points_list_modbus[network_point_index].lose_count++;
+//	}
+	if(flag_receive_netp_modbus == 1){
+		NP_node_write[i].flag = WRITE_OK; }
+
+	
+	}
+		
+}
+	//cSemaphoreGive(sem_Modbus_Client_Send);
 	return tcp_client_transaction_id;
 }
-
-
-
 
 void Scan_network_modbus_Task(void)
 {
@@ -2623,15 +2791,15 @@ void Scan_network_modbus_Task(void)
 	
 	flag_Modbus_Client_Send = 0;
 	
-	sem_Modbus_Client_Send = vSemaphoreCreateBinary(0);
+//	sem_Modbus_Client_Send = vSemaphoreCreateBinary(0);
     
 	while(1)
 	{
 		task_test.count[4]++;	
-
 		// find remote point from remote panel
 		if(number_of_network_points_modbus > 0) 
 		{
+			check_NP_Modbus_to_nodes();
 			for(network_point_index = 0;network_point_index < number_of_network_points_modbus;network_point_index++)
 			{
 #if 1	
@@ -2645,14 +2813,12 @@ void Scan_network_modbus_Task(void)
 				
 				network_points_list_modbus[network_point_index].invoked_id = 
 					Get_Network_Point_Modbus(network_point_index);
-				
 				if(network_points_list_modbus[network_point_index].invoked_id > 0)
 				{
 				// check whether the device is online or offline	
 						// wait whether recieve_netp
-						
 						wait_count = 0;
-						while(flag_receive_netp_modbus == 0 && wait_count++ < 30) 
+						while(flag_receive_netp_modbus == 0 && wait_count++ < 20) 
 						{
 							delay_ms(50);
 						}						
@@ -2787,9 +2953,6 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 		tmp_sendbuf[len - 2] = HIGH_BYTE(crc_check);
 		tmp_sendbuf[len - 1] = LOW_BYTE(crc_check);
 		uart_send_string(tmp_sendbuf, len,port);
-		Test[38]++;
-		Test[39] = len;
-		memcpy(&Test[40],tmp_sendbuf,20);
 	}
 	else
 	{	
@@ -2805,7 +2968,6 @@ void Response_TCPIP_To_SUB(U8_T *buf, U16_T len,U8_T port,U8_T *header)
 
 //	if(port == 1)  // zigbee port, need long time
 //		delay_time = delay_time + 10;
-	//memcpy(&Test[10],tmp_sendbuf,len+2);
 	
   if(buf[1] == CHECKONLINE)  // scan command
 	{		
@@ -3060,6 +3222,7 @@ void vStartScanTask(unsigned char uxPriority)
 {
 	U8_T i;
 	memset(node_write,0,sizeof(STR_NODE_OPERATE) * STACK_LEN);
+	memset(NP_node_write,0,sizeof(STR_NP_NODE_OPERATE) * STACK_LEN);
 	subcom_seq[0] = subcom_seq[1] = subcom_seq[2] = 0;
 	subcom_num = 0;	 
 

@@ -1823,7 +1823,7 @@ void Refresh_Output(void)
 				{
 					flag_DO_changed = 1;
 					DO_change_count = 0;
-					Test[10]++;
+				
 					relay_value.word = temp1.word;
 					if(relay_value.byte[0] & 0x01) 					TB_REALY1 = 1;				else					TB_REALY1 = 0;
 					if(relay_value.byte[0] & 0x02) 					TB_REALY2 = 1;				else					TB_REALY2 = 0;
@@ -1845,7 +1845,7 @@ void Refresh_Output(void)
 				{
 					DO_change_count++;
 					if(DO_change_count > 200)  // keep stable for 500ms second,send command to pic again
-					{Test[11]++;
+					{
 						flag_DO_changed = 0;
 						DO_change_count = 0;
 					

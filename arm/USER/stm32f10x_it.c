@@ -56,12 +56,16 @@ void NMI_Handler(void)
   * @retval None
   */
 extern u16 Test[50];
+#include "main.h"
+extern xTaskHandle Wifi_Handler;
 void HardFault_Handler(void)
 {
   /* Go to infinite loop when Hard Fault exception occurs */
   while (1)
   {
-		printf("hard fault %u %u %u",Test[10],Test[11],Test[12]);
+		uart1_init(115200);
+		DEBUG_EN = 1;
+		printf("hard fault %u %u %u \r\n",Test[10],Test[11],Test[12]);
   }
 }
 

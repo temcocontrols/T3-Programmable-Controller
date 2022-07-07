@@ -116,7 +116,7 @@ uint16_t tapdev_read(void)
 }
 
 //发送一包数据  
-void tapdev_send(void)
+u8 tapdev_send(void)
 {
-	ENC28J60_Packet_Send(uip_len, uip_buf);
+	return ENC28J60_Packet_Send(uip_len, uip_buf);
 }

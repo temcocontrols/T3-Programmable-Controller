@@ -157,7 +157,7 @@ U8_T flag_temp_baut[3];
 U16_T test_adc = 0;
 U8_T test_adc_flag;
 
-
+U16_T count_reintial_tcpip;
 uint32_t run_time;
 uint32_t run_time_last;
 uint8_t reboot_counter; // reboot counter in 5 minutes
@@ -870,17 +870,10 @@ void uart_send_string(U8_T *p, U16_T length,U8_T port)
 #if ARM_TSTAT_WIFI //for old wifi moudle
 	if(port == 0)
 	{		
-//		memcpy(uart_sendB, p, length);
-//	  sendbyte_numB = length;
-//	  USART_ITConfig(UART4, USART_IT_TXE, ENABLE);//	
-//		count = 0;
-//		delay = sendbyte_numB *10;
-//		while((sendbyte_numB != 0) && (count < delay))
-//		{
-//			count++;
-//			vTaskDelay(2);
-//		}
+
 		memcpy(uart0_send_buf, p, length);
+		Test[14]++;
+		Test[15] = length;
     uart0_sendbyte_num = length;
 //    uart_num = 0 ;
 		USART_ITConfig(USART1, USART_IT_TXE, ENABLE);
@@ -1233,6 +1226,7 @@ void modubs_main_uart_int_hander()
 					else  // write
 					{
 						uint16 size;
+						Test[10]++;
 						size = //uart0_data_buffer[12] + uart0_data_buffer[13] * 256;
 						 (U16_T)((uart0_data_buffer[13] & 0x01)	<< 8)	+ uart0_data_buffer[12];
 						uart0_rece_size = 16 + size * (uart0_data_buffer[11] - uart0_data_buffer[10] + 1);
@@ -2000,7 +1994,7 @@ void main_dealwithData(void)
 						uart_init_send_com(Modbus.main_port); 
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI )
 						if(main_data_buffer[1] == TEMCO_MODBUS)	// temco private modbus
-						{
+						{							
 							handler_private_transfer(main_data_buffer,0,NULL,0xa0 + Modbus.main_port);
 						}
 #endif
@@ -2264,10 +2258,12 @@ void main_dealwithData(void)
 				{
 #if (ARM_MINI || ARM_CM5 || ARM_TSTAT_WIFI)
 					if(main_data_buffer[1] == TEMCO_MODBUS)	// temco private modbus
-					{Test[20]++;
-						Test[21] = main_data_buffer[0];
+					{
 						if(main_data_buffer[0] ==  Modbus.address || main_data_buffer[0] == 255)
+						{
+							Test[11]++;
 							handler_private_transfer(main_data_buffer,0,NULL,0xa0 + Modbus.main_port);
+						}
 					}
 					else 
 #endif
@@ -2549,6 +2545,17 @@ void responseCmd(U8_T type,U8_T* pData)
 								coil_data &= ~(0x01 << j);
 						}
 					}
+					/*else if(StartAdd + loop >= MODBUS_COIL_VAR_START && StartAdd + loop <= (MODBUS_COIL_VAR_START + MAX_INS / 8))  // BI1-64
+					{
+						coil_data = 0;
+						for(j = 0;j < 8;j++)
+						{
+							if(vars[(StartAdd + loop - MODBUS_COIL_VAR_START) * 8 + j].control)
+								coil_data |= 0x01 << j;
+							else
+								coil_data &= ~(0x01 << j);
+						}
+					}*/
 					sendbuf[HeadLen + 3 + loop] = coil_data;
 				}
 			}
@@ -2780,7 +2787,11 @@ void responseCmd(U8_T type,U8_T* pData)
 						sendbuf[HeadLen + 3 + loop * 2] = (run_time + run_time_last) >> 24;
 						sendbuf[HeadLen + 3 + loop * 2 + 1] = (run_time + run_time_last) >> 16;
 					}
-
+					else if(StartAdd + loop == MODBUS_NETWORK_NUMBER)
+					{
+						sendbuf[HeadLen + 3 + loop * 2] = Modbus.network_number >> 8;
+						sendbuf[HeadLen + 3 + loop * 2 + 1] = Modbus.network_number;
+					}
 					else if(StartAdd + loop == MODBUS_MSTP_NETWORK)
 					{
 						sendbuf[HeadLen + 3 + loop * 2] = mstp_network >> 8;
@@ -3592,8 +3603,7 @@ void responseCmd(U8_T type,U8_T* pData)
 								sendbuf[HeadLen + 3 + loop * 2] = (U8_T)(swap_double(vars[index].value) >> 8);
 								sendbuf[HeadLen + 3 + loop * 2 + 1] = (U8_T)(swap_double(vars[index].value));
 							}	
-						}
-						
+						}						
 					} 
 					else if(StartAdd + loop >= MODBUS_VAR_AM_FIRST && StartAdd + loop <= MODBUS_VAR_AM_LAST)
 					{
@@ -4038,6 +4048,26 @@ void responseCmd(U8_T type,U8_T* pData)
 
 				write_page_en[IN] = 1;	
 			}
+			/*else if(StartAdd >= MODBUS_COIL_VAR_START && (StartAdd <= MODBUS_COIL_VAR_END))  // VAR1-64
+			{
+				j = StartAdd - MODBUS_COIL_VAR_START;
+				if(vars[j].digital_analog == 0)  // digital
+				{
+					if(( vars[j].range >= ON_OFF && vars[j].range <= HIGH_LOW )
+					||(vars[j].range >= custom_digital1 // customer digital unit
+					&& vars[j].range <= custom_digital8
+					&& digi_units[vars[j].range - custom_digital1].direct == 1))
+					{ // inverse
+							vars[j].control = pData[HeadLen + 4] ? 0 : 1;
+					}
+					else
+					{
+							vars[j].control = pData[HeadLen + 4] ? 1 : 0;
+					}
+				}
+
+				write_page_en[VAR] = 1;	
+			}*/
 		}
 		else
 #endif
@@ -4469,12 +4499,12 @@ void responseCmd(U8_T type,U8_T* pData)
 //		}
 
 #endif
-//		else if(StartAdd == MODBUS_NETWORK)
-//		{
-//			Modbus.network_number = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
-//			E2prom_Write_Byte(EEP_NETWORK,pData[HeadLen + 5]);
-//			//E2prom_Write_Byte(EEP_PORT_HIGH,pData[HeadLen + 4]);
-//		}
+		else if(StartAdd == MODBUS_NETWORK_NUMBER)
+		{
+			Modbus.network_number = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+			E2prom_Write_Byte(EEP_NETWORK_NUMBER_LO,pData[HeadLen + 5]);
+			E2prom_Write_Byte(EEP_NETWORK_NUMBER_HI,pData[HeadLen + 4]);
+		}
 		else if(StartAdd == MODBUS_MSTP_NETWORK)
 		{
 			mstp_network = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
@@ -4684,8 +4714,9 @@ void responseCmd(U8_T type,U8_T* pData)
 			if(pData[HeadLen + 5] == 151)
 			{
 				//IP_Change = 1;
-				//tapdev_init() ;
-				tcpip_intial();
+				//tapdev_init() ;				
+				flag_reintial_tcpip = 1;
+				count_reintial_tcpip = 5;
 			}	
 
 #endif
@@ -4889,6 +4920,8 @@ void responseCmd(U8_T type,U8_T* pData)
 				{					
 						if(old_value != outputs[i].control)
 						{	
+							if(i < base_out)
+							{
 						vTaskSuspend(Handle_Scan);	// dont not read expansion io
 #if (ARM_MINI || ASIX_MINI)
 						vTaskSuspend(xHandler_Output);  // do not control local io
@@ -4899,6 +4932,7 @@ void responseCmd(U8_T type,U8_T* pData)
 						vTaskResume(xHandler_Output); 
 #endif
 						vTaskResume(Handle_Scan);		
+							}
 						}
 				}
 #endif			
@@ -4923,6 +4957,8 @@ void responseCmd(U8_T type,U8_T* pData)
 							output_raw[i] = (float)(pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8));
 							if(old_value != (float)(pData[HeadLen + 5]+ (U16_T)(pData[HeadLen + 4] << 8)))
 							{
+								if(i < base_out)
+								{
 								vTaskSuspend(Handle_Scan);	// dont not read expansion io
 #if (ARM_MINI || ASIX_MINI)
 								vTaskSuspend(xHandler_Output);  // do not control local io
@@ -4932,7 +4968,8 @@ void responseCmd(U8_T type,U8_T* pData)
 									// resume output task
 								vTaskResume(xHandler_Output); 
 #endif
-								vTaskResume(Handle_Scan);									
+								vTaskResume(Handle_Scan);		
+								}									
 							}
 						}
 							
@@ -5651,7 +5688,7 @@ void responseCmd(U8_T type,U8_T* pData)
 			if(pData[HeadLen + 5] == 0x02)
 			{
 				int32_t tempval; 
-				i = (StartAdd - MODBUS_VAR_FIRST) / 2;
+				i = (StartAdd - MODBUS_INPUT_FIRST) / 2;
 				tempval = pData[HeadLen + 10] + (U16_T)(pData[HeadLen + 9] << 8) \
 					+ ((U32_T)pData[HeadLen + 8] << 16) + ((U32_T)pData[HeadLen + 7] << 24);
 

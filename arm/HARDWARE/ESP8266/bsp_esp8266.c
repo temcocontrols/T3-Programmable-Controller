@@ -1260,7 +1260,9 @@ void ESP8266_ExitUnvarnishSend ( void )
 	delay_ms ( 500 ); 
 	
 }
-
+extern uint16_t bacnet_wifi_len;
+extern u8 rec_mstp_index;
+extern u8 rec_mstp_index1;
 
 /*
  * 函数名：ESP8266_SendString
@@ -1277,12 +1279,12 @@ bool ESP8266_SendString ( FunctionalState enumEnUnvarnishTx, uint8_t * pStr, u32
 {
 	uint8_t cStr [600];
 	u16 i,j;
-    u16 temp_length; //计算发送长度
+  u16 temp_length; //计算发送长度
 									
 	bool bRet = false;
- 
-	if(ulStrLength > 550) 
-		return 0;
+
+	if(ulStrLength > 550) {//Test[10]++;
+		return 0;}
 
 	if ( enumEnUnvarnishTx )
 	{
@@ -1306,13 +1308,8 @@ bool ESP8266_SendString ( FunctionalState enumEnUnvarnishTx, uint8_t * pStr, u32
 
 			Send_Uart_Data(pStr, ulStrLength);
 
-		//for(i = 0;i < ulStrLength;i++)
-		//{	
-		//	USART_SendData(UART4, pStr[i]);
-		//	while( (USART_GetFlagStatus(UART4, USART_FLAG_TXE) == RESET) );
-		//}
   }
-	
+
 	return bRet;
 
 }

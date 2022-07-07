@@ -527,7 +527,8 @@ extern U8_T resume_rs485_count;
 extern U8_T flag_reboot;
 extern U8_T get_verion;
 extern U8_T flag_reintial_tcpip;
-extern U8_T count_reintial_tcpip;
+extern U16_T count_reintial_tcpip;
+
 
 extern uint16 far udp_scan_count;
 extern U8_T far flag_udp_scan;

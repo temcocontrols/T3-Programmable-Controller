@@ -342,6 +342,7 @@ U8_T Read_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 			{
 				// generate SD card erro alarm
 				count_sd_seek_error = 0;
+				Test[21] = 1;
 				generate_common_alarm(ALARM_ABNORMAL_SD);
 			}
 		}
@@ -659,7 +660,6 @@ u8 Get_start_end_packet_by_time(u8 file_index,u32 start_time,u32 end_time, u32 *
 }
 
 extern U8_T reading_sd;
-
 // file_no -> range is  0-255
 // index   -> which monitor, range is 1-12
 // ana_dig -> range is 0 - 1
@@ -668,7 +668,7 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 	uint8 ret;//, loop = 50;
 	uint8 result;	
 	uint8 file_index;  // range is  0 - 23
-
+	
 	if(SD_exist != 2) 
 	{
 		return 1;
@@ -723,18 +723,29 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 //				else
 				if(ret != FR_OK)
 				{
-					
+					Test[21] = 2;	
 				}
 				else
 				{
+					
 					memcpy(rw_sd_buf,&time,4);
 					
 					ret = f_write(&file[file_index + 24], &rw_sd_buf , 4, &bw);
 					if(ret != FR_OK)
-					{			
+					{		Test[21] = 3;
+						Test[24]++;
+						Test[25] = ret;
+						count_sd_seek_error++;				
+						if(count_sd_seek_error > 5)
+						{
+							// generate SD card erro alarm
+							count_sd_seek_error = 0;
+							generate_common_alarm(ALARM_ABNORMAL_SD);
+						}
 					}
 					else
 					{
+						count_sd_seek_error = 0;
 						result = 1;
 					}
 				}
@@ -763,29 +774,30 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 	}
 	
 	if(result == 1)  // write time_txt succusfully
-	{
+	{Test[26]++;
 		result = 0;
 		//if(pre_open_file_index != file_index)
 		{
 			ret = open_file(file_no,file_index);
 		}
 		if(ret == FR_OK)
-		{
+		{Test[10]++;
 			ret = f_lseek(&file[file_index] , star_pos);
 			if(ret != FR_OK)
-			{
+			{Test[11]++;
 				ret = open_file(file_no,file_index);
 				count_sd_seek_error++;
-				
+				Test[21] = 4;
 				if(count_sd_seek_error > 5)
 				{
 					// generate SD card erro alarm
 					count_sd_seek_error = 0;
 					generate_common_alarm(ALARM_ABNORMAL_SD);
+					
 				}
 			}
 			else
-			{
+			{Test[12]++;
 				count_sd_seek_error = 0;
 				if(ana_dig == 1)
 						memcpy(rw_sd_buf,&write_mon_point_buf[index * 2], MAX_MON_POINT * sizeof(Str_mon_element));
@@ -795,7 +807,7 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 				ret = f_write(&file[file_index], &rw_sd_buf , MAX_MON_POINT * sizeof(Str_mon_element), &bw);
 				if(ret != FR_OK)
 				{			
-
+				
 				}
 				// if it is last packet, open file
 				if(star_pos == 255L * MAX_MON_POINT * sizeof(Str_mon_element))  // last packet
@@ -810,10 +822,7 @@ U8_T Write_SD(U16_T file_no,U8_T index,U8_T ana_dig,U32_T star_pos)
 				result = 1;  // write data succussfully
 			}
 		}
-//		else
-//		{
-//			Test[29]++;
-//		}
+
 	}
 #if (SD_BUS == SPI_BUS_TYPE)
 	

@@ -257,6 +257,6 @@ void ENC28J60_Write(u8 addr, u8 data);
 void ENC28J60_PHY_Write(u8 addr, u32 data);
 u8 ENC28J60_Init(u8* macaddr);
 u8 ENC28J60_Get_EREVID(void);
-void ENC28J60_Packet_Send(u32 len, u8* packet);
+u8 ENC28J60_Packet_Send(u32 len, u8* packet);
 u32 ENC28J60_Packet_Receive(u32 maxlen, u8* packet);  
 #endif
